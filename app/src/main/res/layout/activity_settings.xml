@@ -674,6 +674,7 @@
                         android:id="@+id/syncPasswordLayout"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
+                        android:orientation="vertical"
                         android:visibility="gone">
 
                         <com.google.android.material.textfield.TextInputLayout
@@ -688,6 +689,53 @@
                                 android:layout_height="wrap_content"
                                 android:inputType="textPassword" />
                         </com.google.android.material.textfield.TextInputLayout>
+
+                        <!-- 恢复码待保存提醒（旧数据首次迁移为信封加密时展示） -->
+                        <TextView
+                            android:id="@+id/tvRecoveryPending"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:layout_marginTop="8dp"
+                            android:padding="10dp"
+                            android:text="已为云端数据生成恢复码（忘记密码时的唯一找回方式），请立即点击“查看恢复码”并离线抄写保存"
+                            android:textColor="#B71C1C"
+                            android:textSize="12sp"
+                            android:background="#FDECEA"
+                            android:visibility="gone" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:layout_marginTop="8dp">
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnViewSyncPassword"
+                                style="@style/Widget.MaterialComponents.Button.TextButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="查看同步密码"
+                                android:textSize="12sp" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnViewRecoveryCode"
+                                style="@style/Widget.MaterialComponents.Button.TextButton"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="查看恢复码"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnRecoverWithCode"
+                            style="@style/Widget.MaterialComponents.Button.TextButton"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_gravity="start"
+                            android:text="忘记同步密码？用恢复码找回"
+                            android:textSize="12sp" />
 
                     </LinearLayout>
 

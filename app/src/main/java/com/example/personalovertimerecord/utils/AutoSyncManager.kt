@@ -37,6 +37,8 @@ object AutoSyncManager {
     private const val CHANNEL_ID = "auto_sync_channel"
     private const val CHANNEL_NAME = "自动同步"
     private const val NOTIFICATION_ID = 1001
+
+    private const val NOTIFICATION_ID_RECOVERY = 1002
     private const val PREFS_NAME = "auto_sync_prefs"
     private const val KEY_SYNC_ENABLED = "sync_enabled"
     private const val KEY_SYNC_INTERVAL = "sync_interval"
@@ -265,7 +267,7 @@ object AutoSyncManager {
                     SyncResult.DOWNLOAD_FAILED -> "下载失败（服务器响应码 ${WebDAVManager.lastResponseCode}）"
                     SyncResult.RESTORE_FAILED -> "恢复数据失败"
                     SyncResult.CONFLICT -> "存在数据冲突，请手动处理"
-                    SyncResult.ENCRYPTION_MISMATCH -> "云端数据已加密，请检查同步加密密码是否与上传设备一致"
+                    SyncResult.ENCRYPTION_MISMATCH -> "云端数据已加密且密码不匹配，可在设置中检查密码或用恢复码找回"
                 }
                 // 成功时附带同步统计细节
                 val message = if (success) "$baseMessage（${report.toSummaryString()}）" else baseMessage
@@ -275,6 +277,9 @@ object AutoSyncManager {
                 }
                 if (!success) {
                     notifySyncFailure(context)
+                } else if (report.recoveryCodeGenerated) {
+                    // 后台同步完成了信封格式迁移：通知提醒用户尽快到设置页离线保存恢复码
+                    notifyRecoveryCodeReady(context)
                 }
             } catch (e: Exception) {
                 AppLogger.e("AutoSync", "手动同步异常", e)
@@ -308,5 +313,31 @@ object AutoSyncManager {
 
         val notificationManager = context.getSystemService(NotificationManager::class.java)
         notificationManager.notify(NOTIFICATION_ID, notification)
+    }
+
+    /**
+     * 恢复码已生成提醒：后台同步把云端数据升级为信封加密后，
+     * 提醒用户尽快到设置页查看并离线保存恢复码（忘记密码时的唯一找回方式）。
+     */
+    fun notifyRecoveryCodeReady(context: Context) {
+        val intent = Intent(context, com.example.personalovertimerecord.SettingsActivity::class.java)
+        val pendingIntent = android.app.PendingIntent.getActivity(
+            context,
+            0,
+            intent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_lock_lock)
+            .setContentTitle("请保存同步恢复码")
+            .setContentText("云端备份已升级为恢复码加密，忘记密码时需凭此恢复码找回，请立即离线保存")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .setContentIntent(pendingIntent)
+            .build()
+
+        val notificationManager = context.getSystemService(NotificationManager::class.java)
+        notificationManager.notify(NOTIFICATION_ID_RECOVERY, notification)
     }
 }

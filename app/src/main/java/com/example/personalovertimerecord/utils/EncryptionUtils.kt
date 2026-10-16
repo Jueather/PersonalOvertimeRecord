@@ -43,6 +43,29 @@ object EncryptionUtils {
     private const val PBKDF2_ITERATIONS_LEGACY = 65536
     private const val PBKDF2_ITERATIONS = 600_000
 
+    // ---- 供信封加密（EnvelopeCrypto）复用的底层常量/原语，包内可见 ----
+    // 直接使用字面量：GCM_IV_LENGTH 等常量在文件后部声明，const 前向引用无法初始化
+    internal const val INTERNAL_SALT_SIZE = SALT_SIZE
+    internal const val INTERNAL_GCM_IV_LENGTH = 12
+    internal const val INTERNAL_PBKDF2_ITERATIONS = PBKDF2_ITERATIONS
+
+    internal fun internalGenerateSalt(): ByteArray = generateSalt()
+
+    internal fun internalDeriveKey(secret: String, salt: ByteArray, iterations: Int = PBKDF2_ITERATIONS): SecretKeySpec =
+        deriveKey(secret, salt, iterations)
+
+    internal fun internalGcmEncrypt(key: SecretKeySpec, iv: ByteArray, plaintext: ByteArray): ByteArray {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv))
+        return cipher.doFinal(plaintext)
+    }
+
+    internal fun internalGcmDecrypt(key: SecretKeySpec, iv: ByteArray, data: ByteArray): ByteArray {
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.DECRYPT_MODE, key, GCMParameterSpec(GCM_TAG_LENGTH_BITS, iv))
+        return cipher.doFinal(data)
+    }
+
     // ---- AES-GCM 参数 ----
     /** 历史 GCM 标识（PBKDF2 65,536 次），仅用于解密兼容 */
     private val GCM_MAGIC_LEGACY = byteArrayOf(0x47, 0x4D) // "GM"
@@ -146,8 +169,13 @@ object EncryptionUtils {
     private fun deriveKey(password: String, salt: ByteArray, iterations: Int): SecretKeySpec {
         val factory = SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
         val spec = PBEKeySpec(password.toCharArray(), salt, iterations, AES_KEY_SIZE)
-        val keyBytes = factory.generateSecret(spec).encoded
-        return SecretKeySpec(keyBytes, "AES")
+        try {
+            val keyBytes = factory.generateSecret(spec).encoded
+            return SecretKeySpec(keyBytes, "AES")
+        } finally {
+            // 清除 PBEKeySpec 内部缓存的密码 char[]（派生结束后不再需要）
+            spec.clearPassword()
+        }
     }
 
     /**

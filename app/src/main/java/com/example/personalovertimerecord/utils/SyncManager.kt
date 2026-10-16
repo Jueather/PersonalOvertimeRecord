@@ -1,6 +1,7 @@
 package com.example.personalovertimerecord.utils
 
 import android.content.Context
+import android.util.Base64
 import com.example.personalovertimerecord.data.OvertimeSettings
 import com.example.personalovertimerecord.data.SettingsManager
 import com.example.personalovertimerecord.data.db.AppDatabase
@@ -48,7 +49,12 @@ data class SyncReport(
     val uploadedCount: Int = 0,
     val downloadedCount: Int = 0,
     val mergedCount: Int = 0,
-    val syncTime: Long = System.currentTimeMillis()
+    val syncTime: Long = System.currentTimeMillis(),
+    /**
+     * 本次上传是否新生成了恢复码（旧格式数据首次迁移为信封加密时为 true）。
+     * UI 应提醒用户立即到设置页查看并离线保存恢复码；恢复码本身不进日志/报告。
+     */
+    val recoveryCodeGenerated: Boolean = false
 ) {
     /** 是否同步成功（含"无变更"） */
     val isSuccess: Boolean get() = result == SyncResult.SUCCESS || result == SyncResult.NO_CHANGES
@@ -80,6 +86,9 @@ class SyncManager(
     companion object {
         private const val SYNC_DATA_VERSION = 3
 
+        /** 恢复码找回后云端快照缓存的有效期（毫秒），过期即丢弃 */
+        private const val RECOVERED_CACHE_TTL_MS = 60_000L
+
         /**
          * 全局同步互斥锁：手动同步与自动同步并发触发时串行执行，避免相互覆盖
          */
@@ -92,12 +101,305 @@ class SyncManager(
     private val gson = Gson()
 
     /**
+     * 恢复码找回流程刚下载并验证通过的云端原文（[validateAndApplyRecovery] 写入）。
+     * 找回成功后设置页会立刻触发一次正常同步拉取数据，复用此快照可省一次 HTTP GET。
+     * 单次消费 + 短时过期（[RECOVERED_CACHE_TTL_MS]）：同步未及时发生或失败后，
+     * 陈旧快照会被丢弃，绝不参与后续正常同步。
+     */
+    @Volatile
+    private var recoveredCloudCache: Pair<String, Long>? = null
+
+    private fun consumeRecoveredCloudCache(): String? {
+        val cached = recoveredCloudCache ?: return null
+        recoveredCloudCache = null
+        val age = android.os.SystemClock.elapsedRealtime() - cached.second
+        return cached.first.takeIf { age in 0..RECOVERED_CACHE_TTL_MS }
+    }
+
+    /**
      * 获取加密密码（如果启用了加密）
      */
     private fun getEncryptPassword(settings: OvertimeSettings): String? {
         return if (settings.syncEncryptionEnabled && settings.syncPassword.isNotBlank()) {
             settings.syncPassword
         } else null
+    }
+
+    // ================== 信封加密（密码 + 恢复码双钥匙） ==================
+
+    /** 已解密的云端数据快照 */
+    private class CloudSnapshot(
+        val json: String,
+        /** 信封格式解出的 DEK；明文 JSON / 旧版密文为 null */
+        val dek: ByteArray?,
+        /** 信封中的恢复槽（Base64）；用于新设备接入后继续沿用原恢复码 */
+        val recoverySlotB64: String?,
+        /** 信封中的密码槽（Base64）；接入时缓存复用可省一次 PBKDF2 派生 */
+        val pwdSlotB64: String? = null
+    )
+
+    private sealed class CloudResolve {
+        object NotFound : CloudResolve()
+        object DownloadFailed : CloudResolve()
+        object EncryptionMismatch : CloudResolve()
+        data class Available(val snapshot: CloudSnapshot) : CloudResolve()
+    }
+
+    /**
+     * 下载云端文件并按三种格式解析：
+     * 明文 JSON（历史未加密）/ 信封（PORE_ENV1，密码或恢复码包裹 DEK）/ 旧版裸 Base64 密文。
+     * 信封格式密码正确时，顺带为本机补齐 DEK 与恢复槽（新设备接入引导）。
+     */
+    private suspend fun resolveCloud(config: WebDAVConfig, password: String?): CloudResolve {
+        // 恢复码找回刚下载验证过的快照可直接复用（单次消费，60 秒过期），省一次 HTTP GET
+        val raw = consumeRecoveredCloudCache()?.also {
+            AppLogger.d("复用恢复码找回时已验证的云端快照，跳过本次下载")
+        } ?: webDAVManager.downloadRawFile(config)
+        if (raw == null) {
+            return if (WebDAVManager.lastResponseCode == 404) {
+                CloudResolve.NotFound
+            } else {
+                CloudResolve.DownloadFailed
+            }
+        }
+
+        if (isJsonLike(raw)) {
+            return CloudResolve.Available(CloudSnapshot(raw, null, null))
+        }
+
+        if (EnvelopeCrypto.isEnvelope(raw)) {
+            if (password.isNullOrBlank()) return CloudResolve.EncryptionMismatch
+            // 一次解析同时得到明文/DEK/双槽，避免对同一密码重复 PBKDF2 派生
+            val opened = EnvelopeCrypto.openWithPassword(raw, password)
+                ?: return CloudResolve.EncryptionMismatch
+            val dek = opened.dek
+            // String 构造会按 UTF-8 拷贝字节，明文原数组此后不再使用，立即清零
+            val json = String(opened.plaintext, Charsets.UTF_8).also {
+                java.util.Arrays.fill(opened.plaintext, 0)
+            }
+            val dekB64 = Base64.encodeToString(dek, Base64.NO_WRAP)
+            val slotB64 = Base64.encodeToString(opened.recSlot.toBytes(), Base64.NO_WRAP)
+            val pwdSlotB64 = Base64.encodeToString(opened.pwdSlot.toBytes(), Base64.NO_WRAP)
+            // 接入云端密钥谱系：本地无材料（新设备），或本地 DEK 与云端不一致
+            // （重装后曾误生成新 DEK）时，一律以云端为准，并清掉失效的本地恢复码明文
+            val local = settingsManager.getSyncKeyMaterial()
+            if (local == null || local.dek != dekB64) {
+                settingsManager.adoptCloudKeyMaterial(dekB64, slotB64, pwdSlotB64, password)
+            } else if (local.pwdSlotB64.isBlank() || local.pwdSlotPassword != password) {
+                // DEK 相同但本机缺密码槽缓存（旧版本升级 / 改过密码），顺手补上
+                settingsManager.savePwdSlot(pwdSlotB64, password)
+            }
+            return CloudResolve.Available(CloudSnapshot(json, dek, slotB64, pwdSlotB64))
+        }
+
+        // 旧版裸 Base64 密文（密码直加密，无 magic 前缀）：用当前密码尝试解密
+        if (!password.isNullOrBlank()) {
+            val json = runCatching { EncryptionUtils.decryptString(raw, password) }.getOrNull()
+            if (json != null && isJsonLike(json)) {
+                return CloudResolve.Available(CloudSnapshot(json, null, null))
+            }
+        }
+        return CloudResolve.EncryptionMismatch
+    }
+
+    /**
+     * 把备份 JSON 包装为上传内容。启用加密时统一输出信封格式：
+     * DEK 来源优先级 = 本地密钥材料 → 云端信封解出的 DEK → 新生成（同时产生新恢复码）。
+     * 恢复槽始终原样复用，保证更换同步密码/更换设备后恢复码继续有效。
+     *
+     * @return (线路内容, 是否新生成恢复码)
+     */
+    private fun buildUploadWire(json: String, password: String, cloud: CloudSnapshot?): Pair<String, Boolean> {
+        val localMaterial = settingsManager.getSyncKeyMaterial()
+        val dek: ByteArray
+        val slotB64: String
+        var cachedPwdSlotB64 = ""
+        var cachedPwdSlotPassword = ""
+        var generated = false
+
+        when {
+            localMaterial != null -> {
+                dek = Base64.decode(localMaterial.dek, Base64.NO_WRAP)
+                slotB64 = localMaterial.recoverySlotB64
+                cachedPwdSlotB64 = localMaterial.pwdSlotB64
+                cachedPwdSlotPassword = localMaterial.pwdSlotPassword
+            }
+            cloud?.dek != null && !cloud.recoverySlotB64.isNullOrBlank() -> {
+                // 从云端信封接入的 DEK（理论上 resolveCloud 已落盘，这里再兜底一次）
+                dek = cloud.dek
+                slotB64 = cloud.recoverySlotB64
+                settingsManager.adoptCloudKeyMaterial(
+                    Base64.encodeToString(dek, Base64.NO_WRAP),
+                    slotB64,
+                    cloud.pwdSlotB64 ?: "",
+                    password
+                )
+                cachedPwdSlotB64 = cloud.pwdSlotB64 ?: ""
+                cachedPwdSlotPassword = password
+            }
+            else -> {
+                // 首次启用加密 / 旧格式数据迁移：生成全新 DEK + 恢复码（同时预包裹密码槽）
+                val fresh = settingsManager.generateAndSaveSyncKeyMaterial(password)
+                dek = Base64.decode(fresh.dek, Base64.NO_WRAP)
+                slotB64 = fresh.recoverySlotB64
+                cachedPwdSlotB64 = fresh.pwdSlotB64
+                cachedPwdSlotPassword = password
+                generated = true
+                settingsManager.setRecoveryCodePending(true)
+            }
+        }
+
+        val recoverySlot = EnvelopeCrypto.WrappedSlot.fromStandaloneBytes(
+            Base64.decode(slotB64, Base64.NO_WRAP)
+        )
+        // 密码未变且已缓存密码槽 → 直接复用（省一次 PBKDF2 派生）；否则重新包裹并更新缓存
+        val passwordSlot: EnvelopeCrypto.WrappedSlot =
+            if (cachedPwdSlotB64.isNotBlank() && cachedPwdSlotPassword == password) {
+                EnvelopeCrypto.WrappedSlot.fromStandaloneBytes(Base64.decode(cachedPwdSlotB64, Base64.NO_WRAP))
+            } else {
+                val freshSlot = EnvelopeCrypto.wrapDek(dek, password)
+                settingsManager.savePwdSlot(
+                    Base64.encodeToString(freshSlot.toBytes(), Base64.NO_WRAP),
+                    password
+                )
+                freshSlot
+            }
+        val wire = EnvelopeCrypto.buildEnvelopeWithSlots(
+            dek = dek,
+            pwdSlot = passwordSlot,
+            existingRecSlot = recoverySlot,
+            plaintext = json.toByteArray(Charsets.UTF_8)
+        )
+        return wire to generated
+    }
+
+    /**
+     * 遗忘同步密码时的恢复码找回（不获取 [syncMutex]：只下载校验与写本地材料，不上传）。
+     * 校验恢复码能解开云端信封后，保存新同步密码与 DEK；调用方随后应执行一次正常同步拉取数据。
+     *
+     * @return [SyncResult.SUCCESS] 表示新密码已生效；其余为失败原因
+     */
+    suspend fun validateAndApplyRecovery(recoveryCode: String, newPassword: String): SyncResult =
+        withContext(Dispatchers.IO) {
+            val config = settingsManager.getWebDAVConfig()
+                ?: return@withContext SyncResult.NO_CONFIG
+            if (!NetworkUtils.isNetworkAvailable(context)) {
+                return@withContext SyncResult.NO_NETWORK
+            }
+
+            val raw = webDAVManager.downloadRawFile(config)
+                ?: return@withContext SyncResult.DOWNLOAD_FAILED // 云端无备份或不可读，无法凭恢复码找回
+
+            if (!EnvelopeCrypto.isEnvelope(raw)) {
+                // 云端仍是旧格式（密码直加密），信封中没有恢复槽，恢复码无法使用
+                return@withContext SyncResult.ENCRYPTION_MISMATCH
+            }
+
+            val extracted = EnvelopeCrypto.extractDekAndRecoverySlotWithRecoveryCode(raw, recoveryCode)
+                ?: return@withContext SyncResult.ENCRYPTION_MISMATCH
+            val (dek, slot) = extracted
+
+            // 恢复码验证通过：保存新密码（保留其他设置），落盘 DEK/恢复槽
+            val current = settingsManager.getSettings()
+            settingsManager.saveSettings(
+                current.copy(syncEncryptionEnabled = true, syncPassword = newPassword)
+            )
+            settingsManager.adoptCloudKeyMaterial(
+                Base64.encodeToString(dek, Base64.NO_WRAP),
+                Base64.encodeToString(slot.toBytes(), Base64.NO_WRAP)
+            )
+            settingsManager.setRecoveryCodePending(false)
+            // DEK 局部副本已写入加密 prefs，不再使用，立即清零
+            java.util.Arrays.fill(dek, 0)
+            // 缓存已验证的云端原文，供紧接着的 performSync 复用（单次、60 秒过期）
+            recoveredCloudCache = raw to android.os.SystemClock.elapsedRealtime()
+            AppLogger.d("恢复码验证成功，已重置同步密码")
+            SyncResult.SUCCESS
+        }
+
+    /** 开启同步加密时云端探测结果（见 [bootstrapKeyMaterialOnEnable]） */
+    sealed class KeyBootstrapResult {
+        /** 已接入云端既有信封：原恢复码继续有效，本机不保存其明文 */
+        object Adopted : KeyBootstrapResult()
+        /** 云端无信封（无备份/明文/旧版密文）：已生成全新 DEK 与恢复码，请引导用户离线保存 */
+        data class Generated(val recoveryCode: String) : KeyBootstrapResult()
+        /** 云端是加密备份但当前密码无法解开（信封密码错，或旧密文密码错） */
+        object WrongPassword : KeyBootstrapResult()
+        /** 未配置 WebDAV */
+        object NoConfig : KeyBootstrapResult()
+        /** 无网络或云端暂时不可读：不生成新材料，推迟到下次同步时自动接入/生成 */
+        object Unavailable : KeyBootstrapResult()
+    }
+
+    /**
+     * 开启同步加密且本机无密钥材料时调用（重装/换机场景的关键保护）：
+     * 必须先读云端再决定，不能直接生成新 DEK——否则首次同步会用新 DEK 覆盖云端信封，
+     * 导致用户离线保存的原恢复码永久失效。
+     *
+     * - 云端是信封且密码正确：接入其 DEK 与恢复槽（恢复码明文本机不可见，但继续有效）；
+     * - 云端无文件 / 明文 JSON / 旧版密码密文（密码可解）：不存在信封谱系，生成全新材料；
+     * - 密码解不开：[KeyBootstrapResult.WrongPassword]，不生成任何材料；
+     * - 网络等暂时失败：[KeyBootstrapResult.Unavailable]，交由后续同步流程兜底处理。
+     */
+    suspend fun bootstrapKeyMaterialOnEnable(password: String): KeyBootstrapResult =
+        withContext(Dispatchers.IO) {
+            val config = settingsManager.getWebDAVConfig()
+                ?: return@withContext KeyBootstrapResult.NoConfig
+            if (!NetworkUtils.isNetworkAvailable(context)) {
+                return@withContext KeyBootstrapResult.Unavailable
+            }
+
+            val raw = try {
+                webDAVManager.downloadRawFile(config)
+            } catch (e: Exception) {
+                AppLogger.e("开启加密时探测云端失败", e)
+                return@withContext KeyBootstrapResult.Unavailable
+            }
+
+            // 云端无备份：全新启用，生成新材料
+            if (raw == null) {
+                return@withContext if (WebDAVManager.lastResponseCode == 404) {
+                    generateFreshMaterial(password)
+                } else {
+                    KeyBootstrapResult.Unavailable
+                }
+            }
+
+            // 明文备份：首次加密，生成新材料（下次同步完成迁移）
+            if (isJsonLike(raw)) {
+                return@withContext generateFreshMaterial(password)
+            }
+
+            // 云端已是信封：只有密码正确才允许接入，绝不能另起 DEK 谱系
+            if (EnvelopeCrypto.isEnvelope(raw)) {
+                val slots = EnvelopeCrypto.extractDekAndSlotsWithPassword(raw, password)
+                    ?: return@withContext KeyBootstrapResult.WrongPassword
+                val (dek, pwdSlot, recSlot) = slots
+                settingsManager.adoptCloudKeyMaterial(
+                    Base64.encodeToString(dek, Base64.NO_WRAP),
+                    Base64.encodeToString(recSlot.toBytes(), Base64.NO_WRAP),
+                    Base64.encodeToString(pwdSlot.toBytes(), Base64.NO_WRAP),
+                    password
+                )
+                // DEK 已写入加密 prefs，局部副本清零
+                java.util.Arrays.fill(dek, 0)
+                AppLogger.d("检测到云端加密备份，已接入现有恢复码谱系")
+                return@withContext KeyBootstrapResult.Adopted
+            }
+
+            // 旧版裸密文：密码能解开才生成新材料（信封迁移）；解不开按密码错误处理
+            val legacyJson = runCatching { EncryptionUtils.decryptString(raw, password) }.getOrNull()
+            if (legacyJson != null && isJsonLike(legacyJson)) {
+                generateFreshMaterial(password)
+            } else {
+                KeyBootstrapResult.WrongPassword
+            }
+        }
+
+    private fun generateFreshMaterial(password: String): KeyBootstrapResult {
+        val material = settingsManager.generateAndSaveSyncKeyMaterial(password)
+        settingsManager.setRecoveryCodePending(true)
+        return KeyBootstrapResult.Generated(material.recoveryCode)
     }
 
     /**
@@ -148,53 +450,44 @@ class SyncManager(
             // 同步前本地记录数（含软删除墓碑），用于同步报告
             val localCount = attendanceDao.getAllRecordsIncludingDeletedSync().size
 
-            // 读取云端现状
-            var cloudContent = webDAVManager.downloadFile(config, encryptPassword)
-
-            // 解密失败时尝试兼容旧版未加密数据（仅当下载本身成功、响应码为 200）
-            if (cloudContent == null && encryptPassword != null && WebDAVManager.lastResponseCode == 200) {
-                cloudContent = webDAVManager.downloadFile(config, null)
-                if (cloudContent != null && !isJsonLike(cloudContent)) {
-                    // 不用密码能读到 Base64 密文 → 云端已加密但密码不匹配，禁止覆盖
-                    AppLogger.e("云端数据已加密但密码不匹配，已中止上传以避免覆盖")
-                    return SyncReport(SyncResult.ENCRYPTION_MISMATCH, localRecordCount = localCount)
-                }
-            }
+            // 读取云端现状（统一解析 明文/信封/旧版密文）
+            val cloudResolve = resolveCloud(config, encryptPassword)
 
             var recordsToUpload: List<AttendanceEntityBackup>
             var cloudRecords: List<AttendanceEntityBackup> = emptyList()
             var cloudSettings: OvertimeSettings? = null
+            var cloudSnapshot: CloudSnapshot? = null
 
             // 如果云端有数据，进行增量对比
-            if (cloudContent != null) {
-                // 云端文件能读到内容但不是 JSON（例如被其它设备以同步加密上传的密文）：
-                // 一律中止上传，绝不静默覆盖云端文件
-                if (!isJsonLike(cloudContent)) {
-                    AppLogger.e("云端文件不是有效 JSON（可能已被其它设备用同步加密上传），已中止上传以防覆盖")
-                    return SyncReport(SyncResult.ENCRYPTION_MISMATCH, localRecordCount = localCount)
+            when (cloudResolve) {
+                is CloudResolve.Available -> {
+                    cloudSnapshot = cloudResolve.snapshot
+                    // 云端 JSON 无法解析为备份数据（损坏/格式不符/被外部改写）时中止，
+                    // 防止“解析失败 → 当云端为空 → 全量上传”把本地数据整包冲掉云端备份
+                    val cloudBackup = try {
+                        val type = object : TypeToken<BackupData>() {}.type
+                        (gson.fromJson(cloudResolve.snapshot.json, type) as? BackupData)?.sanitized()
+                    } catch (e: Exception) {
+                        AppLogger.e("解析云端数据失败，已中止上传以防覆盖云端备份", e)
+                        null
+                    }
+                    if (cloudBackup == null) {
+                        AppLogger.e("云端数据格式无法识别，已中止上传以防覆盖云端备份")
+                        return SyncReport(SyncResult.RESTORE_FAILED, localRecordCount = localCount)
+                    }
+                    cloudRecords = cloudBackup.attendanceRecords
+                    cloudSettings = cloudBackup.settings
                 }
-
-                // 云端 JSON 无法解析为备份数据（损坏/格式不符/被外部改写）时同样中止，
-                // 防止“解析失败 → 当云端为空 → 全量上传”把本地数据整包冲掉云端备份
-                val cloudBackup = try {
-                    val type = object : TypeToken<BackupData>() {}.type
-                    (gson.fromJson(cloudContent, type) as? BackupData)?.sanitized()
-                } catch (e: Exception) {
-                    AppLogger.e("解析云端数据失败，已中止上传以防覆盖云端备份", e)
-                    null
+                CloudResolve.NotFound -> {
+                    // 云端确认无文件（404）：允许全量上传
                 }
-                if (cloudBackup == null) {
-                    AppLogger.e("云端数据格式无法识别，已中止上传以防覆盖云端备份")
-                    return SyncReport(SyncResult.RESTORE_FAILED, localRecordCount = localCount)
-                }
-                cloudRecords = cloudBackup.attendanceRecords
-                cloudSettings = cloudBackup.settings
-            } else {
-                // 无法读到云端数据：只有确认是"文件不存在(404)"才允许全量上传，
-                // 其它失败（网络错误、服务器 5xx 等）一律中止，防止覆盖云端备份
-                if (WebDAVManager.lastResponseCode != 404) {
+                CloudResolve.DownloadFailed -> {
                     AppLogger.e("上传前无法读取云端数据（HTTP ${WebDAVManager.lastResponseCode}），已中止上传")
                     return SyncReport(SyncResult.DOWNLOAD_FAILED, localRecordCount = localCount)
+                }
+                CloudResolve.EncryptionMismatch -> {
+                    AppLogger.e("云端数据已加密但本机密码无法解密（或已被其它密码加密），已中止上传以避免覆盖")
+                    return SyncReport(SyncResult.ENCRYPTION_MISMATCH, localRecordCount = localCount)
                 }
             }
 
@@ -247,16 +540,23 @@ class SyncManager(
             )
 
             val content = gson.toJson(backupData)
-            val success = webDAVManager.uploadFile(config, content, encryptPassword)
+            // 启用加密时包装为信封（密码包裹 DEK + 恢复码包裹 DEK）；未启用则明文上传
+            val (wire, recoveryGenerated) = if (encryptPassword != null) {
+                buildUploadWire(content, encryptPassword, cloudSnapshot)
+            } else {
+                content to false
+            }
+            val success = webDAVManager.uploadRawFile(config, wire)
 
             if (success) {
                 settingsManager.saveLastSyncTime(System.currentTimeMillis())
-                AppLogger.d("上传成功，共 ${recordsToUpload.size} 条记录" + if (encryptPassword != null) " (已加密)" else " (未加密)")
+                AppLogger.d("上传成功，共 ${recordsToUpload.size} 条记录" + if (encryptPassword != null) " (信封加密)" else " (未加密)")
                 SyncReport(
                     SyncResult.SUCCESS,
                     localRecordCount = localCount,
                     cloudRecordCount = cloudRecords.size,
-                    uploadedCount = recordsToUpload.size
+                    uploadedCount = recordsToUpload.size,
+                    recoveryCodeGenerated = recoveryGenerated
                 )
             } else {
                 SyncReport(
@@ -273,7 +573,7 @@ class SyncManager(
 
     /**
      * 从 WebDAV 下载并恢复数据
-     * 兼容处理：如果启用了加密但下载的是旧版本未加密数据，自动尝试不使用密码
+     * 统一兼容：信封加密、旧版密码直加密、历史未加密三种云端格式
      */
     private suspend fun downloadAndRestore(config: WebDAVConfig, options: SyncOptions): SyncReport {
         return try {
@@ -284,23 +584,15 @@ class SyncManager(
             // 同步前本地记录数（含软删除墓碑），用于同步报告
             val localCount = attendanceDao.getAllRecordsIncludingDeletedSync().size
 
-            // 首先尝试用密码下载并解密
-            var content = webDAVManager.downloadFile(config, decryptPassword)
-
-            // 如果解密失败（可能云端是旧版本未加密数据），尝试不用密码下载
-            if (content == null && decryptPassword != null) {
-                AppLogger.d("使用密码下载失败，尝试不使用密码下载（旧版本兼容）")
-                content = webDAVManager.downloadFile(config, null)
-            }
-
-            if (content == null) {
-                return SyncReport(SyncResult.DOWNLOAD_FAILED, localRecordCount = localCount)
-            }
-
-            // 内容不是 JSON（Base64 密文），说明云端数据已加密但解密失败（密码错误或未配置）
-            if (!isJsonLike(content)) {
-                AppLogger.e("云端数据疑似已加密，但解密失败：请检查同步加密密码是否与上传设备一致")
-                return SyncReport(SyncResult.ENCRYPTION_MISMATCH, localRecordCount = localCount)
+            // 统一解析云端内容（明文 JSON / 信封 / 旧版密文）
+            val content = when (val resolve = resolveCloud(config, decryptPassword)) {
+                is CloudResolve.Available -> resolve.snapshot.json
+                CloudResolve.NotFound, CloudResolve.DownloadFailed ->
+                    return SyncReport(SyncResult.DOWNLOAD_FAILED, localRecordCount = localCount)
+                CloudResolve.EncryptionMismatch -> {
+                    AppLogger.e("云端数据已加密但解密失败：请检查同步加密密码，或使用恢复码找回")
+                    return SyncReport(SyncResult.ENCRYPTION_MISMATCH, localRecordCount = localCount)
+                }
             }
 
             val type = object : TypeToken<BackupData>() {}.type
@@ -366,18 +658,20 @@ class SyncManager(
 
         AppLogger.d("双向同步开始 - 本地最后同步时间: $lastSyncTime, 云端修改时间: $remoteModifiedTime")
 
-        // 获取云端数据
-        var cloudContent = webDAVManager.downloadFile(config, encryptPassword)
+        // 获取云端数据（统一解析 明文/信封/旧版密文）
+        val cloudResolve = resolveCloud(config, encryptPassword)
 
-        // 如果解密失败，尝试不使用密码下载（兼容旧版本）
-        if (cloudContent == null && encryptPassword != null) {
-            AppLogger.d("使用密码下载失败，尝试不使用密码下载（旧版本兼容）")
-            cloudContent = webDAVManager.downloadFile(config, null)
+        if (cloudResolve is CloudResolve.EncryptionMismatch) {
+            AppLogger.e("云端数据已加密但本机无法解密：请检查同步密码，或使用恢复码找回")
+            return SyncReport(SyncResult.ENCRYPTION_MISMATCH)
+        }
+        if (cloudResolve is CloudResolve.DownloadFailed) {
+            return SyncReport(SyncResult.DOWNLOAD_FAILED)
         }
 
         return when {
             // 情况1：云端没有数据，直接上传本地数据
-            cloudContent == null -> {
+            cloudResolve is CloudResolve.NotFound -> {
                 AppLogger.d("云端无数据，执行上传")
                 uploadBackup(config, options)
             }
@@ -417,27 +711,20 @@ class SyncManager(
             // 同步前本地记录数（含软删除墓碑），用于同步报告
             val localCount = attendanceDao.getAllRecordsIncludingDeletedSync().size
 
-            // 下载云端数据
-            var cloudContent = webDAVManager.downloadFile(config, encryptPassword)
-
-            // 如果解密失败，尝试不使用密码下载（兼容旧版本）
-            if (cloudContent == null && encryptPassword != null) {
-                AppLogger.d("使用密码下载失败，尝试不使用密码下载（旧版本兼容）")
-                cloudContent = webDAVManager.downloadFile(config, null)
-            }
-
-            if (cloudContent == null) {
-                return SyncReport(SyncResult.DOWNLOAD_FAILED, localRecordCount = localCount)
-            }
-
-            // 内容不是 JSON（Base64 密文），说明云端数据已加密但解密失败（密码错误或未配置）
-            if (!isJsonLike(cloudContent)) {
-                AppLogger.e("云端数据疑似已加密，但解密失败：请检查同步加密密码是否与上传设备一致")
-                return SyncReport(SyncResult.ENCRYPTION_MISMATCH, localRecordCount = localCount)
+            // 下载云端数据（统一解析 明文/信封/旧版密文）
+            val cloudResolve = resolveCloud(config, encryptPassword)
+            val cloudSnapshot: CloudSnapshot = when (cloudResolve) {
+                is CloudResolve.Available -> cloudResolve.snapshot
+                CloudResolve.NotFound, CloudResolve.DownloadFailed ->
+                    return SyncReport(SyncResult.DOWNLOAD_FAILED, localRecordCount = localCount)
+                CloudResolve.EncryptionMismatch -> {
+                    AppLogger.e("云端数据已加密但解密失败：请检查同步加密密码，或使用恢复码找回")
+                    return SyncReport(SyncResult.ENCRYPTION_MISMATCH, localRecordCount = localCount)
+                }
             }
 
             val type = object : TypeToken<BackupData>() {}.type
-            val cloudBackup: BackupData = (gson.fromJson(cloudContent, type) as? BackupData)
+            val cloudBackup: BackupData = (gson.fromJson(cloudSnapshot.json, type) as? BackupData)
                 ?.sanitized() ?: return SyncReport(SyncResult.RESTORE_FAILED, localRecordCount = localCount)
 
             // v3 完整性校验：云端备份携带 checksum 时比对，失败说明文件损坏/被篡改，拒绝合并
@@ -479,7 +766,13 @@ class SyncManager(
             )
 
             val content = gson.toJson(mergedBackup)
-            val success = webDAVManager.uploadFile(config, content, encryptPassword)
+            // 启用加密时包装为信封；恢复槽沿用云端信封中的槽，恢复码持续有效
+            val (wire, recoveryGenerated) = if (encryptPassword != null) {
+                buildUploadWire(content, encryptPassword, cloudSnapshot)
+            } else {
+                content to false
+            }
+            val success = webDAVManager.uploadRawFile(config, wire)
 
             if (success) {
                 // 把合并结果写回本地数据库，确保本地与云端一致
@@ -491,13 +784,14 @@ class SyncManager(
                 }
 
                 settingsManager.saveLastSyncTime(System.currentTimeMillis())
-                AppLogger.d("智能合并成功，共 ${mergedRecords.size} 条记录" + if (encryptPassword != null) " (已加密)" else " (未加密)")
+                AppLogger.d("智能合并成功，共 ${mergedRecords.size} 条记录" + if (encryptPassword != null) " (信封加密)" else " (未加密)")
                 SyncReport(
                     SyncResult.SUCCESS,
                     localRecordCount = localCount,
                     cloudRecordCount = cloudCount,
                     mergedCount = mergedRecords.size,
-                    uploadedCount = mergedRecords.size
+                    uploadedCount = mergedRecords.size,
+                    recoveryCodeGenerated = recoveryGenerated
                 )
             } else {
                 SyncReport(

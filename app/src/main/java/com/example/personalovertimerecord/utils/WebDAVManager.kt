@@ -135,27 +135,19 @@ class WebDAVManager(private val context: Context) {
     }
 
     /**
-     * 上传文件到 WebDAV
-     * @param config WebDAV配置
-     * @param content 要上传的内容
-     * @param encryptPassword 加密密码（可选，为空则不加密）
+     * 上传文件到 WebDAV（明文内容由调用方负责加密）。
+     * 信封加密改造后，同步链路统一在 SyncManager 内决定加密格式（信封/旧格式/明文），
+     * 此处只负责原样 PUT。
      */
-    suspend fun uploadFile(config: WebDAVConfig, content: String, encryptPassword: String? = null): Boolean = withContext(Dispatchers.IO) {
+    suspend fun uploadRawFile(config: WebDAVConfig, content: String): Boolean = withContext(Dispatchers.IO) {
         try {
-            // 如果设置了密码，先加密内容
-            val uploadContent = if (!encryptPassword.isNullOrBlank()) {
-                EncryptionUtils.encryptString(content, encryptPassword)
-            } else {
-                content
-            }
-            
             val fileUrl = buildUrl(config.serverUrl, config.remotePath, backupFileName)
-            
+
             AppLogger.d("WebDAV 上传文件: $fileUrl")
-            
+
             // 确保目录存在
             ensureDirectoryExists(config)
-            
+
             executeRequest(
                 url = fileUrl,
                 method = "PUT",
@@ -165,7 +157,7 @@ class WebDAVManager(private val context: Context) {
                     connection.doOutput = true
                 },
                 writeBody = { outputStream ->
-                    DataOutputStream(outputStream).use { it.write(uploadContent.toByteArray(Charsets.UTF_8)) }
+                    DataOutputStream(outputStream).use { it.write(content.toByteArray(Charsets.UTF_8)) }
                 },
                 handleResponse = { connection ->
                     val success = connection.responseCode in 200..299
@@ -181,6 +173,22 @@ class WebDAVManager(private val context: Context) {
             AppLogger.e("WebDAV文件上传失败", e)
             false
         }
+    }
+
+    /**
+     * 上传文件到 WebDAV（兼容保留：旧版直接用密码加密整段内容的写法）。
+     * 新同步逻辑请使用 [uploadRawFile] + EnvelopeCrypto。
+     * @param config WebDAV配置
+     * @param content 要上传的内容
+     * @param encryptPassword 加密密码（可选，为空则不加密）
+     */
+    suspend fun uploadFile(config: WebDAVConfig, content: String, encryptPassword: String? = null): Boolean {
+        val uploadContent = if (!encryptPassword.isNullOrBlank()) {
+            EncryptionUtils.encryptString(content, encryptPassword)
+        } else {
+            content
+        }
+        return uploadRawFile(config, uploadContent)
     }
 
     /**
@@ -210,16 +218,16 @@ class WebDAVManager(private val context: Context) {
     }
 
     /**
-     * 从 WebDAV 下载文件
-     * @param config WebDAV配置
-     * @param decryptPassword 解密密码（可选，为空则不解密）
+     * 从 WebDAV 下载原始文件内容（不做解密，格式判定交给调用方）。
+     * 信封加密改造后，SyncManager 统一按 明文JSON / 信封 / 旧版密文 三种格式分别处理。
+     * @return 云端文件原文；HTTP 非 2xx 或网络异常时返回 null（响应码见 [lastResponseCode]）
      */
-    suspend fun downloadFile(config: WebDAVConfig, decryptPassword: String? = null): String? = withContext(Dispatchers.IO) {
+    suspend fun downloadRawFile(config: WebDAVConfig): String? = withContext(Dispatchers.IO) {
         try {
             val fileUrl = buildUrl(config.serverUrl, config.remotePath, backupFileName)
-            
+
             AppLogger.d("WebDAV 下载文件: $fileUrl")
-            
+
             executeRequest(
                 url = fileUrl,
                 method = "GET",
@@ -233,19 +241,7 @@ class WebDAVManager(private val context: Context) {
                     if (responseCode in 200..299) {
                         val content = connection.inputStream.use { readBodyCapped(it, MAX_DOWNLOAD_BYTES) }
                         AppLogger.d("WebDAV文件下载成功")
-                        
-                        if (!decryptPassword.isNullOrBlank()) {
-                            try {
-                                EncryptionUtils.decryptString(content, decryptPassword)
-                            } catch (ex: Exception) {
-                                // 解密失败（数据未加密或密码错误）时返回 null，
-                                // 由调用方走"不使用密码重试"的兼容逻辑，避免把密文当明文解析
-                                AppLogger.w("WebDAV", "解密失败，可能数据未加密或密码错误: ${ex.message}")
-                                null
-                            }
-                        } else {
-                            content
-                        }
+                        content
                     } else {
                         AppLogger.e("WebDAV文件不存在或下载失败: $responseCode")
                         null
@@ -257,6 +253,28 @@ class WebDAVManager(private val context: Context) {
             // 网络/IO 异常时清除响应码，防止残留上一次的 404 被误判为"云端无数据"
             lastResponseCode = -1
             null
+        }
+    }
+
+    /**
+     * 从 WebDAV 下载文件（兼容保留：旧版直接用密码解密整段内容的写法）。
+     * 新同步逻辑请使用 [downloadRawFile] + EnvelopeCrypto。
+     * @param config WebDAV配置
+     * @param decryptPassword 解密密码（可选，为空则不解密）
+     */
+    suspend fun downloadFile(config: WebDAVConfig, decryptPassword: String? = null): String? {
+        val raw = downloadRawFile(config) ?: return null
+        return if (decryptPassword.isNullOrBlank()) {
+            raw
+        } else {
+            try {
+                EncryptionUtils.decryptString(raw, decryptPassword)
+            } catch (ex: Exception) {
+                // 解密失败（数据未加密或密码错误）时返回 null，
+                // 由调用方走"不使用密码重试"的兼容逻辑，避免把密文当明文解析
+                AppLogger.w("WebDAV", "解密失败，可能数据未加密或密码错误: ${ex.message}")
+                null
+            }
         }
     }
 

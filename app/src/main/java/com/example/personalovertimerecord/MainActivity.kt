@@ -451,7 +451,7 @@ class MainActivity : AppCompatActivity() {
                 SyncResult.RESTORE_FAILED -> "恢复数据失败"
                 SyncResult.NO_CHANGES -> "没有需要同步的更改"
                 SyncResult.CONFLICT -> "存在数据冲突，请手动处理"
-                SyncResult.ENCRYPTION_MISMATCH -> "云端数据已加密，请检查同步加密密码是否与上传设备一致"
+                SyncResult.ENCRYPTION_MISMATCH -> "云端数据已加密且密码不匹配，可在「设置-云端同步加密」中检查密码，或用恢复码找回"
             }
             // 成功时附带同步统计细节
             val message = if (report.isSuccess) {
@@ -461,6 +461,22 @@ class MainActivity : AppCompatActivity() {
             }
             
             Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+
+            // 旧加密数据首次迁移为信封格式时，新恢复码已生成，必须醒目提醒用户离线保存
+            if (report.recoveryCodeGenerated) {
+                androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
+                    .setTitle("请立即保存恢复码")
+                    .setMessage(
+                        "你的云端备份已升级为恢复码兜底加密。恢复码是忘记同步密码后找回数据的唯一方式，" +
+                            "请马上到「设置 → 云端同步加密 → 查看恢复码」抄写或截图离线保存。"
+                    )
+                    .setCancelable(false)
+                    .setPositiveButton("去查看") { _, _ ->
+                        startActivity(android.content.Intent(this@MainActivity, SettingsActivity::class.java))
+                    }
+                    .setNegativeButton("稍后", null)
+                    .show()
+            }
         }
     }
     
