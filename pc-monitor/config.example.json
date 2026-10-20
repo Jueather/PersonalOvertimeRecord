@@ -1,0 +1,10 @@
+{
+  "server_url": "https://dav.jianguoyun.com/dav/",
+  "username": "你的WebDAV账号",
+  "password": "你的WebDAV密码（坚果云请使用应用密码）",
+  "remote_path": "/overtime_record/",
+  "sync_password": "App内配置的同步加密密码，未开启同步加密则留空",
+  "recovery_code": "恢复码（可选，忘记同步密码时的兜底钥匙）",
+  "poll_interval_minutes": 5,
+  "port": 8518
+}

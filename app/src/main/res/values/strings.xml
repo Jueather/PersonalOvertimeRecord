@@ -82,27 +82,56 @@
     <string name="settings">设置</string>
     <string name="report">报表</string>
     <string name="cloud_sync">云同步</string>
-    
-    <!-- Splash Screen POST Messages -->
-    <string name="post_core">[QUANTUM CORE]</string>
-    <string name="post_link">[MEMORY ARBITER]</string>
-    <string name="post_data">[GPU ENGINE]</string>
-    <string name="post_security">[DATA VAULT]</string>
-    <string name="post_sync">[NET LATENCY]</string>
-    <string name="post_final">[SECURITY MATRIX]</string>
-    <string name="post_ok"> [OK]\n</string>
-    <string name="post_warn"> [!!]\n</string>
-    
-    <!-- Splash Screen Status Messages -->
-    <string name="status_quantum">INITIALIZING QUANTUM CORE...</string>
-    <string name="status_memory">ALLOCATING MEMORY...</string>
-    <string name="status_gpu">CALIBRATING GPU ENGINE...</string>
-    <string name="status_data">VERIFYING DATA VAULT...</string>
-    <string name="status_network">MEASURING NETWORK...</string>
-    <string name="status_security">SCANNING SECURITY...</string>
-    <string name="status_sync">CONNECTING TO SYNC...</string>
-    <string name="status_time">SYNCHRONIZING TIME...</string>
-    <string name="status_permission">GRANTING PERMISSIONS...</string>
-    <string name="status_finalizing">FINALIZING...</string>
-    <string name="status_complete">SYSTEM READY</string>
+
+    <!-- Team Sync -->
+    <string name="team_sync">团队同步</string>
+    <string name="team_server_url">服务器地址（https://…）</string>
+    <string name="team_username">用户名</string>
+    <string name="team_password">密码</string>
+    <string name="team_new_password">新密码（至少 6 位）</string>
+    <string name="team_old_password">原密码</string>
+    <string name="team_login">登录</string>
+    <string name="team_login_success">登录成功</string>
+    <string name="team_logout">退出登录</string>
+    <string name="team_sync_now">立即同步</string>
+    <string name="team_change_password">修改密码</string>
+    <string name="team_password_changed">密码已修改</string>
+    <string name="team_logged_in_as">已登录：%1$s（%2$s）</string>
+    <string name="team_role_admin">管理员</string>
+    <string name="team_role_member">成员</string>
+    <string name="team_last_sync">上次同步：%1$s</string>
+    <string name="team_sync_success">同步完成，云端 %1$d 条 / 本地 %2$d 条，合并 %3$d 条</string>
+    <string name="team_sync_no_changes">已是最新，无变更</string>
+    <string name="team_sync_failed">同步失败：%1$s</string>
+    <string name="team_login_failed">登录失败：%1$s</string>
+    <string name="team_error_network">无法连接服务器，请检查网络与服务器地址</string>
+    <string name="team_error_unauthorized">登录已失效，请重新登录</string>
+    <string name="team_error_server">服务器错误，请稍后重试</string>
+    <string name="team_admin_summary">全员加班汇总</string>
+    <string name="team_member_no_summary">仅管理员可查看全员汇总</string>
+    <string name="team_not_logged_in">未登录团队服务器</string>
+    <string name="team_summary_title">全员加班汇总</string>
+    <string name="team_create_user">创建成员账号</string>
+    <string name="team_create_user_username">用户名</string>
+    <string name="team_create_user_display">显示名（可选）</string>
+    <string name="team_create_user_done">已创建 %1$s，初始密码：%2$s（仅显示一次，请告知本人）</string>
+    <string name="team_reset_password">重置密码</string>
+    <string name="team_reset_password_done">新密码：%1$s（仅显示一次，请告知本人）</string>
+    <string name="team_set_active_enable">启用</string>
+    <string name="team_set_active_disable">停用</string>
+    <string name="team_set_active_done">%1$s已%2$s</string>
+    <string name="team_cannot_disable_self">不能停用自己的账号</string>
+    <string name="team_refresh">刷新</string>
+    <string name="team_summary_empty">暂无数据</string>
+    <string name="team_summary_month">月份</string>
+    <string name="team_summary_member">成员</string>
+    <string name="team_summary_overtime">加班工时</string>
+    <string name="team_summary_leave">请假时长</string>
+    <string name="team_summary_records">记录数</string>
+    <string name="team_summary_leave_count">请假次数</string>
+    <string name="team_summary_filter_hint">月份范围（如 202601 - 202612，可留空）</string>
+    <string name="team_summary_from">起始月</string>
+    <string name="team_summary_to">结束月</string>
+    <string name="team_summary_apply">查询</string>
+    <string name="team_summary_row_detail">加班 %1$.1f 小时 · 请假 %2$.1f 小时 · %3$d 条记录 · 请假 %4$d 次</string>
 </resources>

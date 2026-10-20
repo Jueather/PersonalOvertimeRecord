@@ -24,6 +24,9 @@
 -keep class com.example.personalovertimerecord.data.** { *; }
 -keep class com.example.personalovertimerecord.data.db.** { *; }
 
+# 团队同步 DTO（Gson 反射序列化，字段名即 JSON key，与服务端 camelCase 对齐）
+-keep class com.example.personalovertimerecord.data.model.** { *; }
+
 # Room Database
 -keep class * extends androidx.room.RoomDatabase
 -keep @androidx.room.Entity class *

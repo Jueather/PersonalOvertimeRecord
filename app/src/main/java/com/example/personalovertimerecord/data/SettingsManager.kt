@@ -119,6 +119,62 @@ class SettingsManager(context: Context) {
         return prefs.getLong(KEY_LAST_SYNC_TIME, 0L)
     }
 
+    // ---- 团队同步账号（方案 B：多用户小团队工具） ----
+
+    /**
+     * 团队服务端登录态。[token] 为 JWT；[role] 为 "admin"/"member"（仅控制 UI 入口，
+     * 服务端会实时查库二次校验）。与 WebDAV 配置同存于加密 SharedPreferences。
+     */
+    data class TeamAuthConfig(
+        val serverUrl: String,
+        val token: String,
+        val userId: Long,
+        val username: String,
+        val displayName: String,
+        val role: String
+    ) {
+        val isAdmin: Boolean get() = role == "admin"
+    }
+
+    fun saveTeamAuth(config: TeamAuthConfig) {
+        prefs.edit().apply {
+            putString(KEY_TEAM_SERVER_URL, config.serverUrl)
+            putString(KEY_TEAM_TOKEN, config.token)
+            putLong(KEY_TEAM_USER_ID, config.userId)
+            putString(KEY_TEAM_USERNAME, config.username)
+            putString(KEY_TEAM_DISPLAY_NAME, config.displayName)
+            putString(KEY_TEAM_ROLE, config.role)
+            apply()
+        }
+    }
+
+    /** 读取团队登录态；未登录或字段缺失返回 null */
+    fun getTeamAuth(): TeamAuthConfig? {
+        val serverUrl = prefs.getString(KEY_TEAM_SERVER_URL, null) ?: return null
+        val token = prefs.getString(KEY_TEAM_TOKEN, null) ?: return null
+        if (serverUrl.isBlank() || token.isBlank()) return null
+        return TeamAuthConfig(
+            serverUrl = serverUrl,
+            token = token,
+            userId = prefs.getLong(KEY_TEAM_USER_ID, 0L),
+            username = prefs.getString(KEY_TEAM_USERNAME, "") ?: "",
+            displayName = prefs.getString(KEY_TEAM_DISPLAY_NAME, "") ?: "",
+            role = prefs.getString(KEY_TEAM_ROLE, "member") ?: "member"
+        )
+    }
+
+    /** 退出登录：清空账号态（保留团队服务器地址，方便下次登录） */
+    fun clearTeamAuth() {
+        prefs.edit().apply {
+            remove(KEY_TEAM_TOKEN)
+            remove(KEY_TEAM_USER_ID)
+            remove(KEY_TEAM_USERNAME)
+            remove(KEY_TEAM_DISPLAY_NAME)
+            remove(KEY_TEAM_ROLE)
+            apply()
+        }
+    }
+
     // ---- 信封加密：本地密钥材料 ----
 
     /** 读取同步加密密钥材料；未生成时返回 null（字段不全视为无效材料） */
@@ -241,6 +297,13 @@ class SettingsManager(context: Context) {
         private const val KEY_WEBDAV_PASSWORD = "webdav_password"
         private const val KEY_WEBDAV_REMOTE_PATH = "webdav_remote_path"
         private const val KEY_LAST_SYNC_TIME = "last_sync_time"
+        // 团队同步账号键
+        private const val KEY_TEAM_SERVER_URL = "team_server_url"
+        private const val KEY_TEAM_TOKEN = "team_token"
+        private const val KEY_TEAM_USER_ID = "team_user_id"
+        private const val KEY_TEAM_USERNAME = "team_username"
+        private const val KEY_TEAM_DISPLAY_NAME = "team_display_name"
+        private const val KEY_TEAM_ROLE = "team_role"
         // 加密设置键
         private const val KEY_EXPORT_ENCRYPTION_ENABLED = "export_encryption_enabled"
         private const val KEY_EXPORT_PASSWORD = "export_password"

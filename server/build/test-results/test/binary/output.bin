@@ -1,0 +1,126 @@
+{2026-10-20 23:42:02.140 INFO  io.ktor.test - No ktor.deployment.watch patterns specified, automatic reload is not active.
+12026-10-20 23:42:02.566 INFO  AdminBootstrap - 
+12026-10-20 23:42:02.566 INFO  AdminBootstrap - 
+g2026-10-20 23:42:02.566 INFO  AdminBootstrap - ======================================================
+g2026-10-20 23:42:02.566 INFO  AdminBootstrap - ======================================================
+Z2026-10-20 23:42:02.566 INFO  AdminBootstrap -   首次启动：已创建管理员账号
+Z2026-10-20 23:42:02.566 INFO  AdminBootstrap -   首次启动：已创建管理员账号
+D2026-10-20 23:42:02.568 INFO  AdminBootstrap -   用户名：admin
+D2026-10-20 23:42:02.568 INFO  AdminBootstrap -   用户名：admin
+M2026-10-20 23:42:02.569 INFO  AdminBootstrap -   密码：test-password-123
+M2026-10-20 23:42:02.569 INFO  AdminBootstrap -   密码：test-password-123
+l2026-10-20 23:42:02.570 INFO  AdminBootstrap -   （仅显示这一次，请立即登录并修改密码）
+l2026-10-20 23:42:02.570 INFO  AdminBootstrap -   （仅显示这一次，请立即登录并修改密码）
+g2026-10-20 23:42:02.570 INFO  AdminBootstrap - ======================================================
+g2026-10-20 23:42:02.570 INFO  AdminBootstrap - ======================================================
+12026-10-20 23:42:02.570 INFO  AdminBootstrap - 
+12026-10-20 23:42:02.570 INFO  AdminBootstrap - 
+�2026-10-20 23:42:02.768 INFO  io.ktor.test - 加班记录服务端已启动：db=C:\Users\ADMINI~1\AppData\Local\Temp\overtime-test17975221906041067833\test.db
+T2026-10-20 23:42:02.768 INFO  io.ktor.test - Application started in 0.648 seconds.
+P2026-10-20 23:42:02.771 INFO  io.ktor.test - Responding at http://localhost:80
+R2026-10-20 23:42:02.771 INFO  io.ktor.test - Responding at https://localhost:443
+{2026-10-20 23:42:03.253 INFO  io.ktor.test - No ktor.deployment.watch patterns specified, automatic reload is not active.
+12026-10-20 23:42:03.519 INFO  AdminBootstrap - 
+12026-10-20 23:42:03.519 INFO  AdminBootstrap - 
+g2026-10-20 23:42:03.519 INFO  AdminBootstrap - ======================================================
+g2026-10-20 23:42:03.519 INFO  AdminBootstrap - ======================================================
+Z2026-10-20 23:42:03.519 INFO  AdminBootstrap -   首次启动：已创建管理员账号
+Z2026-10-20 23:42:03.519 INFO  AdminBootstrap -   首次启动：已创建管理员账号
+D2026-10-20 23:42:03.519 INFO  AdminBootstrap -   用户名：admin
+D2026-10-20 23:42:03.519 INFO  AdminBootstrap -   用户名：admin
+M2026-10-20 23:42:03.520 INFO  AdminBootstrap -   密码：test-password-123
+M2026-10-20 23:42:03.520 INFO  AdminBootstrap -   密码：test-password-123
+l2026-10-20 23:42:03.520 INFO  AdminBootstrap -   （仅显示这一次，请立即登录并修改密码）
+l2026-10-20 23:42:03.520 INFO  AdminBootstrap -   （仅显示这一次，请立即登录并修改密码）
+g2026-10-20 23:42:03.520 INFO  AdminBootstrap - ======================================================
+g2026-10-20 23:42:03.520 INFO  AdminBootstrap - ======================================================
+12026-10-20 23:42:03.520 INFO  AdminBootstrap - 
+12026-10-20 23:42:03.520 INFO  AdminBootstrap - 
+�2026-10-20 23:42:03.521 INFO  io.ktor.test - 加班记录服务端已启动：db=C:\Users\ADMINI~1\AppData\Local\Temp\overtime-test8280963212390228916\test.db
+T2026-10-20 23:42:03.521 INFO  io.ktor.test - Application started in 0.269 seconds.
+P2026-10-20 23:42:03.522 INFO  io.ktor.test - Responding at http://localhost:80
+R2026-10-20 23:42:03.522 INFO  io.ktor.test - Responding at https://localhost:443
+{2026-10-20 23:42:04.558 INFO  io.ktor.test - No ktor.deployment.watch patterns specified, automatic reload is not active.
+12026-10-20 23:42:04.816 INFO  AdminBootstrap - 
+12026-10-20 23:42:04.816 INFO  AdminBootstrap - 
+g2026-10-20 23:42:04.818 INFO  AdminBootstrap - ======================================================
+g2026-10-20 23:42:04.818 INFO  AdminBootstrap - ======================================================
+Z2026-10-20 23:42:04.818 INFO  AdminBootstrap -   首次启动：已创建管理员账号
+Z2026-10-20 23:42:04.818 INFO  AdminBootstrap -   首次启动：已创建管理员账号
+D2026-10-20 23:42:04.818 INFO  AdminBootstrap -   用户名：admin
+D2026-10-20 23:42:04.818 INFO  AdminBootstrap -   用户名：admin
+M2026-10-20 23:42:04.818 INFO  AdminBootstrap -   密码：test-password-123
+M2026-10-20 23:42:04.818 INFO  AdminBootstrap -   密码：test-password-123
+l2026-10-20 23:42:04.818 INFO  AdminBootstrap -   （仅显示这一次，请立即登录并修改密码）
+l2026-10-20 23:42:04.818 INFO  AdminBootstrap -   （仅显示这一次，请立即登录并修改密码）
+g2026-10-20 23:42:04.818 INFO  AdminBootstrap - ======================================================
+g2026-10-20 23:42:04.818 INFO  AdminBootstrap - ======================================================
+12026-10-20 23:42:04.818 INFO  AdminBootstrap - 
+12026-10-20 23:42:04.818 INFO  AdminBootstrap - 
+�2026-10-20 23:42:04.819 INFO  io.ktor.test - 加班记录服务端已启动：db=C:\Users\ADMINI~1\AppData\Local\Temp\overtime-test2851677836433933406\test.db
+T2026-10-20 23:42:04.819 INFO  io.ktor.test - Application started in 0.261 seconds.
+P2026-10-20 23:42:04.820 INFO  io.ktor.test - Responding at http://localhost:80
+R2026-10-20 23:42:04.820 INFO  io.ktor.test - Responding at https://localhost:443
+{2026-10-20 23:42:04.840 INFO  io.ktor.test - No ktor.deployment.watch patterns specified, automatic reload is not active.
+12026-10-20 23:42:05.096 INFO  AdminBootstrap - 
+12026-10-20 23:42:05.096 INFO  AdminBootstrap - 
+g2026-10-20 23:42:05.096 INFO  AdminBootstrap - ======================================================
+g2026-10-20 23:42:05.096 INFO  AdminBootstrap - ======================================================
+Z2026-10-20 23:42:05.096 INFO  AdminBootstrap -   首次启动：已创建管理员账号
+Z2026-10-20 23:42:05.096 INFO  AdminBootstrap -   首次启动：已创建管理员账号
+D2026-10-20 23:42:05.096 INFO  AdminBootstrap -   用户名：admin
+D2026-10-20 23:42:05.096 INFO  AdminBootstrap -   用户名：admin
+M2026-10-20 23:42:05.096 INFO  AdminBootstrap -   密码：test-password-123
+M2026-10-20 23:42:05.096 INFO  AdminBootstrap -   密码：test-password-123
+l2026-10-20 23:42:05.096 INFO  AdminBootstrap -   （仅显示这一次，请立即登录并修改密码）
+l2026-10-20 23:42:05.096 INFO  AdminBootstrap -   （仅显示这一次，请立即登录并修改密码）
+g2026-10-20 23:42:05.096 INFO  AdminBootstrap - ======================================================
+g2026-10-20 23:42:05.096 INFO  AdminBootstrap - ======================================================
+12026-10-20 23:42:05.096 INFO  AdminBootstrap - 
+12026-10-20 23:42:05.096 INFO  AdminBootstrap - 
+�2026-10-20 23:42:05.098 INFO  io.ktor.test - 加班记录服务端已启动：db=C:\Users\ADMINI~1\AppData\Local\Temp\overtime-test12880515440897304952\test.db
+S2026-10-20 23:42:05.098 INFO  io.ktor.test - Application started in 0.26 seconds.
+P2026-10-20 23:42:05.098 INFO  io.ktor.test - Responding at http://localhost:80
+R2026-10-20 23:42:05.098 INFO  io.ktor.test - Responding at https://localhost:443
+{2026-10-20 23:42:06.385 INFO  io.ktor.test - No ktor.deployment.watch patterns specified, automatic reload is not active.
+12026-10-20 23:42:06.641 INFO  AdminBootstrap - 
+12026-10-20 23:42:06.641 INFO  AdminBootstrap - 
+g2026-10-20 23:42:06.641 INFO  AdminBootstrap - ======================================================
+g2026-10-20 23:42:06.641 INFO  AdminBootstrap - ======================================================
+Z2026-10-20 23:42:06.641 INFO  AdminBootstrap -   首次启动：已创建管理员账号
+Z2026-10-20 23:42:06.641 INFO  AdminBootstrap -   首次启动：已创建管理员账号
+D2026-10-20 23:42:06.641 INFO  AdminBootstrap -   用户名：admin
+D2026-10-20 23:42:06.641 INFO  AdminBootstrap -   用户名：admin
+M2026-10-20 23:42:06.641 INFO  AdminBootstrap -   密码：test-password-123
+M2026-10-20 23:42:06.641 INFO  AdminBootstrap -   密码：test-password-123
+l2026-10-20 23:42:06.641 INFO  AdminBootstrap -   （仅显示这一次，请立即登录并修改密码）
+l2026-10-20 23:42:06.641 INFO  AdminBootstrap -   （仅显示这一次，请立即登录并修改密码）
+g2026-10-20 23:42:06.641 INFO  AdminBootstrap - ======================================================
+g2026-10-20 23:42:06.641 INFO  AdminBootstrap - ======================================================
+12026-10-20 23:42:06.643 INFO  AdminBootstrap - 
+12026-10-20 23:42:06.643 INFO  AdminBootstrap - 
+�2026-10-20 23:42:06.643 INFO  io.ktor.test - 加班记录服务端已启动：db=C:\Users\ADMINI~1\AppData\Local\Temp\overtime-test700618060860982586\test.db
+T2026-10-20 23:42:06.644 INFO  io.ktor.test - Application started in 0.259 seconds.
+P2026-10-20 23:42:06.644 INFO  io.ktor.test - Responding at http://localhost:80
+R2026-10-20 23:42:06.644 INFO  io.ktor.test - Responding at https://localhost:443
+{2026-10-20 23:42:06.660 INFO  io.ktor.test - No ktor.deployment.watch patterns specified, automatic reload is not active.
+12026-10-20 23:42:06.914 INFO  AdminBootstrap - 
+12026-10-20 23:42:06.914 INFO  AdminBootstrap - 
+g2026-10-20 23:42:06.914 INFO  AdminBootstrap - ======================================================
+g2026-10-20 23:42:06.914 INFO  AdminBootstrap - ======================================================
+Z2026-10-20 23:42:06.914 INFO  AdminBootstrap -   首次启动：已创建管理员账号
+Z2026-10-20 23:42:06.914 INFO  AdminBootstrap -   首次启动：已创建管理员账号
+D2026-10-20 23:42:06.914 INFO  AdminBootstrap -   用户名：admin
+D2026-10-20 23:42:06.914 INFO  AdminBootstrap -   用户名：admin
+M2026-10-20 23:42:06.914 INFO  AdminBootstrap -   密码：test-password-123
+M2026-10-20 23:42:06.914 INFO  AdminBootstrap -   密码：test-password-123
+l2026-10-20 23:42:06.914 INFO  AdminBootstrap -   （仅显示这一次，请立即登录并修改密码）
+l2026-10-20 23:42:06.914 INFO  AdminBootstrap -   （仅显示这一次，请立即登录并修改密码）
+g2026-10-20 23:42:06.914 INFO  AdminBootstrap - ======================================================
+g2026-10-20 23:42:06.914 INFO  AdminBootstrap - ======================================================
+12026-10-20 23:42:06.914 INFO  AdminBootstrap - 
+12026-10-20 23:42:06.914 INFO  AdminBootstrap - 
+�2026-10-20 23:42:06.915 INFO  io.ktor.test - 加班记录服务端已启动：db=C:\Users\ADMINI~1\AppData\Local\Temp\overtime-test11610565705109885283\test.db
+T2026-10-20 23:42:06.915 INFO  io.ktor.test - Application started in 0.255 seconds.
+P2026-10-20 23:42:06.916 INFO  io.ktor.test - Responding at http://localhost:80
+R2026-10-20 23:42:06.916 INFO  io.ktor.test - Responding at https://localhost:443

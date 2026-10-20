@@ -2,7 +2,7 @@
 
 一个功能丰富、稳定可靠的Android应用，用于记录个人的加班信息和计算加班工资。
 
-![Version](https://img.shields.io/badge/version-0.1.11-blue)
+![Version](https://img.shields.io/badge/version-0.1.12-blue)
 ![Min SDK](https://img.shields.io/badge/minSdk-24-green)
 ![Target SDK](https://img.shields.io/badge/targetSdk-36-orange)
 
@@ -27,6 +27,8 @@
 - 🔀 **增量同步** - 增量合并后上传完整数据，云端数据不丢失
 - 🗑️ **删除同步** - 删除操作可跨设备同步，已删除的记录不会"复活"
 - 🔑 **同步恢复码** - 开启同步加密时生成离线恢复码，遗忘密码也能凭码重置，不会因忘密码永久丢数据
+- 👥 **团队同步** - 私有服务端多用户同步（JWT 登录 + HTTPS），管理员可建号、重置密码、停用账号并查看按人按月汇总
+- 🖥️ **PC 端仪表盘** - PC 读取器用同一套 WebDAV 凭据拉取备份并本地解密，浏览器查看加班统计
 
 ### 用户体验
 - 🌙 **深色模式** - 支持跟随系统/浅色/深色三种主题
@@ -71,18 +73,24 @@
 | JSON | Gson | JSON 序列化 |
 | Background | WorkManager | 后台周期任务（自动同步，兼容 Doze） |
 
+### 配套组件
+- **团队服务端**（`server/`）- Ktor 3 + SQLite（WAL）+ JWT Bearer，HTTPS 反向代理部署，含管理员 API 与 systemd 配置，详见 [server/README.md](server/README.md)
+- **PC 端监控**（`pc-monitor/`）- Python 读取器，与 App 云端三种格式逐字节对齐（明文/信封/旧版密文），本地解密后浏览器仪表盘展示，仅绑定 127.0.0.1
+
 ## 项目结构
 
 ```
 app/
 ├── src/main/java/com/example/personalovertimerecord/
 │   ├── adapter/                  # RecyclerView 适配器
-│   │   └── AttendanceAdapter.kt  # 考勤/加班记录列表适配器
+│   │   ├── AttendanceAdapter.kt  # 考勤/加班记录列表适配器
+│   │   └── TeamSummaryAdapter.kt # 管理员汇总列表适配器
 │   ├── data/                     # 数据层
 │   │   ├── db/                   # Room 数据库（DAO、Entity）
 │   │   │   ├── AppDatabase.kt    # 数据库实例与迁移（SQLCipher 加密）
 │   │   │   ├── AttendanceDao.kt  # 数据访问接口
 │   │   │   └── AttendanceEntity.kt # 记录实体
+│   │   ├── model/                # 团队同步 DTO（请求/响应/异常）
 │   │   ├── OvertimeModels.kt     # 记录/设置/结果模型 + 请假类型（LeaveType）
 │   │   └── SettingsManager.kt    # 设置管理
 │   ├── dialog/                   # 对话框组件
@@ -96,6 +104,7 @@ app/
 │   │   ├── AutoSyncManager.kt    # 自动同步调度（WorkManager）
 │   │   ├── AutoSyncWorker.kt     # 自动同步 Worker
 │   │   ├── BiometricManager.kt   # 生物识别管理
+│   │   ├── CloudBackupResolver.kt # 云端备份解析（明文/信封/旧密文）与快照缓存
 │   │   ├── ConflictStrategy.kt   # 同步冲突策略
 │   │   ├── Constants.kt          # 常量定义
 │   │   ├── CsvExporter.kt        # CSV 导出
@@ -115,7 +124,12 @@ app/
 │   │   ├── SalaryCalculator.kt   # 工资计算
 │   │   ├── SecurePreferencesManager.kt # 加密存储
 │   │   ├── SyncDirection.kt      # 同步方向与预置策略
-│   │   ├── SyncManager.kt        # 同步管理
+│   │   ├── SyncGate.kt           # 团队同步与 WebDAV 同步互斥闸门
+│   │   ├── SyncKeyManager.kt     # 同步密钥材料（DEK/信封封装/恢复码找回/加密引导）
+│   │   ├── SyncManager.kt        # WebDAV 同步编排（上传/下载/双向合并）
+│   │   ├── SyncModels.kt         # 同步结果枚举与报告模型
+│   │   ├── TeamApiClient.kt      # 团队服务端 HTTP 客户端
+│   │   ├── TeamSyncManager.kt    # 团队同步管理（全量 NEWER_WINS）
 │   │   ├── ThemeManager.kt       # 主题管理
 │   │   ├── UpdateManager.kt      # 软件自动更新
 │   │   └── WebDAVManager.kt      # WebDAV 客户端
@@ -123,6 +137,9 @@ app/
 │   │   └── CalendarView.kt       # 日历视图
 │   ├── viewmodel/                # ViewModel 层
 │   │   └── AttendanceViewModel.kt # 考勤数据 ViewModel
+│   ├── ui/                       # 团队同步界面
+│   │   ├── LoginActivity.kt      # 团队登录
+│   │   └── TeamSummaryActivity.kt # 管理员按人按月汇总
 │   ├── LauncherActivity.kt       # 中转启动页（唯一 exported 入口）
 │   ├── MainActivity.kt           # 主界面
 │   ├── SettingsActivity.kt       # 设置界面
@@ -139,6 +156,9 @@ app/
     ├── anim/                     # 动画资源
     └── xml/                      # 配置文件
 ```
+
+server/                           # 团队服务端（Ktor 3 + SQLite + JWT，独立 Gradle 构建，见 server/README.md）
+pc-monitor/                       # PC 端监控读取器（Python，本地解密 WebDAV 备份）
 
 ## 快速开始
 
@@ -243,6 +263,24 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 - **并发保护** - 全局互斥锁，手动与自动同步不会互相覆盖
 - **覆盖保护** - 下载/解密失败时中止上传，避免本地数据覆盖式冲掉云端备份
 - **失败重试** - WebDAV 上传/下载遇到 408/429/502/503/504 自动退避重试
+- **互斥保护** - 团队同步与 WebDAV 同步共用 `SyncGate` 闸门，二者不会并发写同一个数据库
+
+### 团队同步（私有服务端）
+
+面向小团队的多人同步方案（方案 B）：App 登录自建服务端，全量同步 + NEWER_WINS 冲突合并（与本地 `RecordMerge` 语义一致）。
+
+- **登录** - 用户名 + 密码换 JWT（30 天有效），设置页可修改密码、退出登录
+- **数据边界** - 只上云加班/请假工时记录（加班费由客户端算好后随记录上传）；薪资、倍率、WebDAV 配置等敏感设置仅存本地
+- **管理员** - 建号（密码仅建号时返回一次）、重置成员密码、停用/启用账号、按人按月汇总（加班/请假时长与次数，不含工资）
+- **部署** - 单文件 fat jar + systemd，详见 [server/README.md](server/README.md)（含 HTTPS 反代与每日备份策略）
+- **互斥** - 与 WebDAV 同步通过 SyncGate 串行，避免并发写库
+
+### PC 端监控（方案 A：WebDAV + PC 读取器）
+
+`pc-monitor/overtime_monitor.py`：用与 App 相同的 WebDAV 凭据拉取云端备份，完全兼容三种云端格式并**本地解密**，浏览器仪表盘展示加班统计（每 60 秒自动刷新）。
+
+- 仪表盘仅绑定 `127.0.0.1`，不向局域网暴露数据；凭据仅发给同注册域主机，拒绝 https→http 降级
+- 使用方式详见脚本头部注释（`python overtime_monitor.py`，支持 `--selftest` / `--port` / `--no-browser`）
 
 ### 同步加密与恢复码（信封加密）
 
@@ -250,7 +288,7 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 
 - **双钥匙结构** - 每次备份由随机生成的 256 位数据密钥（DEK）做 AES-256-GCM 加密；DEK 分别被「同步密码」和「随机恢复码」两份独立秘密包裹（PBKDF2-HmacSHA256 60 万次派生），任一把钥匙都能解开备份
 - **恢复码** - 开启加密时生成 80 位熵的 Crockford Base32 恢复码（`XXXX-XXXX-XXXX-XXXX`），仅在本机展示一次，请离线抄写保存；输入容错（忽略大小写、连字符、空格，自动纠正 O/0、I/L/1）
-- **遗忘密码找回** - 设置页「用恢复码找回」输入恢复码即可重置同步密码并恢复云端数据，无需卸载重装
+- **遗忘密码找回** - 设置页「用恢复码找回」输入恢复码即可重置同步密码并恢复云端数据，无需卸载重装；找回后立即自动同步——云端密码槽仍由旧密码包裹期间，同步以本地已接入的 DEK 读取云端，上传时自动用新密码重建信封（云端自愈）
 - **生物识别查看** - 设置页可经指纹/面容验证后查看当前同步密码与恢复码
 - **重装/换机安全** - 在新设备开启加密时先探测云端：云端已有加密备份则接入原 DEK 与恢复槽（**原恢复码持续有效，不会另起密钥谱系**），确认云端无备份才生成新恢复码
 - **谱系不变量** - 更换密码、换新设备都只重包密码槽，恢复槽原样复用；只有主动「更换恢复码」才会作废旧码
@@ -276,6 +314,10 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 | 考勤设置 | 工作时间 | 上下班时间 |
 | 外观设置 | 主题模式 | 跟随系统 / 浅色 / 深色 |
 | 生物识别 | 启动时验证身份 | 指纹/面容解锁保护 |
+| 团队同步 | 登录服务端 | 用户名密码登录团队服务（JWT） |
+| 团队同步 | 立即同步 | 与服务端全量同步（NEWER_WINS） |
+| 团队同步 | 修改密码 | 修改团队账号密码 |
+| 团队同步 | 成员汇总 | 管理员查看按人按月加班/请假汇总 |
 | 软件更新 | 检查更新 | 手动检查并安装新版本 |
 | 自动同步 | 同步开关 | 启用/停用后台自动同步 |
 | 自动同步 | 同步间隔 | 15 分钟 ~ 24 小时可选 |
@@ -316,10 +358,20 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 4. **编辑记录**: 点击列表项编辑已有的考勤记录
 5. **数据导出**: 报表页面可导出 PDF/CSV 报告
 6. **云端同步**: 配置 WebDAV 后可自动同步数据
-7. **同步加密（建议开启）**: 在设置中开启同步加密并设置密码后，务必在弹窗中抄写并离线保存恢复码——它是忘记同步密码时恢复数据的唯一途径；更换手机/重装应用时使用原密码接入即可，原恢复码继续有效
+7. **团队同步（可选）**: 按 [server/README.md](server/README.md) 部署私有服务端后，在设置页登录团队账号即可多人/多端同步，管理员可在设置页查看成员汇总
+8. **同步加密（建议开启）**: 在设置中开启同步加密并设置密码后，务必在弹窗中抄写并离线保存恢复码——它是忘记同步密码时恢复数据的唯一途径；更换手机/重装应用时使用原密码接入即可，原恢复码继续有效
 
 ## 更新日志
 
+
+### v0.1.12（2026-10-21）
+- 👥 **团队同步（方案 B）**：新增私有团队服务端（`server/`，Ktor 3 + SQLite WAL + JWT Bearer，HTTPS 反代部署），App 支持登录、全量同步（NEWER_WINS，与本地合并语义一致）、修改密码；管理员可建号、重置密码、停用账号、按人按月汇总。薪资/倍率/WebDAV 配置不上云，加班费由客户端算好后随记录上传
+- 🖥️ **PC 端监控（方案 A）**：新增 `pc-monitor/` Python 读取器，用同一套 WebDAV 凭据拉取备份并本地解密（三种云端格式逐字节对齐），浏览器仪表盘展示加班统计，仅绑定 127.0.0.1
+- 🔒 **同步互斥闸门（SyncGate）**：团队同步与 WebDAV 同步共用外层互斥锁，避免并发写同一个数据库
+- 🐛 **修复恢复码找回后同步永久死锁**：找回只重置本地材料，云端信封密码槽仍由旧密码包裹，后续同步恒报 ENCRYPTION_MISMATCH 且上传被覆盖保护门禁挡住。现找回时用新密码本地重包密码槽；云端解析增加本地 DEK 兜底（仅已配置密码时生效，且不与未经密码验证的云端槽配对缓存）；上传自动重建信封实现云端自愈——旧版本已中招的设备升级后同步一次即恢复
+- 🔧 **SyncManager 拆分**：853 行拆为 SyncModels（结果模型）/ CloudBackupResolver（云端格式解析与快照缓存）/ SyncKeyManager（密钥材料、恢复码找回、加密引导）+ 瘦身后的同步编排器（438 行），公开 API 与行为不变；顺手移除无调用方的 testConnection()
+- 🧹 **死代码清理**：删除无引用的 SplashActivity、ReminderManager/ReminderReceiver、ChartHelper、InputValidator、PermissionManager、EditAttendanceDialog 及 10 个孤儿资源/字符串（约 1800 行）
+- ✅ 新增信封加密"本地 DEK 兜底开信封"单元测试；全部既有单测通过
 
 ### v0.1.11（2026-10-03）
 - 🔑 **同步加密升级为信封加密 + 恢复码兜底**：云端备份改用随机 256 位 DEK 加密（AES-256-GCM），DEK 分别被同步密码与 80 位熵随机恢复码（`XXXX-XXXX-XXXX-XXXX` Crockford Base32）包裹，任一钥匙均可解密；忘记同步密码时可在设置页凭恢复码重置，不再"忘密码即丢数据"
@@ -415,10 +467,14 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 - 📡 增强网络工具（超时处理、重试机制）
 - 🎨 UI/UX 优化
 
-### v0.1.0
-- 优化加班计算逻辑
+
+### v0.1.1
+- 初版软件编译完成
 - 新增增量同步模式
 - 修复若干已知问题
+
+### v0.1.0
+- 优化加班计算逻辑
 
 ## 许可证
 

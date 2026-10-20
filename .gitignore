@@ -22,3 +22,5 @@ local.properties
 debug.log
 # 本机构建号文件：assemble 会自动递增 BUILD_NUMBER，入库会导致 git 树常脏；版本以 CI tag 为准
 /app/version.properties
+# PC 端监控：本地配置含 WebDAV 明文凭据，绝不要提交
+/pc-monitor/config.json

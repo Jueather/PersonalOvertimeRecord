@@ -55,6 +55,17 @@
                 android:contentDescription="统计报表" />
 
             <ImageButton
+                android:id="@+id/btnTeamSummary"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="end|center_vertical"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_team_summary"
+                app:tint="@color/white"
+                android:visibility="gone"
+                android:contentDescription="@string/team_admin_summary" />
+
+            <ImageButton
                 android:id="@+id/btnSettings"
                 android:layout_width="48dp"
                 android:layout_height="48dp"

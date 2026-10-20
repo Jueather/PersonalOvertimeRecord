@@ -38,6 +38,7 @@ import com.example.personalovertimerecord.utils.SyncOptions
 import com.example.personalovertimerecord.utils.SyncPresets
 import com.example.personalovertimerecord.utils.WebDAVManager
 import com.example.personalovertimerecord.utils.SyncResult
+import com.example.personalovertimerecord.ui.TeamSummaryActivity
 import com.example.personalovertimerecord.utils.UpdateManager
 import com.example.personalovertimerecord.view.CalendarView
 import com.example.personalovertimerecord.viewmodel.AttendanceViewModel
@@ -107,7 +108,11 @@ class MainActivity : AppCompatActivity() {
             return
         }
         syncManager = SyncManager(this, settingsManager, database)
-        
+
+        // 团队管理员才显示全员汇总入口（普通成员隐藏）
+        binding.btnTeamSummary.visibility =
+            if (settingsManager.getTeamAuth()?.isAdmin == true) View.VISIBLE else View.GONE
+
         requestNotificationPermissionIfNeeded()
         
         initStatusViews()
@@ -398,7 +403,13 @@ class MainActivity : AppCompatActivity() {
         binding.btnCloudSync.setOnClickListener {
             showSyncDialog()
         }
-        
+
+        binding.btnTeamSummary.setOnClickListener {
+            if (settingsManager.getTeamAuth()?.isAdmin == true) {
+                startActivity(Intent(this, TeamSummaryActivity::class.java))
+            }
+        }
+
     }
     
     private fun showSyncDialog() {

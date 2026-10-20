@@ -58,6 +58,13 @@
         <activity
             android:name=".DataManagerActivity"
             android:exported="false" />
+        <activity
+            android:name=".ui.LoginActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".ui.TeamSummaryActivity"
+            android:exported="false" />
             
         <!-- FileProvider for sharing files -->
         <provider

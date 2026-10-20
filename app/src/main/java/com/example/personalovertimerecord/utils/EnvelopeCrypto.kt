@@ -215,6 +215,28 @@ object EnvelopeCrypto {
         }
     }
 
+    /**
+     * 用已知 DEK 直接解开信封正文（不经密码/恢复码槽解包）。
+     * 用于本地已接入同谱系 DEK 的场景（恢复码找回后云端密码槽仍由旧密码包裹，新密码
+     * 开不了信封属预期）；DEK 与正文不匹配（GCM 认证失败）或格式损坏返回 null。
+     */
+    internal fun openBytesWithDek(blob: ByteArray, dek: ByteArray): OpenedEnvelope? {
+        return try {
+            val env = parseBlob(blob)
+            val plaintext = runCatching { decryptPayload(dek, env.payloadIv, env.payload) }.getOrNull()
+                ?: return null
+            OpenedEnvelope(plaintext, dek, env.pwdSlot, env.recSlot)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /** 用已知 DEK 直接解开线路信封（见 [openBytesWithDek]） */
+    internal fun openWithDek(wire: String, dek: ByteArray): OpenedEnvelope? =
+        runCatching {
+            openBytesWithDek(Base64.decode(wire.removePrefix(WIRE_PREFIX), Base64.DEFAULT), dek)
+        }.getOrNull()
+
     /** 用同步密码一次解开线路信封（见 [openBytesWithPassword]） */
     fun openWithPassword(wire: String, password: String): OpenedEnvelope? =
         runCatching {

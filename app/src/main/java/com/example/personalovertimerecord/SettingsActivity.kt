@@ -24,6 +24,7 @@ import com.example.personalovertimerecord.utils.AppLogger
 import com.example.personalovertimerecord.utils.AutoSyncManager
 import com.example.personalovertimerecord.utils.BiometricManager
 import com.example.personalovertimerecord.utils.EnvelopeCrypto
+import com.example.personalovertimerecord.utils.KeyBootstrapResult
 import com.example.personalovertimerecord.utils.NetworkUtils
 import com.example.personalovertimerecord.utils.RecoveryCodeManager
 import com.example.personalovertimerecord.utils.SyncManager
@@ -73,7 +74,165 @@ class SettingsActivity : AppCompatActivity() {
         setupButtons()
         setupShiftGroup()
         setupUpdate()
+        setupTeamSync()
         setupScrollToFocusedView()
+    }
+
+    /** 团队同步（方案 B）：登录态展示、立即同步、修改密码、退出登录、管理员汇总入口 */
+    private fun setupTeamSync() {
+        binding.btnTeamLogin.setOnClickListener {
+            com.example.personalovertimerecord.ui.LoginActivity.start(
+                this,
+                settingsManager.getTeamAuth()?.serverUrl
+            )
+        }
+
+        binding.btnTeamSync.setOnClickListener {
+            lifecycleScope.launch {
+                binding.btnTeamSync.isEnabled = false
+                binding.btnTeamSync.text = "同步中..."
+                try {
+                    val report = withContext(Dispatchers.IO) { teamSyncManager().performSync() }
+                    val message = when (report.result) {
+                        com.example.personalovertimerecord.utils.TeamSyncManager.TeamSyncResult.SUCCESS ->
+                            getString(
+                                R.string.team_sync_success,
+                                report.cloudRecordCount,
+                                report.localRecordCount,
+                                report.changedCount
+                            )
+                        com.example.personalovertimerecord.utils.TeamSyncManager.TeamSyncResult.NO_AUTH ->
+                            getString(R.string.team_not_logged_in)
+                        com.example.personalovertimerecord.utils.TeamSyncManager.TeamSyncResult.NO_NETWORK ->
+                            getString(R.string.team_error_network)
+                        com.example.personalovertimerecord.utils.TeamSyncManager.TeamSyncResult.FAILED ->
+                            getString(
+                                R.string.team_sync_failed,
+                                report.message ?: getString(R.string.team_error_server)
+                            )
+                    }
+                    Toast.makeText(this@SettingsActivity, message, Toast.LENGTH_LONG).show()
+                } finally {
+                    binding.btnTeamSync.isEnabled = true
+                    binding.btnTeamSync.text = "立即同步"
+                }
+            }
+        }
+
+        binding.btnTeamChangePassword.setOnClickListener {
+            showTeamChangePasswordDialog()
+        }
+
+        binding.btnTeamLogout.setOnClickListener {
+            if (settingsManager.getTeamAuth() == null) return@setOnClickListener
+            com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+                .setTitle("退出登录")
+                .setMessage("退出后将停止团队同步（本地数据不受影响），确定退出？")
+                .setPositiveButton(R.string.delete) { _, _ ->
+                    settingsManager.clearTeamAuth()
+                    refreshTeamStatus()
+                }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
+        }
+
+        binding.btnTeamAdminSummary.setOnClickListener {
+            startActivity(android.content.Intent(this, com.example.personalovertimerecord.ui.TeamSummaryActivity::class.java))
+        }
+
+        refreshTeamStatus()
+    }
+
+    private fun teamSyncManager(): com.example.personalovertimerecord.utils.TeamSyncManager =
+        com.example.personalovertimerecord.utils.TeamSyncManager(
+            this,
+            settingsManager,
+            AppDatabase.getDatabase(this)
+        )
+
+    private fun refreshTeamStatus() {
+        val auth = settingsManager.getTeamAuth()
+        if (auth == null) {
+            binding.tvTeamStatus.text = getString(R.string.team_not_logged_in)
+            binding.btnTeamAdminSummary.visibility = android.view.View.GONE
+            binding.btnTeamChangePassword.isEnabled = false
+            binding.btnTeamLogout.isEnabled = false
+            binding.btnTeamSync.isEnabled = false
+            return
+        }
+        val roleText = if (auth.isAdmin) getString(R.string.team_role_admin) else getString(R.string.team_role_member)
+        binding.tvTeamStatus.text = getString(
+            R.string.team_logged_in_as,
+            auth.displayName.ifBlank { auth.username },
+            roleText
+        )
+        binding.btnTeamChangePassword.isEnabled = true
+        binding.btnTeamLogout.isEnabled = true
+        binding.btnTeamSync.isEnabled = true
+        binding.btnTeamAdminSummary.visibility =
+            if (auth.isAdmin) android.view.View.VISIBLE else android.view.View.GONE
+    }
+
+    /** 修改团队密码对话框：原密码 + 新密码（至少 6 位） */
+    private fun showTeamChangePasswordDialog() {
+        val auth = settingsManager.getTeamAuth() ?: return
+        val context = this
+        val oldInput = com.google.android.material.textfield.TextInputEditText(context).apply {
+            hint = getString(R.string.team_old_password)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        val newInput = com.google.android.material.textfield.TextInputEditText(context).apply {
+            hint = getString(R.string.team_new_password)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        val container = android.widget.LinearLayout(context).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            val pad = (16 * resources.displayMetrics.density).toInt()
+            setPadding(pad, pad / 2, pad, 0)
+            addView(
+                com.google.android.material.textfield.TextInputLayout(context).apply { addView(oldInput) },
+                android.widget.LinearLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+            )
+            addView(
+                com.google.android.material.textfield.TextInputLayout(context).apply { addView(newInput) },
+                android.widget.LinearLayout.LayoutParams(
+                    android.view.ViewGroup.LayoutParams.MATCH_PARENT,
+                    android.view.ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply { topMargin = pad / 2 }
+            )
+        }
+
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.team_change_password)
+            .setView(container)
+            .setPositiveButton(R.string.save) { _, _ ->
+                val oldPwd = oldInput.text?.toString().orEmpty()
+                val newPwd = newInput.text?.toString().orEmpty()
+                if (oldPwd.isBlank() || newPwd.length < 6) {
+                    Toast.makeText(context, "新密码至少 6 位", Toast.LENGTH_SHORT).show()
+                    return@setPositiveButton
+                }
+                lifecycleScope.launch {
+                    try {
+                        withContext(Dispatchers.IO) {
+                            com.example.personalovertimerecord.utils.TeamApiClient(auth.serverUrl, auth.token)
+                                .changePassword(oldPwd, newPwd)
+                        }
+                        Toast.makeText(context, getString(R.string.team_password_changed), Toast.LENGTH_SHORT).show()
+                    } catch (e: com.example.personalovertimerecord.data.model.TeamApiException) {
+                        Toast.makeText(
+                            context,
+                            getString(R.string.team_sync_failed, com.example.personalovertimerecord.utils.TeamErrors.message(e)),
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
     }
     
     private fun setupUpdate() {
@@ -360,13 +519,13 @@ class SettingsActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 AppLogger.e("探测云端密钥材料异常", e)
-                SyncManager.KeyBootstrapResult.Unavailable
+                KeyBootstrapResult.Unavailable
             }
             runCatching { progress.dismiss() }
             if (isFinishing) return@launch
 
             when (result) {
-                is SyncManager.KeyBootstrapResult.Adopted -> {
+                is KeyBootstrapResult.Adopted -> {
                     updateSyncPasswordVisibility()
                     AlertDialog.Builder(this@SettingsActivity)
                         .setTitle("已接入现有加密备份")
@@ -380,7 +539,7 @@ class SettingsActivity : AppCompatActivity() {
                         .show()
                 }
 
-                is SyncManager.KeyBootstrapResult.Generated -> {
+                is KeyBootstrapResult.Generated -> {
                     updateSyncPasswordVisibility()
                     showRecoveryCodeDialog(result.recoveryCode) {
                         settingsManager.setRecoveryCodePending(false)
@@ -389,7 +548,7 @@ class SettingsActivity : AppCompatActivity() {
                     }
                 }
 
-                is SyncManager.KeyBootstrapResult.WrongPassword -> {
+                is KeyBootstrapResult.WrongPassword -> {
                     // 留在当前页让用户立即修正密码；材料未生成，任何同步都会因密码不匹配而中止，不会覆盖云端
                     AlertDialog.Builder(this@SettingsActivity)
                         .setTitle("同步密码不匹配")

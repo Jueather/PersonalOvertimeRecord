@@ -1,0 +1,48 @@
+package com.example.overtimeserver.db
+
+import java.sql.Connection
+
+object Schema {
+
+    fun createTables(conn: Connection) {
+        conn.createStatement().use { st ->
+            st.execute(
+                """
+                CREATE TABLE IF NOT EXISTS users (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  username TEXT NOT NULL UNIQUE COLLATE NOCASE,
+                  password_hash TEXT NOT NULL,
+                  display_name TEXT NOT NULL DEFAULT '',
+                  role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('admin','member')),
+                  created_at INTEGER NOT NULL,
+                  is_active INTEGER NOT NULL DEFAULT 1
+                )
+                """.trimIndent()
+            )
+            st.execute(
+                """
+                CREATE TABLE IF NOT EXISTS records (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                  date TEXT NOT NULL,
+                  check_in_time TEXT, check_out_time TEXT,
+                  check_in_timestamp INTEGER, check_out_timestamp INTEGER,
+                  note TEXT,
+                  manual_overtime_hours REAL NOT NULL DEFAULT -1.0,
+                  manual_extra_hours REAL NOT NULL DEFAULT -1.0,
+                  overtime_hours REAL,
+                  created_at INTEGER NOT NULL, modified_at INTEGER NOT NULL,
+                  is_leave INTEGER NOT NULL DEFAULT 0,
+                  leave_type TEXT, leave_hours REAL NOT NULL DEFAULT 0.0,
+                  custom_rate REAL,
+                  is_deleted INTEGER NOT NULL DEFAULT 0,
+                  last_modified_by TEXT NOT NULL DEFAULT '',
+                  synced_at INTEGER NOT NULL,
+                  UNIQUE (user_id, date)
+                )
+                """.trimIndent()
+            )
+            st.execute("CREATE INDEX IF NOT EXISTS idx_records_user_deleted ON records(user_id, is_deleted)")
+        }
+    }
+}

@@ -166,6 +166,24 @@ class EnvelopeCryptoTest {
         assertArrayEquals(blob1.copyOfRange(0, 157), blob2.copyOfRange(0, 157))
     }
 
+    /** 恢复码找回后的同步兜底：云端密码槽仍由旧密码包裹时，本地接入的 DEK 可直接开正文 */
+    @Test
+    fun openBytesWithDek_opensWithLocalDekWhenPasswordSlotStale() {
+        val oldBlob = buildBlob()
+        val newPassword = "New-Sync-Pass-1"
+        // 新密码解不开旧信封（找回后死锁场景的前提：云端密码槽仍由被遗忘的旧密码包裹）
+        assertNull(EnvelopeCrypto.decryptBytesWithPassword(oldBlob, newPassword))
+        // 找回：恢复码解出 DEK（本地材料），不经密码槽直接开正文
+        val (dek, _) = EnvelopeCrypto.extractFromBytesWithRecoveryCode(oldBlob, recoveryCode)!!
+        val opened = EnvelopeCrypto.openBytesWithDek(oldBlob, dek)
+        assertNotNull(opened)
+        assertArrayEquals(plaintext, opened!!.plaintext)
+        // 错误的 DEK（不同谱系）必须认证失败返回 null
+        assertNull(EnvelopeCrypto.openBytesWithDek(oldBlob, EnvelopeCrypto.generateDek()))
+        // 损坏信封必须返回 null
+        assertNull(EnvelopeCrypto.openBytesWithDek(ByteArray(10), dek))
+    }
+
     private fun recSlotFor(dek: ByteArray): EnvelopeCrypto.WrappedSlot =
         EnvelopeCrypto.wrapDek(dek, RecoveryCodeManager.normalize(recoveryCode))
 }
