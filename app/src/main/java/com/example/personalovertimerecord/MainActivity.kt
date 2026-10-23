@@ -21,6 +21,7 @@ import com.example.personalovertimerecord.adapter.AttendanceAdapter
 import com.example.personalovertimerecord.data.OvertimeRecord
 import com.example.personalovertimerecord.data.OvertimeSettings
 import com.example.personalovertimerecord.data.SettingsManager
+import com.example.personalovertimerecord.data.ShiftType
 import com.example.personalovertimerecord.data.db.AppDatabase
 import com.example.personalovertimerecord.databinding.ActivityMainBinding
 import com.example.personalovertimerecord.dialog.AddOvertimeDialog
@@ -75,6 +76,8 @@ class MainActivity : AppCompatActivity() {
     
     private var timeUpdateJob: kotlinx.coroutines.Job? = null
     private var startupCheckJob: kotlinx.coroutines.Job? = null
+    private var syncDebugHideJob: kotlinx.coroutines.Job? = null
+    private val syncDebugLines = mutableListOf<String>()
     private val handler = Handler()
 
     // Android 13+ 通知权限请求（自动同步失败通知需要）
@@ -120,6 +123,7 @@ class MainActivity : AppCompatActivity() {
         setupRecyclerView()
         setupButtons()
         observeViewModel()
+        observeSyncProgress()
         updateCurrentTime()
         updateCurrentDate()
         updateCalendarData()
@@ -440,18 +444,13 @@ class MainActivity : AppCompatActivity() {
         direction: SyncDirection,
         options: SyncOptions = SyncOptions()
     ) {
-        val progressDialog = AlertDialog.Builder(this)
-            .setTitle("正在同步...")
-            .setMessage("请稍候...")
-            .setCancelable(false)
-            .create()
-        progressDialog.show()
-        
+        // 用顶部半透明调试面板替代模态进度框：不阻塞界面，实时展示同步各阶段
+        syncDebugLines.clear()
+        appendSyncDebugLine("开始同步…")
+
         lifecycleScope.launch {
             val report = syncManager.performSync(direction, options)
-            
-            progressDialog.dismiss()
-            
+
             val baseMessage = when (report.result) {
                 SyncResult.SUCCESS -> "同步成功！"
                 SyncResult.NO_CONFIG -> "请先在设置中配置 WebDAV"
@@ -471,11 +470,12 @@ class MainActivity : AppCompatActivity() {
                 baseMessage
             }
             
-            Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+            // 结果完整显示在顶部调试面板（不再弹结果框），2 秒后自动隐藏，点击面板可立即隐藏
+            showSyncResult(message)
 
             // 旧加密数据首次迁移为信封格式时，新恢复码已生成，必须醒目提醒用户离线保存
             if (report.recoveryCodeGenerated) {
-                androidx.appcompat.app.AlertDialog.Builder(this@MainActivity)
+                AlertDialog.Builder(this@MainActivity)
                     .setTitle("请立即保存恢复码")
                     .setMessage(
                         "你的云端备份已升级为恢复码兜底加密。恢复码是忘记同步密码后找回数据的唯一方式，" +
@@ -490,7 +490,62 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
-    
+
+    /**
+     * 收集同步进度播报：同步期间实时追加到顶部半透明调试面板，
+     * 收到 null（同步结束）时延时自动隐藏。手动/自动同步共用同一播报源。
+     */
+    private fun observeSyncProgress() {
+        // 点击调试面板可手动隐藏
+        binding.syncDebugPanel.setOnClickListener { hideSyncDebugNow() }
+        lifecycleScope.launch {
+            SyncManager.progressFlow.collect { msg ->
+                if (msg != null) {
+                    appendSyncDebugLine(msg)
+                } else if (binding.syncDebugPanel.visibility == View.VISIBLE) {
+                    scheduleSyncDebugHide()
+                }
+            }
+        }
+    }
+
+    /** 顶部调试面板追加一行进度并显示进度条，最多保留最近 4 行（与布局 maxLines 一致） */
+    private fun appendSyncDebugLine(msg: String) {
+        syncDebugHideJob?.cancel()
+        syncDebugLines.add(msg)
+        while (syncDebugLines.size > 4) syncDebugLines.removeAt(0)
+        binding.tvSyncDebug.text = syncDebugLines.joinToString("\n")
+        binding.syncDebugProgress.visibility = View.VISIBLE
+        binding.syncDebugPanel.visibility = View.VISIBLE
+    }
+
+    /** 同步完成：停掉进度条，仅保留最终结果消息，2 秒后自动隐藏 */
+    private fun showSyncResult(msg: String) {
+        syncDebugHideJob?.cancel()
+        syncDebugLines.clear()
+        syncDebugLines.add(msg)
+        binding.tvSyncDebug.text = msg
+        binding.syncDebugProgress.visibility = View.GONE
+        binding.syncDebugPanel.visibility = View.VISIBLE
+        scheduleSyncDebugHide()
+    }
+
+    /** 同步结束后延时 2 秒隐藏调试面板 */
+    private fun scheduleSyncDebugHide() {
+        syncDebugHideJob?.cancel()
+        syncDebugHideJob = lifecycleScope.launch {
+            delay(2000)
+            hideSyncDebugNow()
+        }
+    }
+
+    /** 立即隐藏调试面板（手动点击或延时到期） */
+    private fun hideSyncDebugNow() {
+        syncDebugHideJob?.cancel()
+        binding.syncDebugPanel.visibility = View.GONE
+        syncDebugLines.clear()
+    }
+
     private fun observeViewModel() {
         viewModel.allAttendance.observe(this) { attendanceList ->
             // 只过滤一次，供记录列表/空状态/本月统计复用，避免对每条记录重复解析日期
@@ -522,18 +577,36 @@ class MainActivity : AppCompatActivity() {
     private fun updateMonthlyStats(monthRecords: List<OvertimeRecord>) {
         var totalHours = 0.0
         var totalOvertimePay = 0.0
-        
+        var dayShiftHours = 0.0
+        var nightShiftHours = 0.0
+
         monthRecords.forEach { attendance ->
             val result = OvertimeCalculator.calculateOvertime(attendance, currentSettings)
-            totalHours += result.overtimeHours + result.extraHours
+            val hours = result.overtimeHours + result.extraHours
+            totalHours += hours
             totalOvertimePay += result.estimatedPay
+            // 按班次拆分时长（工资计算口径不变，仅展示用）
+            if (attendance.shiftType == ShiftType.NIGHT.name) {
+                nightShiftHours += hours
+            } else {
+                dayShiftHours += hours
+            }
         }
-        
+
         val performanceBonus = currentSettings.baseSalary * (currentSettings.performancePercent / 100.0)
         val totalPay = currentSettings.baseSalary + performanceBonus + totalOvertimePay
-        
+
         binding.tvTotalOvertime.text = Formatter.formatHours(totalHours)
         binding.tvTotalPay.text = Formatter.formatMoney(totalPay)
+
+        // 仅当月存在夜班记录时展示班次拆分，避免默认白班场景的噪音
+        if (nightShiftHours > 0) {
+            binding.tvShiftBreakdown.text =
+                "白班 ${Formatter.formatHoursShort(dayShiftHours)} · 夜班 ${Formatter.formatHoursShort(nightShiftHours)}"
+            binding.tvShiftBreakdown.visibility = View.VISIBLE
+        } else {
+            binding.tvShiftBreakdown.visibility = View.GONE
+        }
     }
     
     /**

@@ -154,4 +154,15 @@ class RecordMergeTest {
         assertEquals(setOf("2026-01-01", "2026-01-02", "2026-01-03"), result.map { it.date }.toSet())
         assertEquals("cloud-newer", result.first { it.date == "2026-01-01" }.note)
     }
+
+    // ---------- 班次字段透传 ----------
+
+    @Test
+    fun shiftType_survivesMerge() {
+        // NEWER_WINS 取云端时，班次标记必须随记录整体保留
+        val local = rec("2026-01-01", modifiedAt = 100).copy(shiftType = "DAY")
+        val cloud = rec("2026-01-01", modifiedAt = 200, note = "cloud").copy(shiftType = "NIGHT")
+        val result = mergeAttendanceBackups(listOf(local), listOf(cloud), ConflictStrategy.NEWER_WINS)
+        assertEquals("NIGHT", result.single().shiftType)
+    }
 }

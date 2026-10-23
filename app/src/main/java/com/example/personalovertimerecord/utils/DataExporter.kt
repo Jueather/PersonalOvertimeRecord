@@ -5,7 +5,9 @@ import android.net.Uri
 import android.os.Build
 import androidx.room.withTransaction
 import com.example.personalovertimerecord.data.OvertimeSettings
+import com.example.personalovertimerecord.data.LeaveType
 import com.example.personalovertimerecord.data.SettingsManager
+import com.example.personalovertimerecord.data.ShiftType
 import com.example.personalovertimerecord.data.db.AppDatabase
 import com.example.personalovertimerecord.data.db.AttendanceEntity
 import com.google.gson.Gson
@@ -112,11 +114,98 @@ data class AttendanceEntityBackup(
     // 自定义工资倍率：null 表示未自定义（按设置默认倍率计算）。
     // 用可空类型而非 Double：Gson 反序列化旧备份缺失字段时，原始类型会得到 0.0 被误当作有效倍率
     val customRate: Double? = null,
+    // 班次标记："DAY"=白班 / "NIGHT"=夜班；null 表示旧备份缺失（恢复时兜底为 DAY）。
+    // 用可空 String 而非枚举：Gson 缺字段为 null 自动兼容旧备份，PC 端按键序复刻序列化也无需改动
+    val shiftType: String? = null,
     // 软删除标记：true 表示该日期记录已被删除，用于跨设备同步删除
     val isDeleted: Boolean = false,
     // v3：最后修改该记录的设备型号，多设备同步时可定位数据来源；旧备份缺失时为空串
     val lastModifiedBy: String = ""
 )
+
+/**
+ * 本地实体 → 备份模型的唯一共享实现（SyncManager / TeamSyncManager / DataExporter 三方共用）。
+ * 历史上三处各自维护私有 toBackup，曾导致 SyncManager 版本漏拷 customRate（WebDAV 上传丢倍率）；
+ * 收敛为一份后，新增字段只需改这里，写端字段序固定（checksum 依赖 Gson 字段声明序）。
+ * modifiedAt 缺失用 createdAt 兜底，避免老数据在 NEWER_WINS 比较中永远判旧。
+ */
+internal fun AttendanceEntity.toBackup(): AttendanceEntityBackup {
+    return AttendanceEntityBackup(
+        date = this.date,
+        checkInTime = this.checkInTime,
+        checkOutTime = this.checkOutTime,
+        checkInTimestamp = this.checkInTimestamp,
+        checkOutTimestamp = this.checkOutTimestamp,
+        note = this.note,
+        manualOvertimeHours = this.manualOvertimeHours,
+        manualExtraHours = this.manualExtraHours,
+        createdAt = this.createdAt,
+        modifiedAt = this.modifiedAt ?: this.createdAt,
+        isLeave = this.isLeave,
+        leaveType = this.leaveType,
+        leaveHours = this.leaveHours,
+        customRate = this.customRate.takeIf { it >= 0 },
+        shiftType = this.shiftType,
+        isDeleted = this.isDeleted,
+        lastModifiedBy = BackupData.currentDeviceName()
+    )
+}
+
+/**
+ * 备份记录的字段级合法性校验（纯函数，可直接单测）。
+ *
+ * 供恢复/同步路径统一调用：全量恢复遇非法记录整体中止，增量/团队同步跳过并计数。
+ * 校验项：日期格式与范围（恢复允许未来日期）、加班/加点时长（-1 哨兵或 0~24h）、
+ * 请假时长（0~744h）、自定义倍率（null 或 1.0~4.0）、请假类型可解析、打卡时间格式。
+ *
+ * 注意：shiftType 非法不在此判定——它是展示性字段，落库时由 ShiftType.fromStringOrDefault
+ * 兜底为白班，不值得为此丢整条记录。
+ *
+ * @return 错误描述列表；空列表表示记录合法
+ */
+internal fun validateBackupRecord(r: AttendanceEntityBackup): List<String> {
+    val errors = mutableListOf<String>()
+
+    // 日期：格式 + 年月日范围（恢复路径允许未来日期，不限制业务录入侧的未来拦截）
+    errors.addAll(DataValidator.validateDate(r.date, allowFuture = true).errors)
+
+    // 时长：-1 哨兵（未手工设置，由打卡计算）或 [0, 24]
+    fun validateHourField(value: Double, name: String) {
+        if (value.isNaN()) {
+            errors.add("$name 不是有效数字")
+        } else if (value != -1.0 && (value < 0.0 || value > 24.0)) {
+            errors.add("$name 超出范围（须为 -1 或 0~24 小时）：$value")
+        }
+    }
+    validateHourField(r.manualOvertimeHours, "加班时长")
+    validateHourField(r.manualExtraHours, "加点时长")
+
+    // 请假时长：0 ~ 744（31 天 × 24 小时）
+    if (r.leaveHours.isNaN() || r.leaveHours < 0.0 || r.leaveHours > 744.0) {
+        errors.add("请假时长超出范围（0~744 小时）：${r.leaveHours}")
+    }
+
+    // 自定义倍率：null（未自定义）或 [1.0, 4.0]
+    val rate = r.customRate
+    if (rate != null && (rate.isNaN() || rate < 1.0 || rate > 4.0)) {
+        errors.add("自定义倍率超出范围（1.0~4.0）：$rate")
+    }
+
+    // 请假类型：非空时必须可解析为已知枚举
+    if (r.leaveType != null && LeaveType.fromString(r.leaveType) == null) {
+        errors.add("请假类型无法识别：${r.leaveType}")
+    }
+
+    // 打卡时间格式（非空时校验）
+    r.checkInTime?.let { time ->
+        errors.addAll(DataValidator.validateTime(time).errors.map { "上班时间: $it" })
+    }
+    r.checkOutTime?.let { time ->
+        errors.addAll(DataValidator.validateTime(time).errors.map { "下班时间: $it" })
+    }
+
+    return errors
+}
 
 class DataExporter(
     private val context: Context,
@@ -266,11 +355,14 @@ class DataExporter(
     }
 
     /**
-     * 恢复前自校验：日期非空且在本文件内唯一（数据库 date 列为唯一索引）。
+     * 恢复前自校验：日期非空且在本文件内唯一（数据库 date 列为唯一索引），
+     * 且每条记录通过字段级合法性校验（validateBackupRecord）。
      * 在删除本地数据之前执行，校验失败直接抛异常，本地数据不受影响。
      */
     private fun validateForFullRestore(records: List<AttendanceEntityBackup>) {
         val seenDates = HashSet<String>(records.size)
+        var invalidCount = 0
+        var firstError: String? = null
         for (record in records) {
             if (record.date.isNullOrBlank()) {
                 throw IllegalArgumentException("备份包含缺失日期的记录，已中止恢复以保护现有数据")
@@ -278,6 +370,16 @@ class DataExporter(
             if (!seenDates.add(record.date)) {
                 throw IllegalArgumentException("备份包含重复日期：${record.date}，已中止恢复以保护现有数据")
             }
+            val errors = validateBackupRecord(record)
+            if (errors.isNotEmpty()) {
+                invalidCount++
+                if (firstError == null) firstError = "${record.date}: ${errors.first()}"
+            }
+        }
+        if (invalidCount > 0) {
+            throw IllegalArgumentException(
+                "备份包含 $invalidCount 条非法记录（首条：$firstError），已中止恢复以保护现有数据"
+            )
         }
     }
 
@@ -321,6 +423,7 @@ class DataExporter(
         var updated = 0
         var deleted = 0
         var skipped = 0
+        var invalid = 0
 
         // 获取本地现有记录（含软删除记录，避免删除标记被误判为"本地不存在"）
         val localRecords = attendanceDao.getAllRecordsIncludingDeletedSync()
@@ -330,6 +433,14 @@ class DataExporter(
             // 跳过日期缺失的记录，避免空日期写入唯一索引列
             if (record.date.isBlank()) {
                 skipped++
+                continue
+            }
+
+            // 字段级校验：非法记录跳过并计数，不阻断整体恢复（shiftType 非法不属此类，落库时兜底白班）
+            val errors = validateBackupRecord(record)
+            if (errors.isNotEmpty()) {
+                invalid++
+                AppLogger.w("增量恢复跳过非法记录 ${record.date}：${errors.joinToString()}")
                 continue
             }
 
@@ -395,6 +506,7 @@ class DataExporter(
             updated = updated,
             deleted = deleted,
             skipped = skipped,
+            invalid = invalid,
             conflicts = deleted
         )
     }
@@ -472,28 +584,8 @@ class DataExporter(
             leaveType = record.leaveType,
             leaveHours = record.leaveHours,
             customRate = record.customRate?.takeIf { it >= 0 } ?: -1.0,
+            shiftType = ShiftType.fromStringOrDefault(record.shiftType).name,
             isDeleted = isDeleted
-        )
-    }
-
-    private fun AttendanceEntity.toBackup(): AttendanceEntityBackup {
-        return AttendanceEntityBackup(
-            date = this.date,
-            checkInTime = this.checkInTime,
-            checkOutTime = this.checkOutTime,
-            checkInTimestamp = this.checkInTimestamp,
-            checkOutTimestamp = this.checkOutTimestamp,
-            note = this.note,
-            manualOvertimeHours = this.manualOvertimeHours,
-            manualExtraHours = this.manualExtraHours,
-            createdAt = this.createdAt,
-            modifiedAt = this.modifiedAt ?: this.createdAt,
-            isLeave = this.isLeave,
-            leaveType = this.leaveType,
-            leaveHours = this.leaveHours,
-            customRate = this.customRate.takeIf { it >= 0 },
-            isDeleted = this.isDeleted,
-            lastModifiedBy = BackupData.currentDeviceName()
         )
     }
 
@@ -531,6 +623,8 @@ data class SyncSummary(
     val updated: Int,
     val deleted: Int = 0,
     val skipped: Int,
+    /** 字段级校验不通过被跳过的记录数（非法记录不落库，详见 validateBackupRecord） */
+    val invalid: Int = 0,
     val conflicts: Int
 ) {
     fun toDisplayString(): String {
@@ -539,6 +633,7 @@ data class SyncSummary(
         if (updated > 0) parts.add("更新 $updated 条")
         if (deleted > 0) parts.add("删除 $deleted 条")
         if (skipped > 0) parts.add("跳过 $skipped 条")
+        if (invalid > 0) parts.add("非法跳过 $invalid 条")
         return parts.joinToString("，")
     }
 }

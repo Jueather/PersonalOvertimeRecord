@@ -2,7 +2,7 @@
 
 一个功能丰富、稳定可靠的Android应用，用于记录个人的加班信息和计算加班工资。
 
-![Version](https://img.shields.io/badge/version-0.1.12-blue)
+![Version](https://img.shields.io/badge/version-0.2.0-blue)
 ![Min SDK](https://img.shields.io/badge/minSdk-24-green)
 ![Target SDK](https://img.shields.io/badge/targetSdk-36-orange)
 
@@ -18,6 +18,7 @@
 - 📊 **堆叠柱状图** - 月度时长柱状图用不同颜色区分"加班"与"加点"
 - 🎯 **智能区分** - 工作日、周末、节假日加班倍率自动识别（含调休补班日）
 - 🏖️ **请假/早退登记** - 支持 10 种请假类型（年假、病假、事假、婚假、产假等）按天登记，与加班记录同表管理
+- 🌗 **白班/夜班标记** - 录入时切换班次（默认白班），列表夜班角标，本月统计按班次拆分
 
 ### 数据管理
 - 📤 **数据导出** - 支持导出为 PDF 精美报告、CSV/JSON 格式
@@ -34,6 +35,9 @@
 - 🌙 **深色模式** - 支持跟随系统/浅色/深色三种主题
 - ✨ **流畅动画** - 精心设计的过渡动画效果
 - 🔐 **生物识别保护** - 通过中转启动页拦截外部启动，主界面不可被外部应用直接拉起
+- 📡 **同步进度面板** - 顶部半透明调试面板实时展示同步进程，结束后结果保留 2 秒自动隐藏，可点击面板手动关闭
+- 📜 **应用内修改日志** - 设置页离线查看各版本更新内容
+- 🙈 **敏感字段脱敏** - WebDAV 服务器地址/用户名默认掩码显示，聚焦编辑时恢复明文；密码支持长按眼睛图标临时查看
 
 ### 安全与稳定
 - 🔒 **数据加密** - SQLCipher 数据库加密，主密钥由 Android Keystore 保护（不再明文存储）
@@ -123,6 +127,7 @@ app/
 │   │   ├── RecoveryCodeManager.kt # 同步恢复码生成/校验（Crockford Base32）
 │   │   ├── SalaryCalculator.kt   # 工资计算
 │   │   ├── SecurePreferencesManager.kt # 加密存储
+│   │   ├── SensitiveTextField.kt # 敏感字段脱敏（WebDAV 地址/用户名/密码掩码）
 │   │   ├── SyncDirection.kt      # 同步方向与预置策略
 │   │   ├── SyncGate.kt           # 团队同步与 WebDAV 同步互斥闸门
 │   │   ├── SyncKeyManager.kt     # 同步密钥材料（DEK/信封封装/恢复码找回/加密引导）
@@ -366,6 +371,15 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 
 ## 更新日志
 
+
+### v0.2.0（2026-10-24）
+- 🌗 **白班/夜班标记**：录入对话框可切换班次（默认白班），列表显示夜班角标，本月统计按班次拆分；数据库 7→8 迁移，旧行统一填 DAY，历史语义不变
+- 📜 **应用内修改日志**：设置页新增"修改日志"入口，读取 assets/changelog.md（构建期从根目录 CHANGELOG.md 拷贝），离线查看各版本更新内容
+- 🐛 **修复 WebDAV 同步上传丢失自定义倍率**：备份 JSON 写入顺序调整，`customRate` 字段随同步往返不再丢失
+- 🛡️ **统一输入校验**：录入表单与同步/恢复路径共用 `DataValidator`（非法日期/时长/倍率拦截提示）；录入表单新增未来日期拦截（同步/恢复路径放行）；同步恢复时非法记录跳过并计数
+- 📡 **同步进度面板**：移除模态"正在同步…"对话框，改为顶部半透明调试面板实时展示各阶段进度；结束后结果消息保留 2 秒自动隐藏，点击面板可立即关闭；手动/自动同步共用同一播报源（`SyncManager.progressFlow`）
+- 🙈 **敏感字段脱敏**：WebDAV 服务器地址/用户名默认掩码显示，聚焦编辑时恢复明文；密码输入框支持长按眼睛图标临时查看
+- ✅ 新增班次字段备份序列化/反序列化测试（BackupShiftFieldTest）、备份校验测试（BackupValidationTest）
 
 ### v0.1.12（2026-10-21）
 - 👥 **团队同步（方案 B）**：新增私有团队服务端（`server/`，Ktor 3 + SQLite WAL + JWT Bearer，HTTPS 反代部署），App 支持登录、全量同步（NEWER_WINS，与本地合并语义一致）、修改密码；管理员可建号、重置密码、停用账号、按人按月汇总。薪资/倍率/WebDAV 配置不上云，加班费由客户端算好后随记录上传

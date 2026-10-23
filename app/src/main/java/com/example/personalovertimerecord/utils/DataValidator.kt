@@ -31,8 +31,9 @@ object DataValidator {
 
     /**
      * 验证日期格式
+     * @param allowFuture 是否允许未来日期（同步/恢复路径传 true，录入表单默认 false）
      */
-    fun validateDate(date: String?): ValidationResult {
+    fun validateDate(date: String?, allowFuture: Boolean = false): ValidationResult {
         if (date.isNullOrBlank()) {
             return ValidationResult.Invalid(listOf("日期不能为空"))
         }
@@ -66,10 +67,12 @@ object DataValidator {
             return ValidationResult.Invalid(listOf("${year}年${month}月只有${maxDay}天"))
         }
         
-        // 检查是否在未来（允许今天）
-        val today = java.time.LocalDate.now().toString()
-        if (date > today) {
-            return ValidationResult.Invalid(listOf("日期不能是未来日期"))
+        // 检查是否在未来（允许今天）；恢复/同步路径允许未来日期
+        if (!allowFuture) {
+            val today = java.time.LocalDate.now().toString()
+            if (date > today) {
+                return ValidationResult.Invalid(listOf("日期不能是未来日期"))
+            }
         }
         
         return ValidationResult.Valid

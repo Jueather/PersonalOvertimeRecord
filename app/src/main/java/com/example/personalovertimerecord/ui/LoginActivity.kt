@@ -14,8 +14,13 @@ import com.example.personalovertimerecord.utils.AppLogger
 import com.example.personalovertimerecord.utils.NetworkUtils
 import com.example.personalovertimerecord.utils.TeamApiClient
 import com.example.personalovertimerecord.data.model.TeamApiException
+import com.example.personalovertimerecord.utils.SensitiveTextField
 import com.example.personalovertimerecord.utils.TeamErrors
+import com.example.personalovertimerecord.utils.maskMiddle
+import com.example.personalovertimerecord.utils.maskServerUrl
+import com.example.personalovertimerecord.utils.setupHoldToRevealPassword
 import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import kotlinx.coroutines.launch
 
 /**
@@ -41,6 +46,10 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var btnLogin: Button
     private lateinit var progress: ProgressBar
 
+    /** 服务器地址/用户名脱敏显示，聚焦修改时恢复明文 */
+    private lateinit var serverField: SensitiveTextField
+    private lateinit var usernameField: SensitiveTextField
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
@@ -53,17 +62,21 @@ class LoginActivity : AppCompatActivity() {
         btnLogin = findViewById(R.id.btnLogin)
         progress = findViewById(R.id.progress)
 
+        serverField = SensitiveTextField(etServerUrl, ::maskServerUrl)
+        usernameField = SensitiveTextField(etUsername, ::maskMiddle)
+        setupHoldToRevealPassword(findViewById<TextInputLayout>(R.id.tilPassword), etPassword)
+
         val prefill = intent.getStringExtra(EXTRA_SERVER_URL)
             ?: settingsManager.getTeamAuth()?.serverUrl.orEmpty()
-        if (prefill.isNotBlank()) etServerUrl.setText(prefill)
-        settingsManager.getTeamAuth()?.let { etUsername.setText(it.username) }
+        if (prefill.isNotBlank()) serverField.applySavedValue(prefill)
+        settingsManager.getTeamAuth()?.let { usernameField.applySavedValue(it.username) }
 
         btnLogin.setOnClickListener { lifecycleScope.launch { doLogin() } }
     }
 
     private suspend fun doLogin() {
-        val serverUrl = etServerUrl.text?.toString()?.trim().orEmpty()
-        val username = etUsername.text?.toString()?.trim().orEmpty()
+        val serverUrl = serverField.value().trim()
+        val username = usernameField.value().trim()
         val password = etPassword.text?.toString().orEmpty()
 
         if (serverUrl.isBlank() || !serverUrl.startsWith("http")) {

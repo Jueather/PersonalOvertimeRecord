@@ -39,6 +39,59 @@
             android:textColor="#666666"
             android:layout_marginBottom="16dp" />
 
+        <!-- 班次切换（白班/夜班）：仅作记录与统计展示，不影响工资计算 -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/shiftCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            app:cardElevation="1dp"
+            app:cardCornerRadius="8dp"
+            app:cardBackgroundColor="#E3F2FD">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="🌙 班次"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="#1976D2" />
+
+                <com.google.android.material.button.MaterialButtonToggleGroup
+                    android:id="@+id/toggleShift"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    app:singleSelection="true"
+                    app:selectionRequired="true">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnShiftDay"
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="白班" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnShiftNight"
+                        style="?attr/materialButtonOutlinedStyle"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="夜班" />
+
+                </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
         <!-- 请假选项 -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"

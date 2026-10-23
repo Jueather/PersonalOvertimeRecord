@@ -35,6 +35,7 @@ object Schema {
                   is_leave INTEGER NOT NULL DEFAULT 0,
                   leave_type TEXT, leave_hours REAL NOT NULL DEFAULT 0.0,
                   custom_rate REAL,
+                  shift_type TEXT,
                   is_deleted INTEGER NOT NULL DEFAULT 0,
                   last_modified_by TEXT NOT NULL DEFAULT '',
                   synced_at INTEGER NOT NULL,
@@ -43,6 +44,20 @@ object Schema {
                 """.trimIndent()
             )
             st.execute("CREATE INDEX IF NOT EXISTS idx_records_user_deleted ON records(user_id, is_deleted)")
+        }
+        // 老库升级：CREATE TABLE IF NOT EXISTS 不会为已存在的表补列，
+        // SQLite 的 ADD COLUMN 也没有 IF NOT EXISTS，需先用 PRAGMA table_info 判存在性
+        addColumnIfMissing(conn, "records", "shift_type", "shift_type TEXT")
+    }
+
+    private fun addColumnIfMissing(conn: Connection, table: String, column: String, ddl: String) {
+        val exists = conn.prepareStatement("PRAGMA table_info($table)").use { ps ->
+            ps.executeQuery().use { rs ->
+                generateSequence { if (rs.next()) rs.getString("name") else null }.any { it == column }
+            }
+        }
+        if (!exists) {
+            conn.createStatement().use { it.execute("ALTER TABLE $table ADD COLUMN $ddl") }
         }
     }
 }

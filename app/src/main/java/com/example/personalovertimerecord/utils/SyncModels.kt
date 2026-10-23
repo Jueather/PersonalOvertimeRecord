@@ -35,6 +35,8 @@ data class SyncReport(
     val uploadedCount: Int = 0,
     val downloadedCount: Int = 0,
     val mergedCount: Int = 0,
+    /** 下载恢复时因字段级校验不通过被跳过的记录数（详见 validateBackupRecord） */
+    val invalidCount: Int = 0,
     val syncTime: Long = System.currentTimeMillis(),
     /**
      * 本次上传是否新生成了恢复码（旧格式数据首次迁移为信封加密时为 true）。
@@ -55,6 +57,7 @@ data class SyncReport(
         if (uploadedCount > 0) parts.add("上传=$uploadedCount")
         if (downloadedCount > 0) parts.add("下载=$downloadedCount")
         if (mergedCount > 0) parts.add("合并=$mergedCount")
+        if (invalidCount > 0) parts.add("非法跳过=$invalidCount")
         return parts.joinToString("，")
     }
 }

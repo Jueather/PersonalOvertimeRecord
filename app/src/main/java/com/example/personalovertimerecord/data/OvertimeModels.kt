@@ -29,6 +29,8 @@ data class OvertimeRecord(
     // 自定义工资倍率：< 0 表示未自定义（按设置中的默认倍率 1.5/2.0/3.0 计算），
     // >= 0 表示该条记录整体按此倍率计算（在添加/编辑记录对话框中手动选择）
     val customRate: Double = -1.0,
+    // 班次标记：DAY=白班（默认）/ NIGHT=夜班；仅作记录与统计展示，不影响工资计算
+    val shiftType: String = ShiftType.DAY.name,
     // 导出/展示用归一化字段
     val dayType: String = "平时",
     val totalPay: Double = 0.0
@@ -66,6 +68,21 @@ data class OvertimeResult(
 )
 
 enum class DayType { WORKDAY, WEEKEND, HOLIDAY }
+
+/**
+ * 班次枚举：仅 UI/转换层使用做类型安全封装，序列化层用可空 String（"DAY"/"NIGHT"）。
+ * 旧备份缺失该字段时 Gson 反序列化为 null，由 fromStringOrDefault 兜底为白班。
+ */
+enum class ShiftType(val displayName: String) {
+    DAY("白班"),
+    NIGHT("夜班");
+
+    companion object {
+        /** 非法/未知值兜底为白班（默认），不阻断恢复 */
+        fun fromStringOrDefault(value: String?): ShiftType =
+            entries.find { it.name == value } ?: DAY
+    }
+}
 
 /**
  * 请假类型枚举

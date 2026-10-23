@@ -1,14 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#F0F4F8"
     android:fitsSystemWindows="true"
     tools:context=".MainActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="#F0F4F8">
 
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
@@ -241,6 +245,17 @@
                                 android:textColor="@color/white"
                                 android:layout_marginTop="4dp" />
 
+                            <!-- 班次拆分统计：仅当月存在夜班记录时显示 -->
+                            <TextView
+                                android:id="@+id/tvShiftBreakdown"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:textSize="12sp"
+                                android:textColor="@color/white"
+                                android:alpha="0.7"
+                                android:layout_marginTop="2dp"
+                                android:visibility="gone" />
+
                         </LinearLayout>
 
                         <LinearLayout
@@ -398,4 +413,37 @@
 
     </ScrollView>
 
-</LinearLayout>
+    </LinearLayout>
+
+    <!-- 同步调试信息框：半透明悬浮于界面顶端，实时显示同步进程；点击面板可手动隐藏 -->
+    <LinearLayout
+        android:id="@+id/syncDebugPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top"
+        android:orientation="vertical"
+        android:background="#B3212121"
+        android:visibility="gone"
+        android:elevation="8dp"
+        tools:visibility="visible">
+
+        <com.google.android.material.progressindicator.LinearProgressIndicator
+            android:id="@+id/syncDebugProgress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:indeterminate="true" />
+
+        <TextView
+            android:id="@+id/tvSyncDebug"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="6dp"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:maxLines="4"
+            tools:text="检查同步配置…\n测试服务器连接…" />
+
+    </LinearLayout>
+
+</FrameLayout>

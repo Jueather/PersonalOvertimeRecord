@@ -27,6 +27,7 @@ import com.example.personalovertimerecord.utils.EnvelopeCrypto
 import com.example.personalovertimerecord.utils.KeyBootstrapResult
 import com.example.personalovertimerecord.utils.NetworkUtils
 import com.example.personalovertimerecord.utils.RecoveryCodeManager
+import com.example.personalovertimerecord.utils.SensitiveTextField
 import com.example.personalovertimerecord.utils.SyncManager
 import com.example.personalovertimerecord.utils.SyncResult
 import com.example.personalovertimerecord.utils.ThemeManager
@@ -34,6 +35,9 @@ import com.example.personalovertimerecord.utils.ThemeMode
 import com.example.personalovertimerecord.utils.UpdateManager
 import com.example.personalovertimerecord.utils.WebDAVConfig
 import com.example.personalovertimerecord.utils.WebDAVManager
+import com.example.personalovertimerecord.utils.maskMiddle
+import com.example.personalovertimerecord.utils.maskServerUrl
+import com.example.personalovertimerecord.utils.setupHoldToRevealPassword
 import android.util.Base64
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -49,6 +53,14 @@ class SettingsActivity : AppCompatActivity() {
     }
     private var lastResponseCode: Int = 0
     private var isUpdatingAutoSync = false
+
+    /** WebDAV 服务器地址/用户名脱敏显示，聚焦修改时恢复明文 */
+    private val webdavServerField by lazy {
+        SensitiveTextField(binding.etWebDAVServer, ::maskServerUrl)
+    }
+    private val webdavUsernameField by lazy {
+        SensitiveTextField(binding.etWebDAVUsername, ::maskMiddle)
+    }
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,6 +79,7 @@ class SettingsActivity : AppCompatActivity() {
         
         loadSettings()
         loadWebDAVConfig()
+        setupHoldToRevealPassword(binding.tilWebDAVPassword, binding.etWebDAVPassword)
         setupThemeGroup()
         setupBiometric()
         setupAutoSync()
@@ -237,10 +250,53 @@ class SettingsActivity : AppCompatActivity() {
     
     private fun setupUpdate() {
         binding.tvCurrentVersion.text = "当前版本：v${UpdateManager.getCurrentVersionName(this)}"
-        
+
         binding.btnCheckUpdate.setOnClickListener {
             checkForUpdate()
         }
+
+        binding.btnChangelog.setOnClickListener {
+            showChangelogDialog()
+        }
+    }
+
+    /** 应用内修改日志：读取 assets/changelog.md（构建期从根目录 CHANGELOG.md 拷贝），离线可看 */
+    private fun showChangelogDialog() {
+        lifecycleScope.launch {
+            val raw = withContext(Dispatchers.IO) {
+                runCatching {
+                    assets.open("changelog.md").bufferedReader(Charsets.UTF_8).use { it.readText() }
+                }.getOrDefault("")
+            }
+            val content = formatChangelog(raw.ifBlank { "暂无日志" })
+            val view = layoutInflater.inflate(R.layout.dialog_changelog, null)
+            view.findViewById<android.widget.TextView>(R.id.tvChangelog).text = content
+            AlertDialog.Builder(this@SettingsActivity)
+                .setTitle("修改日志")
+                .setView(view)
+                .setPositiveButton(R.string.cancel, null)
+                .show()
+        }
+    }
+
+    /** 轻量 Markdown 渲染：`## `/`### ` 标题行加粗，其余原样保留 */
+    private fun formatChangelog(raw: String): CharSequence {
+        val builder = android.text.SpannableStringBuilder()
+        raw.lines().forEachIndexed { index, line ->
+            val isHeading = line.startsWith("## ") || line.startsWith("### ")
+            val text = if (isHeading) line.trimStart('#').trim() else line
+            val start = builder.length
+            builder.append(text)
+            if (isHeading) {
+                builder.setSpan(
+                    android.text.style.StyleSpan(android.graphics.Typeface.BOLD),
+                    start, builder.length,
+                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                )
+            }
+            if (index < raw.lines().size - 1) builder.append('\n')
+        }
+        return builder
     }
     
     private fun checkForUpdate() {
@@ -619,8 +675,9 @@ class SettingsActivity : AppCompatActivity() {
     private fun loadWebDAVConfig() {
         val config = settingsManager.getWebDAVConfig()
         config?.let {
-            binding.etWebDAVServer.setText(it.serverUrl)
-            binding.etWebDAVUsername.setText(it.username)
+            // 服务器地址/用户名脱敏显示，聚焦修改时恢复明文
+            webdavServerField.applySavedValue(it.serverUrl)
+            webdavUsernameField.applySavedValue(it.username)
             binding.etWebDAVPassword.setText(it.password)
             binding.etWebDAVPath.setText(it.remotePath)
         } ?: run {
@@ -1046,12 +1103,15 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun doSaveWebDAVConfig(config: WebDAVConfig) {
         settingsManager.saveWebDAVConfig(config)
+        // 保存后恢复脱敏显示，后续仅聚焦修改时才显示明文
+        webdavServerField.applySavedValue(config.serverUrl)
+        webdavUsernameField.applySavedValue(config.username)
         Toast.makeText(this, "WebDAV配置已保存", Toast.LENGTH_SHORT).show()
     }
-    
+
     private fun getCurrentWebDAVConfig(): WebDAVConfig? {
-        val serverUrl = binding.etWebDAVServer.text?.toString()?.trim()
-        val username = binding.etWebDAVUsername.text?.toString()?.trim()
+        val serverUrl = webdavServerField.value().trim()
+        val username = webdavUsernameField.value().trim()
         val password = binding.etWebDAVPassword.text?.toString()
         val remotePath = binding.etWebDAVPath.text?.toString()?.trim() ?: "/"
         

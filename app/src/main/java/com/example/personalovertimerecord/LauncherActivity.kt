@@ -2,6 +2,7 @@ package com.example.personalovertimerecord
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
 
 /**
@@ -17,7 +18,28 @@ class LauncherActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        logInstalledApps()
         startActivity(Intent(this, MainActivity::class.java))
         finish()
+    }
+
+    /**
+     * 测试：获取并输出设备上已安装应用的列表（仅对本应用可见的包）。
+     *
+     * Android 11+ 存在包可见性限制，未声明 QUERY_ALL_PACKAGES 时
+     * 只能看到部分应用，此处仅作测试用，结果输出到 Logcat。
+     */
+    private fun logInstalledApps() {
+        val pm = packageManager
+        val apps = pm.getInstalledApplications(0)
+        Log.d(TAG, "installed apps count=${apps.size}")
+        apps.forEach { info ->
+            val label = pm.getApplicationLabel(info).toString()
+            Log.d(TAG, "app: $label (${info.packageName})")
+        }
+    }
+
+    private companion object {
+        const val TAG = "LauncherActivity"
     }
 }

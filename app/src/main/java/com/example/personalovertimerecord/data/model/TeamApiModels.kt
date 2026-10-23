@@ -25,6 +25,8 @@ data class TeamRecordDto(
     val leaveType: String? = null,
     val leaveHours: Double = 0.0,
     val customRate: Double? = null,
+    // 班次标记："DAY"=白班 / "NIGHT"=夜班；null 表示旧客户端/旧备份缺失（落库兜底 DAY）
+    val shiftType: String? = null,
     val isDeleted: Boolean = false,
     val lastModifiedBy: String = ""
 )

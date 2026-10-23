@@ -165,6 +165,18 @@ ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
 }
 
+// 修改日志内置：根目录 CHANGELOG.md 为单一事实源，构建期拷入 assets 供应用内离线查看
+tasks.register("copyChangelog") {
+    inputs.file(rootProject.file("CHANGELOG.md"))
+    outputs.file("$projectDir/src/main/assets/changelog.md")
+    doLast {
+        val target = file("$projectDir/src/main/assets/changelog.md")
+        target.parentFile.mkdirs()
+        rootProject.file("CHANGELOG.md").copyTo(target, overwrite = true)
+    }
+}
+tasks.named("preBuild").configure { dependsOn("copyChangelog") }
+
 
 
 dependencies {

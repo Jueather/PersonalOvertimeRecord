@@ -88,6 +88,7 @@
     <string name="team_server_url">服务器地址（https://…）</string>
     <string name="team_username">用户名</string>
     <string name="team_password">密码</string>
+    <string name="hold_to_view_password">按住查看密码</string>
     <string name="team_new_password">新密码（至少 6 位）</string>
     <string name="team_old_password">原密码</string>
     <string name="team_login">登录</string>

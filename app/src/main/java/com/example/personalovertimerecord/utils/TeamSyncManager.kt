@@ -11,6 +11,7 @@ import com.example.personalovertimerecord.data.model.TeamRecordDto
 import com.example.personalovertimerecord.data.model.TeamSyncRequest
 import com.example.personalovertimerecord.data.model.TeamSyncResponse
 import com.example.personalovertimerecord.data.OvertimeRecord
+import com.example.personalovertimerecord.data.ShiftType
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -44,6 +45,8 @@ class TeamSyncManager(
         val localRecordCount: Int = 0,
         val cloudRecordCount: Int = 0,
         val changedCount: Int = 0,
+        /** 服务端下发但字段级校验不通过被跳过的记录数（详见 validateBackupRecord） */
+        val invalidCount: Int = 0,
         val message: String? = null
     )
 
@@ -71,14 +74,16 @@ class TeamSyncManager(
                     TeamSyncRequest(records = uploads, deviceName = BackupData.currentDeviceName())
                 )
 
-                val changedCount = applyServerState(response)
-                AppLogger.d("团队同步完成：云端 ${response.records.size} 条，本地落库变更 $changedCount 条")
+                val (changedCount, invalidCount) = applyServerState(response)
+                AppLogger.d("团队同步完成：云端 ${response.records.size} 条，本地落库变更 $changedCount 条" +
+                    if (invalidCount > 0) "，非法跳过 $invalidCount 条" else "")
 
                 TeamSyncReport(
                     result = TeamSyncResult.SUCCESS,
                     localRecordCount = localEntities.size,
                     cloudRecordCount = response.records.size,
-                    changedCount = changedCount
+                    changedCount = changedCount,
+                    invalidCount = invalidCount
                 )
             } catch (e: TeamApiException) {
                 AppLogger.e("团队同步失败（${e.kind}）", e)
@@ -92,9 +97,10 @@ class TeamSyncManager(
 
     /**
      * 服务端全量 → NEWER_WINS 合并 → 差异落库。
-     * 返回落库变更条数。
+     * 服务端记录先过字段级校验，非法记录不参与合并/落库。
+     * @return first=落库变更条数，second=非法跳过条数
      */
-    private suspend fun applyServerState(response: TeamSyncResponse): Int {
+    private suspend fun applyServerState(response: TeamSyncResponse): Pair<Int, Int> {
         // 合并前必须重新读取本地全量，不能复用 performSync 上传时的快照：
         // 两次读取之间隔着一次网络请求，期间 UI（添加/编辑对话框）可并发写库（SyncGate 不约束 UI）。
         // 用旧快照合并会导致：a) 请求期间的新编辑因 modifiedAt 偏旧被云端旧版本覆盖（数据丢失）；
@@ -103,10 +109,21 @@ class TeamSyncManager(
         val localBackups = localEntities.map { it.toBackup() }
         val cloudBackups = response.records.map { it.toBackup() }
 
+        // 字段级校验：非法服务端记录不参与合并/落库，跳过并计数（shiftType 非法不属此类，落库时兜底白班）
+        var invalid = 0
+        val validCloudBackups = cloudBackups.filter { r ->
+            val errors = validateBackupRecord(r)
+            if (errors.isNotEmpty()) {
+                invalid++
+                AppLogger.w("团队同步跳过非法服务端记录 ${r.date}：${errors.joinToString()}")
+            }
+            errors.isEmpty()
+        }
+
         // 与 WebDAV 同步同一套纯合并算法（utils/RecordMerge.kt）：date 为键、NEWER_WINS、墓碑参与
         val merged = mergeAttendanceBackups(
             local = localBackups,
-            cloud = cloudBackups,
+            cloud = validCloudBackups,
             strategy = ConflictStrategy.NEWER_WINS
         )
 
@@ -119,31 +136,10 @@ class TeamSyncManager(
                 changed++
             }
         }
-        return changed
+        return changed to invalid
     }
 
     // ================== 模型转换 ==================
-
-    /** 本地实体 → 备份模型（口径与 SyncManager.toBackup 一致：modifiedAt 缺失用 createdAt 兜底） */
-    private fun AttendanceEntity.toBackup(): AttendanceEntityBackup {
-        return AttendanceEntityBackup(
-            date = this.date,
-            checkInTime = this.checkInTime,
-            checkOutTime = this.checkOutTime,
-            checkInTimestamp = this.checkInTimestamp,
-            checkOutTimestamp = this.checkOutTimestamp,
-            note = this.note,
-            manualOvertimeHours = this.manualOvertimeHours,
-            manualExtraHours = this.manualExtraHours,
-            createdAt = this.createdAt,
-            modifiedAt = this.modifiedAt ?: this.createdAt,
-            isLeave = this.isLeave,
-            leaveType = this.leaveType,
-            leaveHours = this.leaveHours,
-            customRate = if (this.customRate >= 0) this.customRate else null,
-            isDeleted = this.isDeleted
-        )
-    }
 
     /** 服务端 DTO → 备份模型（modifiedAt 缺失用 createdAt 兜底，供 NEWER_WINS 比较与落库） */
     private fun TeamRecordDto.toBackup(): AttendanceEntityBackup {
@@ -162,6 +158,7 @@ class TeamSyncManager(
             leaveType = this.leaveType,
             leaveHours = this.leaveHours,
             customRate = this.customRate,
+            shiftType = this.shiftType,
             isDeleted = this.isDeleted,
             lastModifiedBy = this.lastModifiedBy
         )
@@ -186,6 +183,7 @@ class TeamSyncManager(
             leaveType = backup.leaveType,
             leaveHours = backup.leaveHours,
             customRate = backup.customRate,
+            shiftType = backup.shiftType,
             isDeleted = backup.isDeleted,
             lastModifiedBy = BackupData.currentDeviceName()
         )
@@ -212,6 +210,7 @@ class TeamSyncManager(
             leaveType = this.leaveType,
             leaveHours = this.leaveHours,
             customRate = this.customRate ?: -1.0,
+            shiftType = ShiftType.fromStringOrDefault(this.shiftType).name,
             isDeleted = this.isDeleted
         )
     }
@@ -247,6 +246,7 @@ class TeamSyncManager(
             a.leaveType == b.leaveType &&
             a.leaveHours == b.leaveHours &&
             a.customRate == b.customRate &&
+            a.shiftType == b.shiftType &&
             a.isDeleted == b.isDeleted
     }
 }

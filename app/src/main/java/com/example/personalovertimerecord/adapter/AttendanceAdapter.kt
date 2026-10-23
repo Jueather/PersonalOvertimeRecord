@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.personalovertimerecord.R
 import com.example.personalovertimerecord.data.OvertimeRecord
 import com.example.personalovertimerecord.data.OvertimeSettings
+import com.example.personalovertimerecord.data.ShiftType
 import com.example.personalovertimerecord.utils.Formatter
 import com.example.personalovertimerecord.utils.OvertimeCalculator
 
@@ -44,6 +45,7 @@ class AttendanceAdapter(
         
         private val tvDate: TextView = itemView.findViewById(R.id.tvDate)
         private val tvDayType: TextView = itemView.findViewById(R.id.tvDayType)
+        private val tvShiftType: TextView = itemView.findViewById(R.id.tvShiftType)
         private val tvOvertime: TextView = itemView.findViewById(R.id.tvOvertime)
         private val tvOvertimeLabel: TextView = itemView.findViewById(R.id.tvOvertimeLabel)
         private val tvExtra: TextView = itemView.findViewById(R.id.tvExtra)
@@ -80,6 +82,11 @@ class AttendanceAdapter(
                 if (attendance.overtimeHours >= 0) attendance.overtimeHours else 0.0,
                 if (attendance.extraHours >= 0) attendance.extraHours else 0.0
             )
+
+            // 夜班角标：仅夜班且非请假记录展示；白班为默认态不显示（零噪音）
+            tvShiftType.visibility =
+                if (!attendance.isLeave && attendance.shiftType == ShiftType.NIGHT.name) View.VISIBLE
+                else View.GONE
             
             // 如果是请假，显示请假信息，隐藏加班相关
             if (attendance.isLeave && attendance.leaveHours > 0) {
@@ -125,7 +132,8 @@ class AttendanceAdapter(
                    oldItem.note == newItem.note &&
                    oldItem.isLeave == newItem.isLeave &&
                    oldItem.leaveType == newItem.leaveType &&
-                   oldItem.leaveHours == newItem.leaveHours
+                   oldItem.leaveHours == newItem.leaveHours &&
+                   oldItem.shiftType == newItem.shiftType
         }
     }
 }

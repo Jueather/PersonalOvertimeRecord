@@ -82,7 +82,7 @@ class RecordDao(private val db: Database) {
             SELECT date, check_in_time, check_out_time, check_in_timestamp, check_out_timestamp,
                    note, manual_overtime_hours, manual_extra_hours, overtime_hours,
                    created_at, modified_at, is_leave, leave_type, leave_hours, custom_rate,
-                   is_deleted, last_modified_by
+                   shift_type, is_deleted, last_modified_by
             FROM records WHERE user_id = ? ORDER BY date
             """.trimIndent()
         ).use { ps ->
@@ -98,7 +98,7 @@ class RecordDao(private val db: Database) {
             SELECT date, check_in_time, check_out_time, check_in_timestamp, check_out_timestamp,
                    note, manual_overtime_hours, manual_extra_hours, overtime_hours,
                    created_at, modified_at, is_leave, leave_type, leave_hours, custom_rate,
-                   is_deleted, last_modified_by
+                   shift_type, is_deleted, last_modified_by
             FROM records WHERE user_id = ? AND date = ?
             """.trimIndent()
         ).use { ps ->
@@ -117,8 +117,8 @@ class RecordDao(private val db: Database) {
                 user_id, date, check_in_time, check_out_time, check_in_timestamp, check_out_timestamp,
                 note, manual_overtime_hours, manual_extra_hours, overtime_hours,
                 created_at, modified_at, is_leave, leave_type, leave_hours, custom_rate,
-                is_deleted, last_modified_by, synced_at
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                shift_type, is_deleted, last_modified_by, synced_at
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             ON CONFLICT(user_id, date) DO UPDATE SET
                 check_in_time=excluded.check_in_time,
                 check_out_time=excluded.check_out_time,
@@ -134,6 +134,7 @@ class RecordDao(private val db: Database) {
                 leave_type=excluded.leave_type,
                 leave_hours=excluded.leave_hours,
                 custom_rate=excluded.custom_rate,
+                shift_type=excluded.shift_type,
                 is_deleted=excluded.is_deleted,
                 last_modified_by=excluded.last_modified_by,
                 synced_at=excluded.synced_at
@@ -155,9 +156,10 @@ class RecordDao(private val db: Database) {
             ps.setString(14, r.leaveType)
             ps.setDouble(15, r.leaveHours)
             setNullableDouble(ps, 16, r.customRate)
-            ps.setInt(17, if (r.isDeleted) 1 else 0)
-            ps.setString(18, r.lastModifiedBy)
-            ps.setLong(19, syncedAt)
+            ps.setString(17, r.shiftType)
+            ps.setInt(18, if (r.isDeleted) 1 else 0)
+            ps.setString(19, r.lastModifiedBy)
+            ps.setLong(20, syncedAt)
             ps.executeUpdate()
         }
     }
@@ -178,6 +180,7 @@ class RecordDao(private val db: Database) {
         leaveType = rs.optString("leave_type"),
         leaveHours = rs.getDouble("leave_hours"),
         customRate = rs.optDouble("custom_rate"),
+        shiftType = rs.optString("shift_type"),
         isDeleted = rs.getInt("is_deleted") == 1,
         lastModifiedBy = rs.getString("last_modified_by") ?: "",
     )

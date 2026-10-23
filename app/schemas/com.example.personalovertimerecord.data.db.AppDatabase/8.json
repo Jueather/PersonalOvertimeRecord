@@ -1,0 +1,140 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 8,
+    "identityHash": "6aa38d9557fd7a2fa1c7f89dec0c95f5",
+    "entities": [
+      {
+        "tableName": "attendance_records",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `date` TEXT NOT NULL, `checkInTime` TEXT, `checkOutTime` TEXT, `checkInTimestamp` INTEGER, `checkOutTimestamp` INTEGER, `note` TEXT, `manualOvertimeHours` REAL NOT NULL, `manualExtraHours` REAL NOT NULL, `createdAt` INTEGER NOT NULL, `modifiedAt` INTEGER, `isLeave` INTEGER NOT NULL, `leaveType` TEXT, `leaveHours` REAL NOT NULL, `customRate` REAL NOT NULL, `shiftType` TEXT NOT NULL, `isDeleted` INTEGER NOT NULL)",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "date",
+            "columnName": "date",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "checkInTime",
+            "columnName": "checkInTime",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "checkOutTime",
+            "columnName": "checkOutTime",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "checkInTimestamp",
+            "columnName": "checkInTimestamp",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "checkOutTimestamp",
+            "columnName": "checkOutTimestamp",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "note",
+            "columnName": "note",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "manualOvertimeHours",
+            "columnName": "manualOvertimeHours",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "manualExtraHours",
+            "columnName": "manualExtraHours",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "modifiedAt",
+            "columnName": "modifiedAt",
+            "affinity": "INTEGER",
+            "notNull": false
+          },
+          {
+            "fieldPath": "isLeave",
+            "columnName": "isLeave",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "leaveType",
+            "columnName": "leaveType",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "leaveHours",
+            "columnName": "leaveHours",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "customRate",
+            "columnName": "customRate",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "shiftType",
+            "columnName": "shiftType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isDeleted",
+            "columnName": "isDeleted",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": true,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_attendance_records_date",
+            "unique": true,
+            "columnNames": [
+              "date"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_attendance_records_date` ON `${TABLE_NAME}` (`date`)"
+          }
+        ],
+        "foreignKeys": []
+      }
+    ],
+    "views": [],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '6aa38d9557fd7a2fa1c7f89dec0c95f5')"
+    ]
+  }
+}

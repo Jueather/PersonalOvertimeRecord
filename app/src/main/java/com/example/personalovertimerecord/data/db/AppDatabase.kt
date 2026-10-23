@@ -12,7 +12,7 @@ import net.sqlcipher.database.SupportFactory
 
 @Database(
     entities = [AttendanceEntity::class],
-    version = 7,
+    version = 8,
     // 导出 schema 供迁移测试与人工审阅；schema JSON 需随代码提交到 app/schemas/
     exportSchema = true
 )
@@ -192,8 +192,19 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // 从版本7迁移到版本8（新增每条记录的班次标记）：
+        // shiftType "DAY"=白班（默认）/ "NIGHT"=夜班；仅作记录与统计展示，不影响工资计算；
+        // 旧行统一填 DAY，历史记录语义不变。
+        private val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "ALTER TABLE attendance_records ADD COLUMN shiftType TEXT NOT NULL DEFAULT 'DAY'"
+                )
+            }
+        }
+
         /**
-         * 全部迁移（1→2 … 6→7），构建器与迁移测试共用同一份。
+         * 全部迁移（1→2 … 7→8），构建器与迁移测试共用同一份。
          * 注意：需声明在所有 MIGRATION_x_y 之后。
          */
         @JvmField
@@ -203,7 +214,8 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_3_4,
             MIGRATION_4_5,
             MIGRATION_5_6,
-            MIGRATION_6_7
+            MIGRATION_6_7,
+            MIGRATION_7_8
         )
     }
 }

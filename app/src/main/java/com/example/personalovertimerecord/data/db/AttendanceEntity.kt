@@ -33,6 +33,8 @@ data class AttendanceEntity(
     val leaveHours: Double = 0.0,
     // 自定义工资倍率：< 0 表示按设置默认倍率计算（与 manualOvertimeHours 的 -1 哨兵风格一致）
     val customRate: Double = -1.0,
+    // 班次标记："DAY"=白班（默认）/ "NIGHT"=夜班；仅作记录与统计展示，不影响工资计算
+    val shiftType: String = "DAY",
     // 软删除标记：用于支持跨设备删除同步（tombstone）
     // true 表示该记录已被删除，正常查询会过滤掉，仅用于同步删除操作
     val isDeleted: Boolean = false
@@ -55,7 +57,8 @@ data class AttendanceEntity(
             isLeave = isLeave,
             leaveType = leaveType,
             leaveHours = leaveHours,
-            customRate = customRate
+            customRate = customRate,
+            shiftType = shiftType
         )
     }
 
@@ -79,7 +82,8 @@ data class AttendanceEntity(
                 isLeave = record.isLeave,
                 leaveType = record.leaveType,
                 leaveHours = record.leaveHours,
-                customRate = record.customRate
+                customRate = record.customRate,
+                shiftType = record.shiftType
             )
         }
     }

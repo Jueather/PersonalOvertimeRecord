@@ -266,12 +266,15 @@
                         </com.google.android.material.textfield.TextInputLayout>
 
                         <com.google.android.material.textfield.TextInputLayout
+                            android:id="@+id/tilWebDAVPassword"
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:layout_marginStart="8dp"
                             android:hint="密码"
-                            app:endIconMode="password_toggle"
+                            app:endIconMode="custom"
+                            app:endIconDrawable="@drawable/ic_visibility"
+                            app:endIconContentDescription="@string/hold_to_view_password"
                             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
                             <com.google.android.material.textfield.TextInputEditText
@@ -896,6 +899,14 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:text="检查更新"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        app:cornerRadius="8dp" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnChangelog"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="修改日志"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                         app:cornerRadius="8dp" />
 

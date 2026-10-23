@@ -11,6 +11,7 @@ import com.example.personalovertimerecord.data.db.AttendanceEntity
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -33,6 +34,12 @@ class SyncManager(
          * 全局同步互斥锁：手动同步与自动同步并发触发时串行执行，避免相互覆盖
          */
         private val syncMutex = Mutex()
+
+        /**
+         * 同步进度实时播报：供主界面顶部半透明调试面板展示当前阶段；空闲时为 null。
+         * 手动同步与自动同步共用同一播报源。
+         */
+        val progressFlow = MutableStateFlow<String?>(null)
     }
 
     private val webDAVManager = WebDAVManager(context)
@@ -71,38 +78,54 @@ class SyncManager(
         keyManager.bootstrapKeyMaterialOnEnable(password)
 
     /**
+     * 上报同步进度（仅写 StateFlow，非挂起；消息为 null 表示同步结束/空闲）
+     */
+    private fun reportProgress(message: String?) {
+        progressFlow.value = message
+    }
+
+    /**
      * 执行同步操作，返回同步报告（含结果与统计细节）。
      */
     suspend fun performSync(
         direction: SyncDirection = SyncDirection.BIDIRECTIONAL,
         options: SyncOptions = SyncOptions()
     ): SyncReport = withContext(Dispatchers.IO) {
+        reportProgress("等待同步锁…")
         // SyncGate 为团队同步/云同步共享外层闸门（锁顺序：SyncGate 外层、syncMutex 内层）
         SyncGate.lock {
             syncMutex.withLock {
-                // 检查配置
-                val config = settingsManager.getWebDAVConfig()
-                    ?: return@withLock SyncReport(SyncResult.NO_CONFIG, direction)
+                try {
+                    // 检查配置
+                    reportProgress("检查同步配置…")
+                    val config = settingsManager.getWebDAVConfig()
+                        ?: return@withLock SyncReport(SyncResult.NO_CONFIG, direction)
 
-                // 检查网络
-                if (!NetworkUtils.isNetworkAvailable(context)) {
-                    return@withLock SyncReport(SyncResult.NO_NETWORK, direction)
-                }
+                    // 检查网络
+                    reportProgress("检查网络连接…")
+                    if (!NetworkUtils.isNetworkAvailable(context)) {
+                        return@withLock SyncReport(SyncResult.NO_NETWORK, direction)
+                    }
 
-                // 测试连接
-                val connectionOk = webDAVManager.testConnection(config)
-                if (!connectionOk) {
-                    return@withLock SyncReport(SyncResult.CONNECTION_FAILED, direction)
-                }
+                    // 测试连接
+                    reportProgress("测试服务器连接…")
+                    val connectionOk = webDAVManager.testConnection(config)
+                    if (!connectionOk) {
+                        return@withLock SyncReport(SyncResult.CONNECTION_FAILED, direction)
+                    }
 
-                // 根据同步方向执行相应操作
-                val report = when (direction) {
-                    SyncDirection.UPLOAD_ONLY -> uploadBackup(config, options)
-                    SyncDirection.DOWNLOAD_ONLY -> downloadAndRestore(config, options)
-                    SyncDirection.BIDIRECTIONAL -> performBidirectionalSync(config, options)
+                    // 根据同步方向执行相应操作
+                    val report = when (direction) {
+                        SyncDirection.UPLOAD_ONLY -> uploadBackup(config, options)
+                        SyncDirection.DOWNLOAD_ONLY -> downloadAndRestore(config, options)
+                        SyncDirection.BIDIRECTIONAL -> performBidirectionalSync(config, options)
+                    }
+                    // 补齐方向字段（子方法构造时未必带方向）
+                    report.copy(direction = direction)
+                } finally {
+                    // 同步结束（无论成败、含提前返回）清空进度，驱动调试面板自动隐藏
+                    reportProgress(null)
                 }
-                // 补齐方向字段（子方法构造时未必带方向）
-                report.copy(direction = direction)
             }
         }
     }
@@ -122,6 +145,7 @@ class SyncManager(
             val localCount = attendanceDao.getAllRecordsIncludingDeletedSync().size
 
             // 读取云端现状（统一解析 明文/信封/旧版密文）
+            reportProgress("读取云端现状…")
             val cloudResolve = cloudResolver.resolveCloud(config, encryptPassword)
 
             var recordsToUpload: List<AttendanceEntityBackup>
@@ -165,6 +189,7 @@ class SyncManager(
             // 根据策略获取需要上传的记录
             if (cloudRecords.isNotEmpty() && options.mode == SyncMode.INCREMENTAL_MERGE) {
                 // 增量模式：只上传有变化的记录（含删除标记记录）
+                reportProgress("对比本地与云端差异…")
                 val changedRecords = dataExporter.getRecordsToUpload(cloudRecords, options.conflictStrategy)
 
                 if (changedRecords.isEmpty()) {
@@ -206,6 +231,7 @@ class SyncManager(
             } else {
                 content to false
             }
+            reportProgress("上传备份（${recordsToUpload.size} 条记录）…")
             val success = webDAVManager.uploadRawFile(config, wire)
 
             if (success) {
@@ -245,6 +271,7 @@ class SyncManager(
             val localCount = attendanceDao.getAllRecordsIncludingDeletedSync().size
 
             // 统一解析云端内容（明文 JSON / 信封 / 旧版密文）
+            reportProgress("下载云端备份…")
             val content = when (val resolve = cloudResolver.resolveCloud(config, decryptPassword)) {
                 is CloudResolve.Available -> resolve.snapshot.json
                 CloudResolve.NotFound, CloudResolve.DownloadFailed ->
@@ -260,6 +287,7 @@ class SyncManager(
                 ?.sanitized() ?: return SyncReport(SyncResult.RESTORE_FAILED, localRecordCount = localCount)
 
             // v3 完整性校验：云端备份携带 checksum 时比对，失败说明文件损坏/被篡改，拒绝恢复
+            reportProgress("校验备份完整性…")
             if (!backupData.verifyChecksum(gson)) {
                 AppLogger.e("云端备份校验失败（checksum 不匹配），文件可能已损坏或被篡改，已中止恢复")
                 return SyncReport(SyncResult.RESTORE_FAILED, localRecordCount = localCount)
@@ -267,14 +295,16 @@ class SyncManager(
 
             val cloudCount = backupData.attendanceRecords.size
 
+            reportProgress("恢复数据到本地…")
+            var invalidCount = 0
             when (options.mode) {
                 SyncMode.FULL_REPLACE, SyncMode.CLOUD_PRIORITY -> {
-                    // 全量替换模式
+                    // 全量替换模式（含非法记录时整体中止，本地数据不受影响）
                     dataExporter.restoreDataFull(backupData)
                 }
                 SyncMode.INCREMENTAL_MERGE, SyncMode.LOCAL_PRIORITY -> {
-                    // 增量合并模式（含删除同步）
-                    dataExporter.restoreDataIncremental(backupData, options.conflictStrategy)
+                    // 增量合并模式（含删除同步）；非法记录跳过并计数
+                    invalidCount = dataExporter.restoreDataIncremental(backupData, options.conflictStrategy).invalid
                 }
             }
 
@@ -296,7 +326,8 @@ class SyncManager(
                 SyncResult.SUCCESS,
                 localRecordCount = localCount,
                 cloudRecordCount = cloudCount,
-                downloadedCount = cloudCount
+                downloadedCount = cloudCount,
+                invalidCount = invalidCount
             )
         } catch (e: Exception) {
             AppLogger.e("下载并恢复失败", e)
@@ -314,6 +345,7 @@ class SyncManager(
         val encryptPassword = getEncryptPassword(settings)
 
         val lastSyncTime = settingsManager.getLastSyncTime()
+        reportProgress("检查云端更新时间…")
         val remoteModifiedTime = webDAVManager.getFileModifiedTime(config)
 
         AppLogger.d("双向同步开始 - 本地最后同步时间: $lastSyncTime, 云端修改时间: $remoteModifiedTime")
@@ -333,24 +365,28 @@ class SyncManager(
             // 情况1：云端没有数据，直接上传本地数据
             cloudResolve is CloudResolve.NotFound -> {
                 AppLogger.d("云端无数据，执行上传")
+                reportProgress("云端无数据，执行上传")
                 uploadBackup(config, options)
             }
 
             // 情况2：本地从未同步过，下载云端数据
             lastSyncTime == 0L -> {
                 AppLogger.d("本地从未同步过，执行下载")
+                reportProgress("首次同步，执行下载")
                 downloadAndRestore(config, options)
             }
 
             // 情况3：云端在本地上次同步之后没有更新，直接上传
             remoteModifiedTime != null && remoteModifiedTime <= lastSyncTime -> {
                 AppLogger.d("云端没有更新，执行上传")
+                reportProgress("云端未更新，执行上传")
                 uploadBackup(config, options)
             }
 
             // 情况4：云端在本地上次同步之后有更新，需要合并
             else -> {
                 AppLogger.d("云端有更新，执行智能合并")
+                reportProgress("云端有更新，执行智能合并")
                 performSmartMerge(config, options)
             }
         }
@@ -372,6 +408,7 @@ class SyncManager(
             val localCount = attendanceDao.getAllRecordsIncludingDeletedSync().size
 
             // 下载云端数据（统一解析 明文/信封/旧版密文）
+            reportProgress("下载云端数据…")
             val cloudResolve = cloudResolver.resolveCloud(config, encryptPassword)
             val cloudSnapshot: CloudSnapshot = when (cloudResolve) {
                 is CloudResolve.Available -> cloudResolve.snapshot
@@ -400,6 +437,7 @@ class SyncManager(
             // 时间戳兜底口径与 toBackup() 一致（modifiedAt 缺失用 createdAt）
             val localRecords = attendanceDao.getAllRecordsIncludingDeletedSync()
             val localBackups = localRecords.map { it.toBackup() }
+            reportProgress("合并记录（本地 ${localBackups.size} 条 / 云端 ${cloudBackup.attendanceRecords.size} 条）…")
             val mergedRecords = mergeAttendanceBackups(
                 local = localBackups,
                 cloud = cloudBackup.attendanceRecords,
@@ -421,10 +459,12 @@ class SyncManager(
             } else {
                 content to false
             }
+            reportProgress("上传合并结果（${mergedRecords.size} 条记录）…")
             val success = webDAVManager.uploadRawFile(config, wire)
 
             if (success) {
                 // 把合并结果写回本地数据库，确保本地与云端一致
+                reportProgress("写回本地数据库…")
                 dataExporter.restoreDataIncremental(mergedBackup, ConflictStrategy.NEWER_WINS)
 
                 // 双向合并后同步设置（与 uploadBackup/downloadAndRestore 行为一致）
@@ -475,26 +515,6 @@ class SyncManager(
             deviceName = BackupData.currentDeviceName(),
             checksum = BackupData.computeRecordsChecksum(records, gson),
             lastSyncTime = settingsManager.getLastSyncTime()
-        )
-    }
-
-    private fun AttendanceEntity.toBackup(): AttendanceEntityBackup {
-        return AttendanceEntityBackup(
-            date = this.date,
-            checkInTime = this.checkInTime,
-            checkOutTime = this.checkOutTime,
-            checkInTimestamp = this.checkInTimestamp,
-            checkOutTimestamp = this.checkOutTimestamp,
-            note = this.note,
-            manualOvertimeHours = this.manualOvertimeHours,
-            manualExtraHours = this.manualExtraHours,
-            createdAt = this.createdAt,
-            modifiedAt = this.modifiedAt ?: this.createdAt,
-            isLeave = this.isLeave,
-            leaveType = this.leaveType,
-            leaveHours = this.leaveHours,
-            isDeleted = this.isDeleted,
-            lastModifiedBy = BackupData.currentDeviceName()
         )
     }
 }

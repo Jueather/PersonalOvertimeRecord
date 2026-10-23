@@ -624,6 +624,8 @@ def _record_view(r, hourly, rates):
     ot = max(0.0, float(r.get("manualOvertimeHours") or 0))
     extra = max(0.0, float(r.get("manualExtraHours") or 0))
     is_leave = bool(r.get("isLeave"))
+    shift = (r.get("shiftType") or "DAY")
+    is_night = (shift == "NIGHT") and not is_leave
     labels, cls = [], "normal"
     if is_leave:
         labels.append("请假")
@@ -636,6 +638,8 @@ def _record_view(r, hourly, rates):
         labels.append("加点")
         if cls == "normal":
             cls = "extra"
+    if is_night:
+        labels.append("夜班")
     custom = r.get("customRate")
     custom_rate = float(custom) if custom is not None else None
     pay, day_type, rate_text = compute_record_pay(
@@ -666,6 +670,8 @@ def _record_view(r, hourly, rates):
         "custom_rate": ("×%g" % custom_rate) if (custom_rate is not None and custom_rate >= 0) else "默认",
         "note": r.get("note") or "",
         "device": r.get("lastModifiedBy") or "",
+        "shift": shift,
+        "is_night": is_night,
     }
 
 
@@ -732,6 +738,7 @@ def compute_stats(backup, now=None, targets=None):
 
     month_ot = month_extra = month_pay = 0.0
     month_leave_days = month_leave_hours = 0
+    month_day_hours = month_night_hours = 0.0   # 本月时长按班次拆分（白班/夜班）
     year_hours = year_pay = 0.0
     year_ot = year_extra = 0.0            # 本年加班/加点拆分
     year_weekday_hours = year_weekend_hours = year_holiday_hours = 0.0
@@ -792,6 +799,10 @@ def compute_stats(backup, now=None, targets=None):
             month_ot += ot
             month_extra += extra
             month_pay += pay
+            if (r.get("shiftType") or "DAY") == "NIGHT" and not is_leave:
+                month_night_hours += hours
+            else:
+                month_day_hours += hours
             if hours > 0:
                 month_count += 1
             if co_dt is not None:
@@ -991,6 +1002,8 @@ def compute_stats(backup, now=None, targets=None):
         "month_extra": round(month_extra, 2),
         "month_hours": round(month_ot + month_extra, 2),
         "month_pay": round(month_pay, 2),
+        "month_day_hours": round(month_day_hours, 2),
+        "month_night_hours": round(month_night_hours, 2),
         "month_target_hours": target_hours,
         "month_target_pay": target_pay,
         "month_progress_hours": month_progress_hours,
@@ -1373,6 +1386,7 @@ tr:hover td{background:#f9fafb}
 .badge.holiday{background:#fee2e2;color:#b91c1c}
 .badge.makeup{background:#ede9fe;color:#6d28d9}
 .badge.daytype{background:#f3f4f6;color:#6b7280}
+.badge.night{background:#424242;color:#fff}
 .check-ok{color:#059669}.check-bad{color:#dc2626}
 .note{font-size:11px;color:#9ca3af;margin-top:10px;line-height:1.8}
 form.btn{display:inline-block}
@@ -1600,7 +1614,9 @@ def render_body(snapshot, status):
     cards = "".join([
         _card("本月加班（%s）" % stats["month_key"], "%g" % stats["month_ot"], "小时"),
         _card("本月加点", "%g" % stats["month_extra"], "小时"),
-        _card("本月合计", "%g" % stats["month_hours"], "加班+加点 小时"),
+        _card("本月合计", "%g" % stats["month_hours"],
+              ("白班 %gh · 夜班 %gh" % (stats["month_day_hours"], stats["month_night_hours"]))
+              if stats["month_night_hours"] > 0 else "加班+加点 小时"),
         _card("本月预估加班费", "¥%.2f" % stats["month_pay"], "时薪 ¥%g" % stats["hourly_wage"]),
         _target_cards(stats),
         _card("本年累计", "%g" % stats["year_hours"], "小时 · 预估 ¥%.2f" % stats["year_pay"]),
@@ -1832,7 +1848,8 @@ def _records_table(recent):
     rows = []
     for r in recent:
         badges = "".join(
-            '<span class="badge %s">%s</span>' % (r["cls"], html.escape(label))
+            '<span class="badge %s">%s</span>'
+            % (("night" if label == "夜班" else r["cls"]), html.escape(label))
             for label in r["labels"]
         )
         if r["holiday"]:
@@ -2170,7 +2187,7 @@ def _selftest():
         "manualOvertimeHours": 4.0, "manualExtraHours": 1.5,
         "createdAt": ts_in, "modifiedAt": ts_out,
         "isLeave": False, "leaveType": None, "leaveHours": 0.0,
-        "customRate": None, "isDeleted": False, "lastModifiedBy": "Xiaomi 14",
+        "customRate": None, "shiftType": "DAY", "isDeleted": False, "lastModifiedBy": "Xiaomi 14",
     }
     sample_backup = {
         "version": 3, "exportTime": 1760713800000,
@@ -2192,6 +2209,7 @@ def _selftest():
         assert s.startswith('{"date":"2026-10-17","checkInTime":"09:00"'), s[:60]
         assert '"manualOvertimeHours":4.0' in s, s
         assert '"customRate"' not in s and '"leaveType"' not in s, s
+        assert '"shiftType":"DAY"' in s, s
         assert '"isDeleted":false' in s, s
         h = _json_string("a<b&c=d'e>f")
         assert h == '"a\\u003cb\\u0026c\\u003dd\\u0027e\\u003ef"', h
@@ -2329,6 +2347,38 @@ def _selftest():
         assert len(st["quarterly"]) == 1, st["quarterly"]
 
     check("统计口径（时长/请假/加班费/删除）", t_stats)
+
+    def t_shift():
+        """班次字段：Gson 键序/null 省略、夜班标签、月度按班次拆分、非法值兜底"""
+        night = dict(sample_record, date="2026-10-18", shiftType="NIGHT")
+        s = gson_like_record(night)
+        assert '"shiftType":"NIGHT"' in s, s
+        # 键序与 Android 声明序一致：shiftType 在 customRate 之后、isDeleted 之前
+        assert s.index('"leaveHours"') < s.index('"shiftType"') < s.index('"isDeleted"'), s
+        # null 省略：shiftType=None 与缺失该字段的 checksum 相同（旧备份兼容）
+        no_shift = dict(night)
+        del no_shift["shiftType"]
+        assert compute_records_checksum([dict(night, shiftType=None)]) == compute_records_checksum([no_shift])
+        # 视图：夜班标签；白班/请假不贴
+        rv = _record_view(night, 46.0, (1.5, 2.0, 3.0))
+        assert rv["shift"] == "NIGHT" and rv["is_night"] and "夜班" in rv["labels"], rv["labels"]
+        assert "夜班" not in _record_view(sample_record, 46.0, (1.5, 2.0, 3.0))["labels"]
+        rv_leave = _record_view(dict(night, isLeave=True, manualOvertimeHours=-1.0,
+                                     manualExtraHours=-1.0), 46.0, (1.5, 2.0, 3.0))
+        assert not rv_leave["is_night"] and "夜班" not in rv_leave["labels"]
+        # 月度统计按班次拆分（口径 = 加班+加点，与 App 一致）
+        now = datetime(2026, 10, 20, 12, 0, 0)
+        backup = json.loads(json.dumps(sample_backup, ensure_ascii=False))
+        backup["attendanceRecords"] = [sample_record, night]
+        st = compute_stats(backup, now=now)
+        assert st["month_day_hours"] == 5.5 and st["month_night_hours"] == 5.5, st
+        assert st["month_hours"] == 11.0, st["month_hours"]
+        # 非法班次值兜底为白班，不丢记录
+        backup["attendanceRecords"] = [dict(sample_record, shiftType="XXX")]
+        st2 = compute_stats(backup, now=now)
+        assert st2["month_day_hours"] == 5.5 and st2["month_night_hours"] == 0.0, st2
+
+    check("班次字段（shiftType 序列化/标签/月度拆分）", t_shift)
 
     def t_stats_trend():
         backup = json.loads(json.dumps(sample_backup, ensure_ascii=False))

@@ -13,6 +13,9 @@ import android.widget.Toast
 import com.example.personalovertimerecord.R
 import com.example.personalovertimerecord.data.LeaveType
 import com.example.personalovertimerecord.data.OvertimeRecord
+import com.example.personalovertimerecord.data.ShiftType
+import com.example.personalovertimerecord.utils.DataValidator
+import com.example.personalovertimerecord.utils.getFirstError
 import java.util.Calendar
 import java.util.Locale
 
@@ -36,6 +39,8 @@ class AddOvertimeDialog(
     private lateinit var actvLeaveType: AutoCompleteTextView
     private lateinit var actvLeaveHours: AutoCompleteTextView
     private lateinit var actvRate: AutoCompleteTextView
+    private lateinit var shiftCard: View
+    private lateinit var toggleShift: com.google.android.material.button.MaterialButtonToggleGroup
     private var selectedLeaveType: LeaveType = LeaveType.ANNUAL_LEAVE
 
     // 加班/加点选项，最大11小时
@@ -85,6 +90,11 @@ class AddOvertimeDialog(
         actvLeaveType = findViewById(R.id.actvLeaveType)
         actvLeaveHours = findViewById(R.id.actvLeaveHours)
         actvRate = findViewById(R.id.actvRate)
+        shiftCard = findViewById(R.id.shiftCard)
+        toggleShift = findViewById(R.id.toggleShift)
+
+        // 班次默认白班；编辑时按已有记录回选
+        toggleShift.check(R.id.btnShiftDay)
         
         val tvDate = findViewById<TextView>(R.id.tvDate)
         val dateStr = String.format(Locale.getDefault(), "%d-%02d-%02d", year, month + 1, day)
@@ -142,6 +152,11 @@ class AddOvertimeDialog(
     private fun setupExistingData() {
         if (existingRecord != null) {
             tvTitle.text = "编辑记录"
+            // 班次回选（旧数据缺失时 fromStringOrDefault 兜底为白班）
+            when (ShiftType.fromStringOrDefault(existingRecord.shiftType)) {
+                ShiftType.DAY -> toggleShift.check(R.id.btnShiftDay)
+                ShiftType.NIGHT -> toggleShift.check(R.id.btnShiftNight)
+            }
             if (existingRecord.overtimeHours > 0) {
                 actvOvertimeHours.setText(existingRecord.overtimeHours.toString(), false)
             }
@@ -153,11 +168,12 @@ class AddOvertimeDialog(
                 actvRate.setText(existingRecord.customRate.toString(), false)
             }
             etNote.setText(existingRecord.note ?: "")
-            
+
             // 加载请假数据
             if (existingRecord.isLeave) {
                 switchLeave.isChecked = true
                 leaveOptionsLayout.visibility = View.VISIBLE
+                shiftCard.visibility = View.GONE
                 if (existingRecord.leaveHours > 0) {
                     actvLeaveHours.setText(existingRecord.leaveHours.toString(), false)
                 }
@@ -186,9 +202,10 @@ class AddOvertimeDialog(
             dismiss()
         }
         
-        // 请假开关
+        // 请假开关：请假模式下无班次概念，隐藏班次卡片
         switchLeave.setOnCheckedChangeListener { _, isChecked ->
             leaveOptionsLayout.visibility = if (isChecked) View.VISIBLE else View.GONE
+            shiftCard.visibility = if (isChecked) View.GONE else View.VISIBLE
         }
         
         findViewById<View>(R.id.btnSave).setOnClickListener {
@@ -201,34 +218,43 @@ class AddOvertimeDialog(
         val extraHoursStr = actvExtraHours.text?.toString() ?: ""
         val note = etNote.text?.toString() ?: ""
         val isLeave = switchLeave.isChecked
-        
+
         val dateStr = String.format(Locale.getDefault(), "%d-%02d-%02d", year, month + 1, day)
-        
+
+        // 第一层：通用合法性校验（DataValidator）；日期不允许未来
+        DataValidator.validateDate(dateStr).getFirstError()?.let {
+            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // 当前选中的班次（请假模式下沿用原记录班次或默认白班）
+        val selectedShiftType = when (toggleShift.checkedButtonId) {
+            R.id.btnShiftNight -> ShiftType.NIGHT.name
+            else -> ShiftType.DAY.name
+        }
+
         // 如果是请假模式
         if (isLeave) {
             val leaveHoursStr = actvLeaveHours.text?.toString() ?: ""
             val leaveHours = leaveHoursStr.toDoubleOrNull()
-            
-            when {
-                leaveHours == null -> {
-                    Toast.makeText(context, "请选择请假天数", Toast.LENGTH_SHORT).show()
-                    return
-                }
-                leaveHours <= 0 -> {
-                    Toast.makeText(context, "请假天数必须大于0", Toast.LENGTH_SHORT).show()
-                    return
-                }
-                leaveHours > maxLeaveDays -> {
-                    Toast.makeText(context, "当月剩余${maxLeaveDays}天，请假不能超过${maxLeaveDays}天", Toast.LENGTH_SHORT).show()
-                    return
-                }
+
+            // 通用校验：必填 + 范围；业务规则（不超过当月剩余天数）作为第二层
+            DataValidator.validateNumberRange(leaveHours, 0.5, 31.0, "请假天数").getFirstError()?.let {
+                Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+                return
             }
-            
+            if (leaveHours != null && leaveHours > maxLeaveDays) {
+                Toast.makeText(context, "当月剩余${maxLeaveDays}天，请假不能超过${maxLeaveDays}天", Toast.LENGTH_SHORT).show()
+                return
+            }
+
             if (existingRecord != null && onSaveRecord != null) {
                 val updatedRecord = existingRecord.copy(
                     isLeave = true,
                     leaveType = selectedLeaveType.name,
                     leaveHours = leaveHours ?: 1.0,
+                    // 请假记录无班次概念，沿用原记录班次（新建默认白班）
+                    shiftType = existingRecord.shiftType,
                     note = if (note.isNullOrEmpty()) null else note
                 )
                 onSaveRecord.invoke(updatedRecord)
@@ -239,6 +265,7 @@ class AddOvertimeDialog(
                     isLeave = true,
                     leaveType = selectedLeaveType.name,
                     leaveHours = leaveHours ?: 1.0,
+                    shiftType = ShiftType.DAY.name,
                     note = if (note.isNullOrEmpty()) null else note
                 )
                 onSaveRecord.invoke(newRecord)
@@ -250,23 +277,35 @@ class AddOvertimeDialog(
         // 非请假模式，使用加班/加点时长
         val overtimeHours = overtimeHoursStr.toDoubleOrNull()
         val extraHours = extraHoursStr.toDoubleOrNull()
-        
-        // 加班和加点至少要填一个
+
+        // 加班和加点至少要填一个（业务规则）
         if (overtimeHours == null && extraHours == null) {
             Toast.makeText(context, "请选择加班时长或加点时长", Toast.LENGTH_SHORT).show()
             return
         }
-        
-        // 验证范围
-        if (overtimeHours != null && overtimeHours > 11) {
-            Toast.makeText(context, "单日加班时长不能超过11小时", Toast.LENGTH_SHORT).show()
-            return
+
+        // 通用校验：非负且不超 24h；业务规则：单日 ≤11h
+        if (overtimeHours != null) {
+            DataValidator.validateNumberRange(overtimeHours, 0.0, 24.0, "加班时长").getFirstError()?.let {
+                Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+                return
+            }
+            if (overtimeHours > 11) {
+                Toast.makeText(context, "单日加班时长不能超过11小时", Toast.LENGTH_SHORT).show()
+                return
+            }
         }
-        if (extraHours != null && extraHours > 11) {
-            Toast.makeText(context, "单日加点时长不能超过11小时", Toast.LENGTH_SHORT).show()
-            return
+        if (extraHours != null) {
+            DataValidator.validateNumberRange(extraHours, 0.0, 24.0, "加点时长").getFirstError()?.let {
+                Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+                return
+            }
+            if (extraHours > 11) {
+                Toast.makeText(context, "单日加点时长不能超过11小时", Toast.LENGTH_SHORT).show()
+                return
+            }
         }
-        
+
         val finalOvertime = overtimeHours ?: 0.0
         val finalExtra = extraHours ?: 0.0
 
@@ -277,15 +316,9 @@ class AddOvertimeDialog(
             else -> rateText.toDoubleOrNull()
         }
         if (rateText.isNotEmpty() && rateText != "默认") {
-            when {
-                customRate == null || customRate < 1.0 -> {
-                    Toast.makeText(context, "工资倍率不能小于1", Toast.LENGTH_SHORT).show()
-                    return
-                }
-                customRate > 4.0 -> {
-                    Toast.makeText(context, "工资倍率不能大于4", Toast.LENGTH_SHORT).show()
-                    return
-                }
+            DataValidator.validateNumberRange(customRate, 1.0, 4.0, "工资倍率").getFirstError()?.let {
+                Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+                return
             }
         }
 
@@ -297,6 +330,7 @@ class AddOvertimeDialog(
                 leaveType = null,
                 leaveHours = 0.0,
                 customRate = customRate ?: -1.0,
+                shiftType = selectedShiftType,
                 note = if (note.isNullOrEmpty()) null else note
             )
             onSaveRecord?.invoke(updatedRecord)
@@ -310,11 +344,12 @@ class AddOvertimeDialog(
                 leaveType = null,
                 leaveHours = 0.0,
                 customRate = customRate ?: -1.0,
+                shiftType = selectedShiftType,
                 note = if (note.isNullOrEmpty()) null else note
             )
             onSaveRecord?.invoke(newRecord)
         }
-        
+
         dismiss()
     }
 }
