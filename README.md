@@ -277,8 +277,11 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 
 ### PC 端监控（方案 A：WebDAV + PC 读取器）
 
-`pc-monitor/overtime_monitor.py`：用与 App 相同的 WebDAV 凭据拉取云端备份，完全兼容三种云端格式并**本地解密**，浏览器仪表盘展示加班统计（每 60 秒自动刷新）。
+`pc-monitor/overtime_monitor.py`：用与 App 相同的 WebDAV 凭据拉取云端备份，完全兼容三种云端格式并**本地解密**，浏览器仪表盘展示加班统计（每 60 秒局部刷新，不打断筛选/排序）。
 
+- 口径与 App 一致：法定节假日 3 倍、周末 2 倍、加点 1.5 倍，内置 2024-2028 节假日与调休补班日，支持 `overtimeRateHoliday` 等备份内倍率
+- 明细表支持按月份/类型/关键字筛选与按日期/时长排序；`/export.csv` 可导出全量记录（UTF-8 BOM，Excel 直接打开）
+- 可在 `config.json` 配置 `month_target_hours` / `month_target_pay` 显示月度目标进度条；`notify_on_error` 控制拉取失败时的 Windows 通知
 - 仪表盘仅绑定 `127.0.0.1`，不向局域网暴露数据；凭据仅发给同注册域主机，拒绝 https→http 降级
 - 使用方式详见脚本头部注释（`python overtime_monitor.py`，支持 `--selftest` / `--port` / `--no-browser`）
 

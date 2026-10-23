@@ -6,5 +6,8 @@
   "sync_password": "App内配置的同步加密密码，未开启同步加密则留空",
   "recovery_code": "恢复码（可选，忘记同步密码时的兜底钥匙）",
   "poll_interval_minutes": 5,
-  "port": 8518
+  "port": 8518,
+  "month_target_hours": 0,
+  "month_target_pay": 0,
+  "notify_on_error": true
 }

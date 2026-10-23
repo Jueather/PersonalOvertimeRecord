@@ -19,7 +19,7 @@ PersonalOvertimeRecord —— PC 端监控（方案 A：WebDAV + PC 读取器）
   2. 安装依赖（仅加密备份需要；明文备份无需任何第三方库）：
          pip install cryptography
   3. 运行：python overtime_monitor.py
-     然后浏览器打开 http://127.0.0.1:8518 （页面每 60 秒自动刷新）。
+     然后浏览器打开 http://127.0.0.1:8518 （页面每 60 秒局部刷新，明细可筛选/排序，支持导出 CSV）。
 
 其他：
   python overtime_monitor.py --selftest      # 本地自测解密/统计逻辑
@@ -34,12 +34,15 @@ PersonalOvertimeRecord —— PC 端监控（方案 A：WebDAV + PC 读取器）
 
 import argparse
 import base64
+import csv
 import hashlib
 import html
+import io
 import json
 import os
 import re
 import socket
+import subprocess
 import sys
 import threading
 import time
@@ -92,9 +95,72 @@ DEFAULT_CONFIG = {
     "recovery_code": "",
     "poll_interval_minutes": 5,
     "port": 8518,
+    # 月度目标（0 = 不显示进度卡）
+    "month_target_hours": 0,
+    "month_target_pay": 0,
+    # 拉取失败时弹 Windows 通知（默认开启）
+    "notify_on_error": True,
 }
 
 WEEKDAY_NAMES = ["周一", "周二", "周三", "周四", "周五", "周六", "周日"]
+
+# 日期类型（与 App HolidayManager.getDayType / OvertimeCalculator.effectiveDayType 对齐）
+DAY_HOLIDAY = "holiday"     # 法定节假日（3 倍）
+DAY_WEEKEND = "weekend"     # 周末（2 倍）
+DAY_WORKDAY = "workday"     # 工作日 / 调休补班日（1.5 倍）
+
+DAY_TYPE_NAMES = {
+    DAY_HOLIDAY: "法定节假日",
+    DAY_WEEKEND: "周末",
+    DAY_WORKDAY: "工作日",
+}
+
+# 法定节假日（逐条对齐 App HolidayManager.kt，2024-2028）
+_HOLIDAY_RANGES = [
+    ("元旦", "2024-01-01", "2024-01-01"),
+    ("春节", "2024-02-10", "2024-02-17"),
+    ("清明节", "2024-04-04", "2024-04-06"),
+    ("劳动节", "2024-05-01", "2024-05-05"),
+    ("端午节", "2024-06-10", "2024-06-10"),
+    ("中秋节", "2024-09-15", "2024-09-17"),
+    ("国庆节", "2024-10-01", "2024-10-07"),
+    ("元旦", "2025-01-01", "2025-01-01"),
+    ("春节", "2025-01-28", "2025-02-04"),
+    ("清明节", "2025-04-04", "2025-04-06"),
+    ("劳动节", "2025-05-01", "2025-05-05"),
+    ("端午节", "2025-05-31", "2025-06-02"),
+    ("中秋节", "2025-09-29", "2025-09-30"),
+    ("国庆节", "2025-10-01", "2025-10-08"),
+    ("元旦", "2026-01-01", "2026-01-03"),
+    ("春节", "2026-02-15", "2026-02-23"),
+    ("清明节", "2026-04-04", "2026-04-06"),
+    ("劳动节", "2026-05-01", "2026-05-05"),
+    ("端午节", "2026-06-19", "2026-06-21"),
+    ("中秋节", "2026-09-25", "2026-09-27"),
+    ("国庆节", "2026-10-01", "2026-10-07"),
+    ("元旦", "2027-01-01", "2027-01-01"),
+    ("春节", "2027-02-05", "2027-02-12"),
+    ("清明节", "2027-04-03", "2027-04-06"),
+    ("劳动节", "2027-05-01", "2027-05-05"),
+    ("端午节", "2027-06-10", "2027-06-12"),
+    ("中秋节", "2027-09-15", "2027-09-17"),
+    ("国庆节", "2027-10-01", "2027-10-07"),
+    ("元旦", "2028-01-01", "2028-01-01"),
+    ("春节", "2028-01-25", "2028-02-01"),
+    ("清明节", "2028-04-04", "2028-04-07"),
+    ("劳动节", "2028-05-01", "2028-05-05"),
+    ("端午节", "2028-05-29", "2028-05-31"),
+    ("国庆节", "2028-10-01", "2028-10-08"),
+]
+
+# 调休补班日（周末上班，按工作日 1.5 倍计）
+MAKEUP_WORKDAYS = frozenset({
+    "2024-02-04", "2024-02-18", "2024-04-07", "2024-04-28",
+    "2024-05-11", "2024-09-14", "2024-09-29", "2024-10-12",
+    "2025-01-26", "2025-02-08", "2025-04-27", "2025-09-28", "2025-10-11",
+    "2026-01-04", "2026-02-14", "2026-02-28",
+    "2026-05-09", "2026-09-20", "2026-10-10",
+})
 
 # 参与加班费估算的 Double 字段（Gson 序列化复刻用）
 DOUBLE_FIELDS = {"manualOvertimeHours", "manualExtraHours", "leaveHours", "customRate"}
@@ -474,6 +540,135 @@ def _parse_date(s):
         return None
 
 
+def _build_holidays():
+    out = {}
+    for name, start, end in _HOLIDAY_RANGES:
+        d0, d1 = _parse_date(start), _parse_date(end)
+        while d0 is not None and d1 is not None and d0 <= d1:
+            out[d0.strftime("%Y-%m-%d")] = name
+            d0 += timedelta(days=1)
+    return out
+
+
+HOLIDAYS = _build_holidays()
+
+
+def get_holiday_name(date_s):
+    """法定节假日名称，非节假日返回 None"""
+    return HOLIDAYS.get(date_s)
+
+
+def is_makeup_workday(date_s):
+    """是否调休补班日（周末上班）"""
+    return date_s in MAKEUP_WORKDAYS
+
+
+def calendar_day_type(date_s, d=None):
+    """日历日期类型：法定节假日 > 调休补班(工作日) > 周末 > 工作日"""
+    d = d or _parse_date(date_s)
+    if d is None:
+        return DAY_WORKDAY
+    if date_s in HOLIDAYS:
+        return DAY_HOLIDAY
+    if date_s in MAKEUP_WORKDAYS:
+        return DAY_WORKDAY
+    return DAY_WEEKEND if d.weekday() >= 5 else DAY_WORKDAY
+
+
+def effective_day_type(date_s, ot, extra, d=None):
+    """有效日期类型（与 App OvertimeCalculator.effectiveDayType 完全一致）：
+    登记了加班 → 节假日按节假日，其余一律按周末；
+    只登记了加点 → 按工作日；两者都未登记 → 按日历。
+    """
+    cal = calendar_day_type(date_s, d)
+    if ot > 0:
+        return DAY_HOLIDAY if cal == DAY_HOLIDAY else DAY_WEEKEND
+    if extra > 0:
+        return DAY_WORKDAY
+    return cal
+
+
+def compute_record_pay(date_s, ot, extra, hourly, rates, custom_rate=None, d=None):
+    """单条记录预估加班费（对齐 OvertimeCalculator.calculateOvertimePay）。
+
+    rates = (工作日倍率, 周末倍率, 节假日倍率)；customRate >= 0 时整条按自定义倍率。
+    返回 (pay, day_type, rate_text)。
+    """
+    rate_normal, rate_weekend, rate_holiday = rates
+    if custom_rate is not None and custom_rate >= 0:
+        pay = (ot + extra) * hourly * custom_rate
+        return pay, effective_day_type(date_s, ot, extra, d), "×%g（自定义）" % custom_rate
+
+    day_type = effective_day_type(date_s, ot, extra, d)
+    type_rate = {
+        DAY_HOLIDAY: rate_holiday,
+        DAY_WEEKEND: rate_weekend,
+        DAY_WORKDAY: rate_normal,
+    }[day_type]
+    pay = ot * hourly * type_rate + extra * hourly * rate_normal
+    if ot > 0 and extra > 0:
+        rate_text = "%g× + %g×" % (type_rate, rate_normal)
+    elif ot > 0:
+        rate_text = "%g×（%s）" % (type_rate, DAY_TYPE_NAMES[day_type])
+    elif extra > 0:
+        rate_text = "%g×（工作日加点）" % rate_normal
+    else:
+        rate_text = "—"
+    return pay, day_type, rate_text
+
+
+def _record_view(r, hourly, rates):
+    """单条记录的展示视图（明细表与 CSV 导出共用同一口径）"""
+    date_s = r.get("date") or ""
+    d = _parse_date(date_s)
+    ot = max(0.0, float(r.get("manualOvertimeHours") or 0))
+    extra = max(0.0, float(r.get("manualExtraHours") or 0))
+    is_leave = bool(r.get("isLeave"))
+    labels, cls = [], "normal"
+    if is_leave:
+        labels.append("请假")
+        cls = "leave"
+    if ot > 0:
+        labels.append("加班")
+        if cls == "normal":
+            cls = "ot"
+    if extra > 0:
+        labels.append("加点")
+        if cls == "normal":
+            cls = "extra"
+    custom = r.get("customRate")
+    custom_rate = float(custom) if custom is not None else None
+    pay, day_type, rate_text = compute_record_pay(
+        date_s, ot, extra, hourly, rates, custom_rate, d)
+    ci, co = r.get("checkInTime"), r.get("checkOutTime")
+    if not ci and not co:
+        time_range = "未登记"
+    else:
+        time_range = "%s - %s" % (ci or "--:--", co or "--:--")
+    return {
+        "date": date_s,
+        "weekday": WEEKDAY_NAMES[d.weekday()] if d else "",
+        "day_type": day_type,
+        "day_type_name": DAY_TYPE_NAMES[day_type],
+        "calendar_type": calendar_day_type(date_s, d) if d else DAY_WORKDAY,
+        "holiday": get_holiday_name(date_s) if d is not None else None,
+        "makeup": bool(d is not None and is_makeup_workday(date_s)),
+        "labels": labels or ["—"],
+        "cls": cls,
+        "time": time_range,
+        "ot": ot if ot > 0 else None,
+        "extra": extra if extra > 0 else None,
+        "total": round(ot + extra, 2),
+        "leave_hours": float(r.get("leaveHours") or 0) if is_leave else None,
+        "leave_type": r.get("leaveType") or "",
+        "pay": round(pay, 2) if (ot + extra) > 0 else None,
+        "rate_text": rate_text,
+        "custom_rate": ("×%g" % custom_rate) if (custom_rate is not None and custom_rate >= 0) else "默认",
+        "note": r.get("note") or "",
+        "device": r.get("lastModifiedBy") or "",
+    }
+
+
 def _resolve_checkout_dt(r, d):
     """解析记录的实际下班时间：优先打卡时间戳，回退到 checkOutTime 字符串（日期取记录日期）"""
     if d is None or r.get("isLeave"):
@@ -494,10 +689,11 @@ def _resolve_checkout_dt(r, d):
     return None
 
 
-def compute_stats(backup, now=None):
+def compute_stats(backup, now=None, targets=None):
     now = now or datetime.now()
     settings = backup.get("settings") or {}
     records = backup.get("attendanceRecords") or []
+    targets = targets or {}
 
     # 缺失字段回退到 App OvertimeSettings 默认值
     base = float(settings["baseSalary"]) if settings.get("baseSalary") is not None else 5000.0
@@ -509,6 +705,18 @@ def compute_stats(backup, now=None):
     hourly = total_monthly / monthly_hours if monthly_hours > 0 else 0.0
     rate_normal = float(settings["overtimeRateNormal"]) if settings.get("overtimeRateNormal") is not None else 1.5
     rate_weekend = float(settings["overtimeRateWeekend"]) if settings.get("overtimeRateWeekend") is not None else 2.0
+    rate_holiday = float(settings["overtimeRateHoliday"]) if settings.get("overtimeRateHoliday") is not None else 3.0
+    rates = (rate_normal, rate_weekend, rate_holiday)
+
+    # 月度目标（config.json 配置，0 表示不启用）
+    try:
+        target_hours = float(targets.get("month_target_hours") or 0)
+    except (TypeError, ValueError):
+        target_hours = 0.0
+    try:
+        target_pay = float(targets.get("month_target_pay") or 0)
+    except (TypeError, ValueError):
+        target_pay = 0.0
 
     # 标准下班时间（下班晚点分析用），缺省 "17:00"（与 App OvertimeSettings 默认一致）
     std_end_str = str(settings.get("workEndTime") or "17:00").strip()
@@ -525,11 +733,17 @@ def compute_stats(backup, now=None):
     month_ot = month_extra = month_pay = 0.0
     month_leave_days = month_leave_hours = 0
     year_hours = year_pay = 0.0
+    year_ot = year_extra = 0.0            # 本年加班/加点拆分
+    year_weekday_hours = year_weekend_hours = year_holiday_hours = 0.0
     total_hours = 0.0
     month_count = 0                    # 本月有加班/加点登记的天数
     month_late_nights = 0              # 本月 22:00 后下班次数
     month_latest_checkout = None       # 本月最晚下班 "HH:MM"
     month_leave_by_type = {}           # 请假类型 -> {days, hours}
+    holiday_ot_hours = 0.0             # 法定节假日登记加班时长
+    holiday_days = set()               # 法定节假日有加班的日期
+    makeup_ot_hours = 0.0              # 调休补班日登记加班时长（按工作日 1.5 倍）
+    makeup_days = set()
     daily_map = {}                     # date -> {ot, extra, leave, late, checkout}
     monthly_map = {}                   # YYYY-MM -> {ot, extra, pay}
     weekday_map = {i: {"ot": 0.0, "extra": 0.0} for i in range(7)}
@@ -548,12 +762,19 @@ def compute_stats(backup, now=None):
 
         custom = r.get("customRate")
         custom_rate = float(custom) if custom is not None else None
-        # 估算口径：登记"加班"按周末倍率（法定节假日 3 倍场景以 App 为准），
-        # 登记"加点"按工作日倍率；customRate >= 0 时整条覆盖
-        if custom_rate is not None and custom_rate >= 0:
-            pay = (ot + extra) * hourly * custom_rate
-        else:
-            pay = ot * hourly * rate_weekend + extra * hourly * rate_normal
+        # 估算口径与 App 完全一致（OvertimeCalculator）：
+        # 登记"加班"按有效日期类型倍率（法定节假日 = overtimeRateHoliday，默认 3 倍；
+        # 其余按周末倍率），"加点"始终按工作日倍率；customRate >= 0 时整条覆盖。
+        pay, day_type, _rate_text = compute_record_pay(
+            date_s, ot, extra, hourly, rates, custom_rate, d)
+
+        if ot > 0 and d is not None:
+            if get_holiday_name(date_s):
+                holiday_ot_hours += ot
+                holiday_days.add(date_s)
+            elif is_makeup_workday(date_s):
+                makeup_ot_hours += ot
+                makeup_days.add(date_s)
 
         if is_leave:
             month_leave_days += 1 if date_s.startswith(month_key) else 0
@@ -582,6 +803,14 @@ def compute_stats(backup, now=None):
         if year_hit:
             year_hours += hours
             year_pay += pay
+            year_ot += ot
+            year_extra += extra
+            if day_type == DAY_HOLIDAY:
+                year_holiday_hours += hours
+            elif day_type == DAY_WEEKEND:
+                year_weekend_hours += hours
+            else:
+                year_weekday_hours += hours
 
         if d is not None:
             agg_d = daily_map.setdefault(date_s, {"ot": 0.0, "extra": 0.0, "leave": 0.0})
@@ -656,54 +885,101 @@ def compute_stats(backup, now=None):
     month_avg_12 = round(sum(mo["hours"] for mo in monthly12) / 12.0, 2)
     month_avg = round(cur_hours / month_count, 2) if month_count > 0 else 0.0
 
-    # 明细（倒序，最多 60 条）
-    def view(r):
-        date_s = r.get("date") or ""
-        d = _parse_date(date_s)
-        ot = max(0.0, float(r.get("manualOvertimeHours") or 0))
-        extra = max(0.0, float(r.get("manualExtraHours") or 0))
-        is_leave = bool(r.get("isLeave"))
-        labels, cls = [], "normal"
-        if is_leave:
-            labels.append("请假"); cls = "leave"
-        if ot > 0:
-            labels.append("加班")
-            cls = "ot" if cls == "normal" else cls
-        if extra > 0:
-            labels.append("加点")
-            if cls == "normal":
-                cls = "extra"
-        custom = r.get("customRate")
-        custom_rate = float(custom) if custom is not None else None
-        if custom_rate is not None and custom_rate >= 0:
-            pay = (ot + extra) * hourly * custom_rate
-        else:
-            pay = ot * hourly * rate_weekend + extra * hourly * rate_normal
-        ci, co = r.get("checkInTime"), r.get("checkOutTime")
-        if not ci and not co:
-            time_range = "未登记"
-        else:
-            time_range = "%s - %s" % (ci or "--:--", co or "--:--")
-        return {
-            "date": date_s,
-            "weekday": WEEKDAY_NAMES[d.weekday()] if d else "",
-            "labels": labels or ["—"],
-            "cls": cls,
-            "time": time_range,
-            "ot": ot if ot > 0 else None,
-            "extra": extra if extra > 0 else None,
-            "leave_hours": float(r.get("leaveHours") or 0) if is_leave else None,
-            "leave_type": r.get("leaveType") or "",
-            "pay": round(pay, 2) if (ot + extra) > 0 else None,
-            "custom_rate": ("×%g" % custom_rate) if (custom_rate is not None and custom_rate >= 0) else "默认",
-            "note": r.get("note") or "",
-            "device": r.get("lastModifiedBy") or "",
+    # 同比：去年同月
+    prev_year_key = "%04d-%02d" % (now.year - 1, now.month)
+    prev_year_agg = monthly_map.get(prev_year_key, {})
+    prev_year_hours = round(prev_year_agg.get("ot", 0.0) + prev_year_agg.get("extra", 0.0), 2)
+    yoy_pct = round((cur_hours - prev_year_hours) / prev_year_hours * 100.0) if prev_year_hours > 0 else None
+
+    # 本年加班/加点拆分与工作日/周末分布
+    year_hours_r = round(year_ot + year_extra, 2)
+    year_weekend_share = round(year_weekend_hours / year_hours_r * 100.0) if year_hours_r > 0 else None
+
+    # 季度汇总：近 8 个季度（含当前季度），从 monthly_map 聚合
+    quarter_map = {}
+    for ym, agg in monthly_map.items():
+        try:
+            y, mth = int(ym[:4]), int(ym[5:7])
+        except (ValueError, IndexError):
+            continue
+        qk = "%dQ%d" % (y, (mth - 1) // 3 + 1)
+        qa = quarter_map.setdefault(qk, {"ot": 0.0, "extra": 0.0})
+        qa["ot"] += agg["ot"]
+        qa["extra"] += agg["extra"]
+    quarterly = []
+    q_year, q_num = now.year, (now.month - 1) // 3 + 1
+    for _ in range(8):
+        qk = "%dQ%d" % (q_year, q_num)
+        qa = quarter_map.get(qk, {"ot": 0.0, "extra": 0.0})
+        quarterly.append({
+            "label": qk,
+            "ot": round(qa["ot"], 2),
+            "extra": round(qa["extra"], 2),
+            "hours": round(qa["ot"] + qa["extra"], 2),
+        })
+        q_num -= 1
+        if q_num == 0:
+            q_num, q_year = 4, q_year - 1
+    quarterly.reverse()
+    # 去掉开头的空季度，避免图表前段全是空柱（至少保留 1 个季度）
+    while len(quarterly) > 1 and quarterly[0]["hours"] == 0:
+        quarterly.pop(0)
+
+    # 峰值日：本年单日合计最高的一天
+    year_daily = [(ds, a) for ds, a in daily_map.items()
+                  if ds.startswith(year_key) and (a["ot"] + a["extra"]) > 0]
+    peak_day = None
+    if year_daily:
+        ds, a = max(year_daily, key=lambda x: x[1]["ot"] + x[1]["extra"])
+        pd_dt = _parse_date(ds)
+        peak_day = {
+            "date": ds,
+            "weekday": WEEKDAY_NAMES[pd_dt.weekday()] if pd_dt else "",
+            "hours": round(a["ot"] + a["extra"], 2),
+            "ot": round(a["ot"], 2),
+            "extra": round(a["extra"], 2),
         }
 
+    # 加班集中度：加班最多的前 10% 天数（向上取整，至少 1 天）占总时长比例
+    day_totals = sorted((a["ot"] + a["extra"] for a in daily_map.values() if (a["ot"] + a["extra"]) > 0),
+                        reverse=True)
+    top_days = max(1, (len(day_totals) + 9) // 10) if day_totals else 0
+    top_hours = round(sum(day_totals[:top_days]), 2) if day_totals else 0.0
+    top_share = round(top_hours / total_hours * 100.0) if total_hours > 0 else None
+
+    # 近 3 个月趋势：最近 N 个完整月 vs 再往前 N 个完整月（不含本月）
+    # 完整月不足 6 个时退回 2 个月窗口，仍然不足则显示"数据不足"
+    complete_keys = sorted(k for k in monthly_map if k < month_key)
+    trend_pct, trend_text, trend_window = None, "数据不足", 0
+    for window in (3, 2):
+        if len(complete_keys) < window * 2:
+            continue
+
+        def sum_hours(keys):
+            return sum(monthly_map[k]["ot"] + monthly_map[k]["extra"] for k in keys) / float(len(keys))
+
+        recent = sum_hours(complete_keys[-window:])
+        prev = sum_hours(complete_keys[-window * 2:-window])
+        trend_window = window
+        if prev > 0:
+            trend_pct = round((recent - prev) / prev * 100.0)
+            trend_text = "上升" if trend_pct > 3 else ("下降" if trend_pct < -3 else "基本持平")
+        else:
+            trend_text = "上升" if recent > 0 else "基本持平"
+            trend_pct = None
+        break
+
+    # 明细（全量，按日期倒序；前端支持筛选/排序）
     recent = sorted(
-        (view(r) for r in active if r.get("date")),
+        (_record_view(r, hourly, rates) for r in active if r.get("date")),
         key=lambda v: v["date"], reverse=True,
-    )[:60]
+    )
+
+    # 月度目标进度（目标未配置时为 None）
+    month_progress_hours = (round((month_ot + month_extra) / target_hours * 100)
+                            if target_hours > 0 else None)
+    month_progress_pay = (round(month_pay / target_pay * 100)
+                          if target_pay > 0 else None)
 
     return {
         "record_count_total": len(records),
@@ -715,6 +991,10 @@ def compute_stats(backup, now=None):
         "month_extra": round(month_extra, 2),
         "month_hours": round(month_ot + month_extra, 2),
         "month_pay": round(month_pay, 2),
+        "month_target_hours": target_hours,
+        "month_target_pay": target_pay,
+        "month_progress_hours": month_progress_hours,
+        "month_progress_pay": month_progress_pay,
         "month_leave_days": month_leave_days,
         "month_leave_hours": round(month_leave_hours, 2),
         "month_count": month_count,
@@ -725,6 +1005,27 @@ def compute_stats(backup, now=None):
         "late_nights": month_late_nights,
         "latest_checkout": month_latest_checkout,
         "month_avg_12": month_avg_12,
+        "prev_year_hours": prev_year_hours,
+        "yoy_pct": yoy_pct,
+        "year_ot": round(year_ot, 2),
+        "year_extra": round(year_extra, 2),
+        "year_weekend_hours": round(year_weekend_hours, 2),
+        "year_weekday_hours": round(year_weekday_hours, 2),
+        "year_holiday_hours": round(year_holiday_hours, 2),
+        "year_weekend_share": year_weekend_share,
+        "holiday_ot_hours": round(holiday_ot_hours, 2),
+        "holiday_days": len(holiday_days),
+        "makeup_ot_hours": round(makeup_ot_hours, 2),
+        "makeup_days": len(makeup_days),
+        "peak_day": peak_day,
+        "top_days": top_days,
+        "top_hours": top_hours,
+        "top_share": top_share,
+        "day_count_with_hours": len(day_totals),
+        "trend_pct": trend_pct,
+        "trend_text": trend_text,
+        "trend_window": trend_window,
+        "quarterly": quarterly,
         "weekday_dist": weekday_map,
         "month_leave_by_type": month_leave_by_type,
         "year_hours": round(year_hours, 2),
@@ -740,24 +1041,29 @@ def compute_stats(backup, now=None):
 # SVG 图表
 # ---------------------------------------------------------------------------
 
+def _fmt_bar_val(v):
+    """柱顶数值的紧凑写法：≥10 取整，小于 10 保留 1 位小数"""
+    return ("%d" % round(v)) if v >= 10 else ("%g" % round(v, 1))
+
+
 def svg_daily_chart(daily30):
-    """近 30 天堆叠柱状图：加班（蓝）/ 加点（青）/ 请假（橙）分段显示"""
+    """近 30 天分组并排柱状图：加班（蓝）、加点（青）、请假（橙）各占一根独立柱子"""
     w, h = 860, 220
-    pad_l, pad_b, pad_t = 40, 28, 12
+    pad_l, pad_b, pad_t = 40, 28, 16
     plot_w = w - pad_l - 8
     plot_h = h - pad_b - pad_t
     if not daily30:
         return ""
     segments = [("ot", "加班", "#4c6ef5"), ("extra", "加点", "#22b8cf"), ("leave", "请假", "#f59e0b")]
-
-    def day_total(d):
-        return sum(d.get(k, 0.0) for k, _label, _color in segments)
-
-    max_v = max((day_total(d) for d in daily30), default=0) or 1.0
-    max_v = max(max_v, 1.0)
     n = len(daily30)
     slot = plot_w / n
-    bar_w = max(6.0, slot * 0.62)
+    gap = 1.6
+    group_w = min(slot * 0.84, 27.0)
+    bar_w = max(2.4, (group_w - gap * (len(segments) - 1)) / len(segments))
+    group_w = bar_w * len(segments) + gap * (len(segments) - 1)
+    # 分组显示时按"单根柱子"的最大值定标尺，而不是当天合计
+    max_v = max((max(d.get(k, 0.0) for k, _label, _color in segments) for d in daily30), default=0) or 1.0
+    max_v = max(max_v, 1.0)
     parts = []
     # 网格与刻度
     for i in range(1, 4):
@@ -768,8 +1074,8 @@ def svg_daily_chart(daily30):
                      % (pad_l - 6, y + 3, max_v * i / 4.0))
     for idx, d in enumerate(daily30):
         wd = WEEKDAY_NAMES[d["weekday"]]
-        x = pad_l + idx * slot + (slot - bar_w) / 2
-        total = day_total(d)
+        gx = pad_l + idx * slot + (slot - group_w) / 2
+        total = sum(d.get(k, 0.0) for k, _label, _color in segments)
         if total > 0:
             tip_lines = ["%s（%s）" % (d["date"], wd)]
             for k, label, _color in segments:
@@ -778,48 +1084,50 @@ def svg_daily_chart(daily30):
                     tip_lines.append("%s %.2f 小时" % (label, v))
             tip_lines.append("合计 %.2f 小时" % total)
             tip = "\n".join(tip_lines)
-            # 自下而上堆叠：加班 → 加点 → 请假
-            y_cursor = pad_t + plot_h
-            for k, _label, color in segments:
+            # 每个分类各自独立成柱，并排摆放
+            for si, (k, label, color) in enumerate(segments):
                 v = d.get(k, 0.0)
                 if v <= 0:
                     continue
-                seg_h = plot_h * (v / max_v)
-                y_cursor -= seg_h
-                parts.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="%s">'
-                             '<title>%s</title></rect>'
-                             % (x, y_cursor, bar_w, seg_h, color, tip))
+                bh = plot_h * (v / max_v)
+                x = gx + si * (bar_w + gap)
+                parts.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="1" fill="%s">'
+                             '<title>%s\n%s %.2f 小时</title></rect>'
+                             % (x, pad_t + plot_h - bh, bar_w, bh, color, d["date"], label, v))
+                parts.append('<text x="%.1f" y="%.1f" font-size="7" fill="#4b5563" '
+                             'text-anchor="middle">%s</text>'
+                             % (x + bar_w / 2, pad_t + plot_h - bh - 2.2, _fmt_bar_val(v)))
         else:
             parts.append(
                 '<rect x="%.1f" y="%.1f" width="%.1f" height="2" fill="#e5e7eb">'
                 '<title>%s（%s）：无记录</title></rect>'
-                % (x, pad_t + plot_h - 2, bar_w, d["date"], wd)
+                % (gx, pad_t + plot_h - 2, group_w, d["date"], wd)
             )
         if idx % 5 == 0 or idx == n - 1:
             parts.append('<text x="%.1f" y="%d" font-size="10" fill="#6b7280" text-anchor="middle">%s</text>'
-                         % (x + bar_w / 2, h - 8, d["date"][5:]))
+                         % (gx + group_w / 2, h - 8, d["date"][5:]))
     return ('<svg viewBox="0 0 %d %d" width="100%%" height="%d" role="img">%s</svg>'
             % (w, h, h, "".join(parts)))
 
 
 def svg_monthly_chart(monthly12):
-    """近 12 个月堆叠柱状图：加班（蓝）/ 加点（青）分段显示"""
+    """近 12 个月分组并排柱状图：加班（蓝）与加点（青）各占一根独立柱子"""
     w, h = 860, 220
-    pad_l, pad_b, pad_t = 40, 28, 12
+    pad_l, pad_b, pad_t = 40, 28, 16
     plot_w = w - pad_l - 8
     plot_h = h - pad_b - pad_t
     if not monthly12:
         return ""
     segments = [("ot", "加班", "#4c6ef5"), ("extra", "加点", "#22b8cf")]
-
-    def month_total(m):
-        return m.get("ot", 0.0) + m.get("extra", 0.0)
-
-    max_v = max((month_total(m) for m in monthly12), default=0) or 1.0
-    max_v = max(max_v, 1.0)
     n = len(monthly12)
     slot = plot_w / n
-    bar_w = max(10.0, slot * 0.55)
+    gap = 3.0
+    group_w = min(slot * 0.6, 48.0)
+    bar_w = max(4.0, (group_w - gap * (len(segments) - 1)) / len(segments))
+    group_w = bar_w * len(segments) + gap * (len(segments) - 1)
+    # 分组显示时按"单根柱子"的最大值定标尺
+    max_v = max((max(m.get(k, 0.0) for k, _label, _color in segments) for m in monthly12), default=0) or 1.0
+    max_v = max(max_v, 1.0)
     parts = []
     for i in range(1, 4):
         y = pad_t + plot_h - plot_h * i / 4.0
@@ -828,8 +1136,8 @@ def svg_monthly_chart(monthly12):
         parts.append('<text x="%d" y="%.1f" font-size="10" fill="#9ca3af" text-anchor="end">%g</text>'
                      % (pad_l - 6, y + 3, max_v * i / 4.0))
     for idx, m in enumerate(monthly12):
-        total = month_total(m)
-        x = pad_l + idx * slot + (slot - bar_w) / 2
+        total = m.get("ot", 0.0) + m.get("extra", 0.0)
+        gx = pad_l + idx * slot + (slot - group_w) / 2
         if total > 0:
             tip_lines = [m["month"]]
             for k, label, _color in segments:
@@ -838,23 +1146,76 @@ def svg_monthly_chart(monthly12):
                     tip_lines.append("%s %.2f 小时" % (label, v))
             tip_lines.append("合计 %.2f 小时，预估 ¥%.2f" % (total, m.get("pay", 0.0)))
             tip = "\n".join(tip_lines)
-            y_cursor = pad_t + plot_h
-            for k, _label, color in segments:
+            # 加班与加点各自独立成柱，并排摆放
+            for si, (k, label, color) in enumerate(segments):
                 v = m.get(k, 0.0)
                 if v <= 0:
                     continue
-                seg_h = plot_h * (v / max_v)
-                y_cursor -= seg_h
-                parts.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="%s">'
-                             '<title>%s</title></rect>'
-                             % (x, y_cursor, bar_w, seg_h, color, tip))
+                bh = plot_h * (v / max_v)
+                x = gx + si * (bar_w + gap)
+                parts.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="2" fill="%s">'
+                             '<title>%s\n%s %.2f 小时</title></rect>'
+                             % (x, pad_t + plot_h - bh, bar_w, bh, color, m["month"], label, v))
+                parts.append('<text x="%.1f" y="%.1f" font-size="8.5" fill="#4b5563" '
+                             'text-anchor="middle">%s</text>'
+                             % (x + bar_w / 2, pad_t + plot_h - bh - 3, _fmt_bar_val(v)))
         else:
             parts.append(
                 '<rect x="%.1f" y="%.1f" width="%.1f" height="2" fill="#e5e7eb"><title>%s：无记录</title></rect>'
-                % (x, pad_t + plot_h - 2, bar_w, m["month"])
+                % (gx, pad_t + plot_h - 2, group_w, m["month"])
             )
         parts.append('<text x="%.1f" y="%d" font-size="10" fill="#6b7280" text-anchor="middle">%s</text>'
-                     % (x + bar_w / 2, h - 8, m["month"][2:]))
+                     % (gx + group_w / 2, h - 8, m["month"][2:]))
+    return ('<svg viewBox="0 0 %d %d" width="100%%" height="%d" role="img">%s</svg>'
+            % (w, h, h, "".join(parts)))
+
+
+def svg_quarter_chart(quarterly):
+    """近 8 个季度分组并排柱状图：加班（蓝）与加点（青）各占一根独立柱子"""
+    w, h = 860, 220
+    pad_l, pad_b, pad_t = 40, 28, 16
+    plot_w = w - pad_l - 8
+    plot_h = h - pad_b - pad_t
+    if not quarterly:
+        return ""
+    segments = [("ot", "加班", "#4c6ef5"), ("extra", "加点", "#22b8cf")]
+    n = len(quarterly)
+    slot = plot_w / n
+    gap = 4.0
+    group_w = min(slot * 0.5, 52.0)
+    bar_w = max(4.0, (group_w - gap * (len(segments) - 1)) / len(segments))
+    group_w = bar_w * len(segments) + gap * (len(segments) - 1)
+    max_v = max((max(q.get(k, 0.0) for k, _label, _color in segments) for q in quarterly), default=0) or 1.0
+    max_v = max(max_v, 1.0)
+    parts = []
+    for i in range(1, 4):
+        y = pad_t + plot_h - plot_h * i / 4.0
+        parts.append('<line x1="%d" y1="%.1f" x2="%d" y2="%.1f" stroke="#e5e7eb" stroke-width="1"/>'
+                     % (pad_l, y, w - 8, y))
+        parts.append('<text x="%d" y="%.1f" font-size="10" fill="#9ca3af" text-anchor="end">%g</text>'
+                     % (pad_l - 6, y + 3, max_v * i / 4.0))
+    for idx, q in enumerate(quarterly):
+        total = q.get("ot", 0.0) + q.get("extra", 0.0)
+        gx = pad_l + idx * slot + (slot - group_w) / 2
+        if total > 0:
+            for si, (k, label, color) in enumerate(segments):
+                v = q.get(k, 0.0)
+                if v <= 0:
+                    continue
+                bh = plot_h * (v / max_v)
+                x = gx + si * (bar_w + gap)
+                parts.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="2" fill="%s">'
+                             '<title>%s\n%s %.2f 小时\n季度合计 %.2f 小时</title></rect>'
+                             % (x, pad_t + plot_h - bh, bar_w, bh, color, q["label"], label, v, total))
+                parts.append('<text x="%.1f" y="%.1f" font-size="9" fill="#4b5563" '
+                             'text-anchor="middle">%s</text>'
+                             % (x + bar_w / 2, pad_t + plot_h - bh - 3, _fmt_bar_val(v)))
+        else:
+            parts.append('<rect x="%.1f" y="%.1f" width="%.1f" height="2" fill="#e5e7eb">'
+                         '<title>%s：无记录</title></rect>'
+                         % (gx, pad_t + plot_h - 2, group_w, q["label"]))
+        parts.append('<text x="%.1f" y="%d" font-size="10" fill="#6b7280" text-anchor="middle">%s</text>'
+                     % (gx + group_w / 2, h - 8, q["label"]))
     return ('<svg viewBox="0 0 %d %d" width="100%%" height="%d" role="img">%s</svg>'
             % (w, h, h, "".join(parts)))
 
@@ -862,7 +1223,7 @@ def svg_monthly_chart(monthly12):
 def svg_late_chart(daily30, std_end):
     """近 30 天下班晚点柱状图：柱高 = 打卡下班时间相对标准下班时间的晚点小时数"""
     w, h = 860, 220
-    pad_l, pad_b, pad_t = 40, 28, 12
+    pad_l, pad_b, pad_t = 40, 28, 16
     plot_w = w - pad_l - 8
     plot_h = h - pad_b - pad_t
     if not daily30:
@@ -894,6 +1255,9 @@ def svg_late_chart(daily30, std_end):
                 d["date"], wd, d.get("checkout") or "--:--", late, std_end)
             parts.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="#ff922b">'
                          '<title>%s</title></rect>' % (x, y, bar_w, bh, tip))
+            parts.append('<text x="%.1f" y="%.1f" font-size="7" fill="#4b5563" '
+                         'text-anchor="middle">%s</text>'
+                         % (x + bar_w / 2, y - 2.2, _fmt_bar_val(late)))
         elif d.get("ot", 0) > 0 or d.get("extra", 0) > 0:
             # 有加班登记但无有效打卡
             parts.append('<rect x="%.1f" y="%.1f" width="%.1f" height="2" fill="#ced4da">'
@@ -913,7 +1277,7 @@ def svg_late_chart(daily30, std_end):
 def svg_weekday_chart(weekday_dist):
     """星期分布堆叠柱状图：周一~周日，加班（蓝）/ 加点（青）分段"""
     w, h = 860, 220
-    pad_l, pad_b, pad_t = 40, 28, 12
+    pad_l, pad_b, pad_t = 40, 28, 16
     plot_w = w - pad_l - 8
     plot_h = h - pad_b - pad_t
     if not weekday_dist:
@@ -963,6 +1327,12 @@ def svg_weekday_chart(weekday_dist):
             parts.append('<rect x="%.1f" y="%.1f" width="%.1f" height="2" fill="#e5e7eb">'
                          '<title>%s：无记录</title></rect>'
                          % (x, pad_t + plot_h - 2, bar_w, WEEKDAY_NAMES[idx]))
+        if total > 0:
+            # 堆叠柱在柱顶标注当天合计值
+            parts.append('<text x="%.1f" y="%.1f" font-size="9" fill="#4b5563" '
+                         'text-anchor="middle">%s</text>'
+                         % (x + bar_w / 2, pad_t + plot_h - plot_h * (total / max_v) - 3,
+                            _fmt_bar_val(total)))
         parts.append('<text x="%.1f" y="%d" font-size="10" fill="#6b7280" text-anchor="middle">%s</text>'
                      % (x + bar_w / 2, h - 8, WEEKDAY_NAMES[idx]))
     return ('<svg viewBox="0 0 %d %d" width="100%%" height="%d" role="img">%s</svg>'
@@ -1000,20 +1370,173 @@ tr:hover td{background:#f9fafb}
 .badge.extra{background:#e0f7fa;color:#0e7490}
 .badge.leave{background:#fef3c7;color:#b45309}
 .badge.normal{background:#f3f4f6;color:#9ca3af}
+.badge.holiday{background:#fee2e2;color:#b91c1c}
+.badge.makeup{background:#ede9fe;color:#6d28d9}
+.badge.daytype{background:#f3f4f6;color:#6b7280}
 .check-ok{color:#059669}.check-bad{color:#dc2626}
 .note{font-size:11px;color:#9ca3af;margin-top:10px;line-height:1.8}
 form.btn{display:inline-block}
 button{background:#4c6ef5;color:#fff;border:0;border-radius:6px;padding:5px 14px;font-size:12px;cursor:pointer}
 button:hover{background:#4263eb}
+button:disabled{background:#93a4f7;cursor:default}
 .empty{text-align:center;color:#9ca3af;padding:40px 0}
+.card .bar{height:6px;background:#eef2f7;border-radius:99px;margin:8px 0 4px;overflow:hidden}
+.card .bar i{display:block;height:100%;background:#4c6ef5;border-radius:99px}
+.card .bar.done i{background:#10b981}
+.card .tiny{font-size:11px;color:#9ca3af}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.filters select,.filters input{border:1px solid #e5e7eb;border-radius:6px;padding:4px 8px;font-size:12px;color:#374151;background:#fff}
+.filters input{min-width:180px}
+.filters .count{font-size:11px;color:#6b7280;margin-left:auto}
+.export{float:right;font-size:12px;color:#4c6ef5;text-decoration:none;font-weight:400;margin-left:10px}
+.export:hover{text-decoration:underline}
+.livebar{max-width:960px;margin:0 auto;color:#9ca3af;font-size:11px;padding:0 0 24px;line-height:1.8}
+.livebar a{color:#6b7280}
 """
 
 _PAGE_SKELETON = """<!DOCTYPE html>
 <html lang="zh-CN"><head><meta charset="utf-8">
-<meta http-equiv="refresh" content="__REFRESH__">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>加班记录 · PC 监控</title>
 <style>__CSS__</style></head>
-<body><div class="wrap">__BODY__</div></body></html>"""
+<body><div class="wrap" id="dashboard" data-refresh="__REFRESH__">__BODY__</div>
+<div class="livebar">每 __REFRESH__ 秒自动局部刷新 · <span id="countdown">--</span> · <span id="last-sync">等待首次自动刷新</span></div>
+<script>__JS__</script>
+</body></html>"""
+
+# 前端脚本：局部刷新（fetch /fragment）+ 明细筛选/排序（刷新后保留筛选状态）
+_JS = """
+(function () {
+  var state = { month: '', type: '', kw: '', sort: 'date_desc' };
+  var timer = null, left = 60;
+
+  function byId(id) { return document.getElementById(id); }
+
+  function saveState() {
+    var m = byId('f-month'); if (m) state.month = m.value;
+    var t = byId('f-type'); if (t) state.type = t.value;
+    var k = byId('f-kw'); if (k) state.kw = k.value;
+    var s = byId('f-sort'); if (s) state.sort = s.value;
+  }
+
+  function applyFilters() {
+    var body = byId('records-body');
+    if (!body) return;
+    var rows = Array.prototype.slice.call(body.querySelectorAll('tr.rec'));
+    var kw = (state.kw || '').toLowerCase();
+    var shown = 0;
+    rows.forEach(function (tr) {
+      var types = (tr.getAttribute('data-type') || '').split(' ');
+      var ok = true;
+      if (state.month && tr.getAttribute('data-month') !== state.month) ok = false;
+      if (ok && state.type && types.indexOf(state.type) < 0) ok = false;
+      if (ok && kw && (tr.textContent || '').toLowerCase().indexOf(kw) < 0) ok = false;
+      tr.style.display = ok ? '' : 'none';
+      if (ok) shown++;
+    });
+    rows.sort(function (a, b) {
+      var da = a.getAttribute('data-date') || '', db = b.getAttribute('data-date') || '';
+      var ha = parseFloat(a.getAttribute('data-hours') || '0');
+      var hb = parseFloat(b.getAttribute('data-hours') || '0');
+      if (state.sort === 'date_asc') return da < db ? -1 : (da > db ? 1 : 0);
+      if (state.sort === 'hours_desc') return hb - ha || (da < db ? 1 : -1);
+      if (state.sort === 'hours_asc') return ha - hb || (da < db ? 1 : -1);
+      return da > db ? -1 : (da < db ? 1 : 0);
+    });
+    rows.forEach(function (tr) { body.appendChild(tr); });
+    var c = byId('f-count');
+    if (c) c.textContent = '显示 ' + shown + ' / ' + rows.length + ' 条';
+  }
+
+  function restoreControls() {
+    var map = { 'f-month': state.month, 'f-type': state.type, 'f-kw': state.kw, 'f-sort': state.sort };
+    Object.keys(map).forEach(function (id) {
+      var el = byId(id);
+      if (el) el.value = map[id];
+    });
+    applyFilters();
+  }
+
+  function schedule() {
+    if (timer) clearInterval(timer);
+    var d = byId('dashboard');
+    left = parseInt((d && d.getAttribute('data-refresh')) || '60', 10) || 60;
+    tick();
+    timer = setInterval(function () {
+      left -= 1;
+      if (left <= 0) { clearInterval(timer); timer = null; loadFragment(true); return; }
+      tick();
+    }, 1000);
+  }
+
+  function tick() {
+    var e = byId('countdown');
+    if (e) e.textContent = left + ' 秒后自动刷新';
+  }
+
+  function swap(htmlText) {
+    var doc = new DOMParser().parseFromString(htmlText, 'text/html');
+    var fresh = doc.getElementById('dashboard');
+    var old = byId('dashboard');
+    if (!fresh || !old) return;
+    old.parentNode.replaceChild(document.importNode(fresh, true), old);
+    restoreControls();
+    schedule();
+  }
+
+  function loadFragment(isAuto) {
+    saveState();
+    fetch('/fragment', { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    }).then(function (txt) {
+      swap(txt);
+      var e = byId('last-sync');
+      if (e) e.textContent = (isAuto ? '自动刷新' : '手动刷新') + '成功 · ' + new Date().toLocaleTimeString();
+    }).catch(function () {
+      var e = byId('last-sync');
+      if (e) e.textContent = '局部刷新失败，稍后自动重试 · ' + new Date().toLocaleTimeString();
+      schedule();
+    });
+  }
+
+  document.addEventListener('change', function (e) {
+    var id = e.target && e.target.id;
+    if (id === 'f-month' || id === 'f-type' || id === 'f-sort') {
+      state[id.slice(2)] = e.target.value;
+      applyFilters();
+    }
+  });
+
+  document.addEventListener('input', function (e) {
+    if (e.target && e.target.id === 'f-kw') {
+      state.kw = e.target.value;
+      applyFilters();
+    }
+  });
+
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    if (!t || t.id !== 'btn-refresh') return;
+    e.preventDefault();
+    t.disabled = true;
+    t.textContent = '拉取中…';
+    fetch('/api/refresh', { method: 'POST', headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.json(); })
+      .then(function () { loadFragment(false); })
+      .catch(function () {
+        t.disabled = false;
+        t.textContent = '立即拉取云端';
+        var el = byId('last-sync');
+        if (el) el.textContent = '拉取失败 · ' + new Date().toLocaleTimeString();
+      });
+  });
+
+  restoreControls();
+  schedule();
+})();
+"""
+
 
 
 def _fmt_ts(ms):
@@ -1023,17 +1546,15 @@ def _fmt_ts(ms):
         return "未知"
 
 
-def render_dashboard(snapshot, status):
+def render_body(snapshot, status):
+    """仪表盘正文（首页与 /fragment 局部刷新共用）"""
     if snapshot is None:
         err = status.get("last_error")
         body = '<h1>加班记录 · PC 监控</h1>'
         if err:
             body += '<div class="status err">%s</div>' % html.escape(str(err))
-        body += '<div class="panel empty">正在拉取云端数据，请稍候…（页面自动刷新）</div>'
-        return (_PAGE_SKELETON
-                .replace("__REFRESH__", "5")
-                .replace("__CSS__", _CSS)
-                .replace("__BODY__", body))
+        body += '<div class="panel empty">正在拉取云端数据，请稍候…（5 秒后自动重试）</div>'
+        return body
 
     stats = snapshot["stats"]
     meta = snapshot["meta"]
@@ -1051,7 +1572,9 @@ def render_dashboard(snapshot, status):
             html.escape(str(status["last_error"])),
         )
     else:
-        status_html = '<div class="status ok">已连接 WebDAV，每 %d 分钟自动拉取；页面每 60 秒自动刷新。</div>' % status.get("interval_min", 5)
+        status_html = ('<div class="status ok">已连接 WebDAV，每 %d 分钟自动拉取；'
+                       '页面每 60 秒局部刷新，筛选与排序状态会保留。</div>'
+                       % status.get("interval_min", 5))
 
     # 元信息
     checksum = snapshot.get("checksum")
@@ -1079,6 +1602,7 @@ def render_dashboard(snapshot, status):
         _card("本月加点", "%g" % stats["month_extra"], "小时"),
         _card("本月合计", "%g" % stats["month_hours"], "加班+加点 小时"),
         _card("本月预估加班费", "¥%.2f" % stats["month_pay"], "时薪 ¥%g" % stats["hourly_wage"]),
+        _target_cards(stats),
         _card("本年累计", "%g" % stats["year_hours"], "小时 · 预估 ¥%.2f" % stats["year_pay"]),
         _card("本月请假", "%d 天" % stats["month_leave_days"], "%.2f 小时" % stats["month_leave_hours"]),
         _card("本月加班次数", "%d 次" % stats["month_count"], "平均每次 %g 小时" % stats["month_avg"]),
@@ -1087,24 +1611,31 @@ def render_dashboard(snapshot, status):
         _card("本月 22 点后下班", "%d 次" % stats["late_nights"],
               ("最晚 %s" % stats["latest_checkout"]) if stats["latest_checkout"] else "未登记上下班时间"),
         _card("近 12 月月均", "%g" % stats["month_avg_12"], "小时/月"),
+        _yoy_card(stats),
+        _card("本年加班 / 加点", "%g / %g" % (stats["year_ot"], stats["year_extra"]), "小时"),
+        _weekend_share_card(stats),
+        _holiday_card(stats),
+        _peak_card(stats),
+        _concentration_card(stats),
+        _trend_card(stats),
     ])
 
-    refresh_form = (
-        '<form class="btn" method="post" action="/api/refresh">'
-        '<button type="submit">立即拉取云端</button></form>'
-    )
-
     body = "".join([
-        '<h1>加班记录 · PC 监控 <form class="btn" style="float:right" method="post" action="/api/refresh"><button>%s</button></form></h1>' % "立即拉取云端",
+        '<h1>加班记录 · PC 监控'
+        '<a class="export" href="/export.csv">导出 CSV</a>'
+        '<button id="btn-refresh" style="float:right">立即拉取云端</button></h1>',
         '<div class="sub">%s</div>' % meta_line,
         status_html,
         '<div class="cards">%s</div>' % cards,
-        _panel("近 30 天每日时长（加班 / 加点 / 请假 分开堆叠）", svg_daily_chart(stats["daily30"]),
+        _panel("近 30 天每日时长（加班 / 加点 / 请假 并排显示）", svg_daily_chart(stats["daily30"]),
                '<div class="legend">加班<i style="background:#4c6ef5"></i>加点<i style="background:#22b8cf"></i>'
-               '请假<i style="background:#f59e0b"></i>悬停柱体查看分类明细</div>'),
-        _panel("近 12 个月汇总（加班 / 加点 分开堆叠）", svg_monthly_chart(stats["monthly12"]),
+               '请假<i style="background:#f59e0b"></i>每天三根独立柱并排，悬停查看分类明细</div>'),
+        _panel("近 12 个月汇总（加班 / 加点 并排显示）", svg_monthly_chart(stats["monthly12"]),
                '<div class="legend">加班<i style="background:#4c6ef5"></i>加点<i style="background:#22b8cf"></i>'
-               '悬停查看分类明细与预估加班费</div>'),
+               '每月两根独立柱并排，悬停查看分类明细与预估加班费</div>'),
+        _panel("近 8 个季度汇总（加班 / 加点 并排显示）", svg_quarter_chart(stats["quarterly"]),
+               '<div class="legend">加班<i style="background:#4c6ef5"></i>加点<i style="background:#22b8cf"></i>'
+               '每季度两根独立柱并排，悬停查看分类明细</div>'),
         _panel("近 30 天下班晚点（标准下班 %s）" % std_end, svg_late_chart(stats["daily30"], std_end),
                '<div class="legend">晚点时长<i style="background:#ff922b"></i>'
                '灰条=有加班但无打卡，浅灰=无记录，虚线=标准下班时间'
@@ -1114,20 +1645,43 @@ def render_dashboard(snapshot, status):
                '<div class="legend">加班<i style="background:#4c6ef5"></i>加点<i style="background:#22b8cf"></i>'
                '悬停查看分类明细</div>'),
         _leave_panel(stats["month_leave_by_type"]),
-        _recent_table(stats["recent"]),
+        _records_table(stats["recent"]),
         '<div class="note">'
-        '口径说明：加班时长 = 登记加班 + 登记加点（与 App 一致，未登记记 0）；预估加班费按备份内设置的倍率计算，'
-        '登记"加班"按周末 %.1f 倍估算（法定节假日 3 倍场景以 App 为准），"加点"按 %.1f 倍，自定义倍率记录单独覆盖。'
+        '口径说明：加班时长 = 登记加班 + 登记加点（与 App 一致，未登记记 0）；预估加班费与 App 完全一致：'
+        '登记"加班"时，法定节假日按节假日倍率（默认 3 倍）、其余按周末倍率（默认 2 倍）；'
+        '只登记"加点"或两者都登记时，加点部分按工作日倍率（默认 1.5 倍）；自定义倍率记录整条覆盖。'
+        '法定节假日与调休补班日逐年内置（2024-2028）；与 App 一致，登记"加班"时除法定节假日外一律按周末倍率计，'
+        '调休补班日仅用于日历类型标记（不改变倍率）。'
         '次数 = 有加班/加点登记的天数；连续加班 = 截至最近一个登记日的连续天数；'
+        '"连续"指相邻自然日，遇到无登记日即中断。'
         '下班晚点 = 打卡下班时间 - 标准下班时间（仅统计有打卡且登记了加班/加点的记录），时间取自本机时区。'
+        '同比 = 本月 vs 去年同月；周末占比 = 周末时长 ÷ 本年总时长；'
+        '单日峰值 = 本年单日加班+加点最高的一天；集中度 = 时长最高的前 10%% 天数（向上取整）占总时长比例；'
+        '趋势 = 最近 3 个完整月月均 vs 再往前 3 个月月均（不足 6 个月时改用 2 个月窗口），'
+        '变化在 ±3%% 内记为"基本持平"。'
+        '月度目标可在 config.json 中通过 month_target_hours / month_target_pay 配置（0 表示不显示）。'
         '数据仅读自 WebDAV 云端备份，本工具不会上传/修改任何数据。'
-        '</div>' % (2.0, 1.5),
+        '</div>',
     ])
 
+    return body
+
+
+def render_fragment(snapshot, status):
+    """仅返回仪表盘容器（供前端局部刷新替换）"""
+    refresh = 5 if snapshot is None else 60
+    return ('<div class="wrap" id="dashboard" data-refresh="%d">%s</div>'
+            % (refresh, render_body(snapshot, status)))
+
+
+def render_dashboard(snapshot, status):
+    """完整页面（首屏加载用；之后由前端局部刷新）"""
+    refresh = 5 if snapshot is None else 60
     return (_PAGE_SKELETON
-            .replace("__REFRESH__", "60")
+            .replace("__REFRESH__", str(refresh))
             .replace("__CSS__", _CSS)
-            .replace("__BODY__", body))
+            .replace("__BODY__", render_body(snapshot, status))
+            .replace("__JS__", _JS))
 
 
 def _card(label, value, small):
@@ -1151,6 +1705,103 @@ def _mom_card(stats):
     return _card("时长环比上月", value, small)
 
 
+def _yoy_card(stats):
+    """同比去年同月卡片"""
+    yoy = stats["yoy_pct"]
+    if yoy is None:
+        return _card("同比去年同月", "—", "去年同月无加班记录")
+    return _card("同比去年同月", ("+%d%%" if yoy > 0 else "%d%%") % yoy,
+                 "去年同月 %g 小时" % stats["prev_year_hours"])
+
+
+def _weekend_share_card(stats):
+    """本年周末加班占比卡片"""
+    share = stats["year_weekend_share"]
+    if share is None:
+        return _card("本年周末加班占比", "—", "本年暂无加班记录")
+    return _card("本年周末加班占比", "%d%%" % share,
+                 "周末 %g 小时 · 工作日 %g 小时 · 节假日 %g 小时"
+                 % (stats["year_weekend_hours"], stats["year_weekday_hours"],
+                    stats["year_holiday_hours"]))
+
+
+def _holiday_card(stats):
+    """节假日口径校验卡片：法定节假日与调休补班日的加班时长"""
+    holiday_h = stats["holiday_ot_hours"]
+    makeup_h = stats["makeup_ot_hours"]
+    if holiday_h <= 0 and makeup_h <= 0:
+        return _card("节假日加班", "—", "未登记法定节假日/调休补班加班")
+    return _card("节假日加班（法定）", "%g" % holiday_h,
+                 "%d 天 · 调休补班 %g 小时（%d 天）"
+                 % (stats["holiday_days"], makeup_h, stats["makeup_days"]))
+
+
+def _target_cards(stats):
+    """月度目标进度卡片（config.json 未配置目标时不显示）"""
+    parts = []
+    th = stats["month_target_hours"]
+    if th > 0:
+        pct = stats["month_progress_hours"]
+        done_h = stats["month_hours"]
+        remain = max(0.0, th - done_h)
+        parts.append(_progress_card(
+            "本月时长目标", "%g / %g 小时" % (done_h, th), pct,
+            ("已完成 %d%% · 还差 %g 小时" % (pct, remain)) if pct < 100
+            else ("已完成 %d%% · 已达标" % pct)))
+    tp = stats["month_target_pay"]
+    if tp > 0:
+        pct = stats["month_progress_pay"]
+        done_p = stats["month_pay"]
+        remain = max(0.0, tp - done_p)
+        parts.append(_progress_card(
+            "本月加班费目标", "¥%.2f / ¥%.2f" % (done_p, tp), pct,
+            ("已完成 %d%% · 还差 ¥%.2f" % (pct, remain)) if pct < 100
+            else ("已完成 %d%% · 已达标" % pct)))
+    return "".join(parts)
+
+
+def _progress_card(label, value, percent, small):
+    pct = max(0, min(100, int(percent)))
+    return ('<div class="card"><div class="label">%s</div>'
+            '<div class="value" style="font-size:16px">%s</div>'
+            '<div class="bar%s"><i style="width:%d%%"></i></div>'
+            '<div class="tiny">%s</div></div>'
+            % (html.escape(label), html.escape(value),
+               " done" if pct >= 100 else "", pct, html.escape(small)))
+
+
+def _peak_card(stats):
+    """本年峰值日卡片"""
+    peak = stats["peak_day"]
+    if not peak:
+        return _card("本年单日峰值", "—", "本年暂无加班记录")
+    return _card("本年单日峰值", "%g" % peak["hours"],
+                 "%s %s · 加班 %g / 加点 %g 小时" % (peak["date"], peak["weekday"],
+                                                    peak["ot"], peak["extra"]))
+
+
+def _concentration_card(stats):
+    """加班集中度卡片：前 10% 天数贡献的时长占比"""
+    share = stats["top_share"]
+    if share is None:
+        return _card("加班集中度", "—", "暂无加班记录")
+    return _card("加班集中度", "%d%%" % share,
+                 "前 %d 天（共 %d 个加班日）贡献 %g 小时"
+                 % (stats["top_days"], stats["day_count_with_hours"], stats["top_hours"]))
+
+
+def _trend_card(stats):
+    """近 N 个月趋势卡片（默认 3 个月，数据不足时退回 2 个月）"""
+    window = stats.get("trend_window") or 0
+    pct = stats["trend_pct"]
+    if pct is None:
+        return _card("近 %d 月趋势" % window if window else "短期趋势",
+                     stats["trend_text"], "完整月份不足 4 个月")
+    return _card("近 %d 月趋势" % window,
+                 "%s %s" % (stats["trend_text"], ("+%d%%" if pct > 0 else "%d%%") % pct),
+                 "近 %d 月月均 vs 前 %d 月" % (window, window))
+
+
 def _leave_panel(leave_by_type):
     """本月请假类型分布面板"""
     if not leave_by_type:
@@ -1170,38 +1821,149 @@ def _panel(title, svg, legend=""):
     return '<div class="panel"><h2>%s</h2>%s%s</div>' % (html.escape(title), inner, legend)
 
 
-def _recent_table(recent):
+def _records_table(recent):
+    """记录明细表：带日期类型标记、客户端筛选与排序（全量记录）"""
     if not recent:
-        return '<div class="panel"><h2>最近记录</h2><div class="empty">暂无记录</div></div>'
+        return '<div class="panel"><h2>记录明细</h2><div class="empty">暂无记录</div></div>'
+    months = sorted({r["date"][:7] for r in recent if len(r["date"]) >= 7}, reverse=True)
+    month_opts = '<option value="">全部月份</option>' + "".join(
+        '<option value="%s">%s</option>' % (html.escape(m), html.escape(m)) for m in months
+    )
     rows = []
     for r in recent:
         badges = "".join(
             '<span class="badge %s">%s</span>' % (r["cls"], html.escape(label))
             for label in r["labels"]
         )
+        if r["holiday"]:
+            day_badge = '<span class="badge holiday">%s</span>' % html.escape(r["holiday"])
+        elif r["makeup"]:
+            day_badge = '<span class="badge makeup">调休补班</span>'
+        else:
+            day_badge = ('<span class="badge daytype">%s</span>'
+                         % html.escape(DAY_TYPE_NAMES[r["calendar_type"]]))
         cells = [
             "<b>%s</b> %s" % (html.escape(r["date"]), html.escape(r["weekday"])),
+            day_badge,
             badges,
             html.escape(r["time"]),
             ("%g 小时" % r["ot"]) if r["ot"] else "—",
             ("%g 小时" % r["extra"]) if r["extra"] else "—",
             ("%.2f 小时 %s" % (r["leave_hours"], html.escape(r["leave_type"]))) if r["leave_hours"] is not None else "—",
             ("¥%.2f" % r["pay"]) if r["pay"] is not None else "—",
-            html.escape(r["custom_rate"]),
+            html.escape(r["rate_text"]),
             html.escape(r["note"]),
             html.escape(r["device"]),
         ]
-        rows.append("<tr>%s</tr>" % "".join("<td>%s</td>" % c for c in cells))
+        type_keys = []
+        if r["ot"]:
+            type_keys.append("ot")
+        if r["extra"]:
+            type_keys.append("extra")
+        if r["leave_hours"] is not None:
+            type_keys.append("leave")
+        rows.append(
+            '<tr class="rec" data-date="%s" data-month="%s" data-hours="%g" data-type="%s">%s</tr>'
+            % (html.escape(r["date"]), html.escape(r["date"][:7]), r["total"],
+               " ".join(type_keys), "".join("<td>%s</td>" % c for c in cells))
+        )
     head = "".join("<th>%s</th>" % h for h in
-                   ["日期", "类型", "上下班", "加班", "加点", "请假", "预估加班费", "倍率", "备注", "来源设备"])
-    return ('<div class="panel"><h2>最近记录（最多 60 条，按日期倒序）</h2>'
-            '<div style="overflow-x:auto"><table><thead><tr>%s</tr></thead><tbody>%s</tbody></table></div></div>'
-            % (head, "".join(rows)))
+                   ["日期", "日期类型", "类型", "上下班", "加班", "加点", "请假",
+                    "预估加班费", "计费倍率", "备注", "来源设备"])
+    return ('<div class="panel"><h2>记录明细（共 %d 条）'
+            '<a class="export" href="/export.csv">下载全部 CSV</a></h2>'
+            '<div class="filters">'
+            '<select id="f-month">%s</select>'
+            '<select id="f-type">'
+            '<option value="">全部类型</option>'
+            '<option value="ot">仅加班</option>'
+            '<option value="extra">仅加点</option>'
+            '<option value="leave">仅请假</option>'
+            '</select>'
+            '<input id="f-kw" type="search" placeholder="关键字：备注 / 设备 / 日期">'
+            '<select id="f-sort">'
+            '<option value="date_desc">日期 新→旧</option>'
+            '<option value="date_asc">日期 旧→新</option>'
+            '<option value="hours_desc">时长 多→少</option>'
+            '<option value="hours_asc">时长 少→多</option>'
+            '</select>'
+            '<span class="count" id="f-count">按当前条件筛选</span>'
+            '</div>'
+            '<div style="overflow-x:auto"><table><thead><tr>%s</tr></thead>'
+            '<tbody id="records-body">%s</tbody></table></div></div>'
+            % (len(recent), month_opts, head, "".join(rows)))
+
+
+CSV_HEADERS = ["日期", "星期", "日期类型", "法定节假日", "加班(小时)", "加点(小时)", "合计(小时)",
+               "计费倍率", "预估加班费(元)", "请假类型", "请假(小时)", "上下班", "备注", "来源设备"]
+
+
+def build_csv(stats):
+    """全量记录导出为 CSV（UTF-8 BOM，Excel 直接打开不乱码）"""
+    buf = io.StringIO()
+    writer = csv.writer(buf, lineterminator="\r\n")
+    writer.writerow(CSV_HEADERS)
+    for r in stats["recent"]:
+        if r["holiday"]:
+            day_type_text = "法定节假日"
+        elif r["makeup"]:
+            day_type_text = "调休补班"
+        else:
+            day_type_text = DAY_TYPE_NAMES[r["calendar_type"]]
+        writer.writerow([
+            r["date"],
+            r["weekday"],
+            day_type_text,
+            r["holiday"] or "",
+            ("%g" % r["ot"]) if r["ot"] else "",
+            ("%g" % r["extra"]) if r["extra"] else "",
+            "%g" % r["total"] if r["total"] else "",
+            r["rate_text"],
+            ("%.2f" % r["pay"]) if r["pay"] is not None else "",
+            r["leave_type"],
+            ("%g" % r["leave_hours"]) if r["leave_hours"] is not None else "",
+            r["time"],
+            r["note"],
+            r["device"],
+        ])
+    return "\ufeff" + buf.getvalue()
 
 
 # ---------------------------------------------------------------------------
 # 轮询与状态
 # ---------------------------------------------------------------------------
+
+def _show_windows_notification(title, message):
+    """弹出 Windows 气泡通知（失败时退化为系统提示音，不影响主流程）"""
+    if sys.platform != "win32":
+        print("[通知] %s：%s" % (title, message))
+        return
+    env = os.environ.copy()
+    env["PORE_TOAST_TITLE"] = title
+    env["PORE_TOAST_BODY"] = message
+    script = (
+        "Add-Type -AssemblyName System.Windows.Forms;"
+        "Add-Type -AssemblyName System.Drawing;"
+        "$n=New-Object System.Windows.Forms.NotifyIcon;"
+        "$n.Icon=[System.Drawing.SystemIcons]::Warning;"
+        "$n.Visible=$true;"
+        "$n.ShowBalloonTip(8000,$env:PORE_TOAST_TITLE,$env:PORE_TOAST_BODY,"
+        "[System.Windows.Forms.ToolTipIcon]::Warning);"
+        "Start-Sleep -Milliseconds 6500;"
+        "$n.Dispose()"
+    )
+    try:
+        subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", script],
+            env=env, timeout=25, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        try:
+            import winsound
+            winsound.MessageBeep(0x00000030)  # MB_ICONWARNING
+        except Exception:
+            pass
+
 
 class MonitorState:
     def __init__(self, cfg):
@@ -1211,9 +1973,24 @@ class MonitorState:
         self.last_error = None
         self.last_attempt_ms = None
         self.last_ok_ms = None
+        self.last_notify_ms = None
         self.version = 0
         self.refresh_event = threading.Event()
         self.stop_event = threading.Event()
+
+    def _notify_failure(self, message):
+        """拉取失败通知：同一次故障只提示一次，10 分钟内不重复打扰"""
+        if not self.cfg.get("notify_on_error", True):
+            return
+        now_ms = time.time() * 1000
+        if self.last_notify_ms and now_ms - self.last_notify_ms < 600_000:
+            return
+        self.last_notify_ms = now_ms
+        threading.Thread(
+            target=_show_windows_notification,
+            args=("加班记录监控：云端拉取失败", str(message)[:180]),
+            daemon=True,
+        ).start()
 
     def do_poll(self):
         with self.lock:
@@ -1231,7 +2008,7 @@ class MonitorState:
                 "fetched_at_ms": time.time() * 1000,
                 "backup": backup,
                 "meta": meta,
-                "stats": compute_stats(backup),
+                "stats": compute_stats(backup, targets=self.cfg),
                 "checksum": verify_checksum(backup),
                 "cloud_last_modified": last_modified,
             }
@@ -1245,9 +2022,12 @@ class MonitorState:
                      len(backup.get("attendanceRecords") or []), meta.get("format")))
         except Exception as e:
             with self.lock:
+                is_new_failure = self.last_error != str(e)
                 self.last_error = str(e)
                 self.version += 1
             print("[%s] 拉取失败：%s" % (datetime.now().strftime("%H:%M:%S"), e))
+            if is_new_failure:
+                self._notify_failure(str(e))
 
     def poll_loop(self):
         interval = self.cfg["poll_interval_minutes"] * 60
@@ -1278,11 +2058,13 @@ def make_handler(state):
         def log_message(self, fmt, *args):
             pass  # 静默访问日志
 
-        def _send(self, code, content_type, body_bytes):
+        def _send(self, code, content_type, body_bytes, extra_headers=None):
             self.send_response(code)
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body_bytes)))
             self.send_header("Cache-Control", "no-store")
+            for k, v in (extra_headers or {}).items():
+                self.send_header(k, v)
             self.end_headers()
             self.wfile.write(body_bytes)
 
@@ -1293,6 +2075,24 @@ def make_handler(state):
                     snap = state.snapshot
                 page = render_dashboard(snap, status)
                 self._send(200, "text/html; charset=utf-8", page.encode("utf-8"))
+            elif self.path == "/fragment":
+                # 前端局部刷新：只返回仪表盘容器，不重新加载整页
+                status = state.get_status()
+                with state.lock:
+                    snap = state.snapshot
+                frag = render_fragment(snap, status).encode("utf-8")
+                self._send(200, "text/html; charset=utf-8", frag)
+            elif self.path.split("?")[0] == "/export.csv":
+                with state.lock:
+                    snap = state.snapshot
+                if snap is None:
+                    self._send(503, "text/plain; charset=utf-8",
+                               "暂无数据，请等待云端拉取完成".encode("utf-8"))
+                else:
+                    csv_text = build_csv(snap["stats"])
+                    filename = "overtime_%s.csv" % datetime.now().strftime("%Y%m%d")
+                    self._send(200, "text/csv; charset=utf-8", csv_text.encode("utf-8"),
+                               {"Content-Disposition": 'attachment; filename="%s"' % filename})
             elif self.path == "/api/data":
                 status = state.get_status()
                 with state.lock:
@@ -1331,10 +2131,11 @@ def make_handler(state):
                     if state.get_status()["version"] > before + 1:
                         break
                     time.sleep(0.3)
-                self.send_response(302)
-                self.send_header("Location", "/")
-                self.send_header("Content-Length", "0")
-                self.end_headers()
+                payload = json.dumps(
+                    {"ok": state.get_status()["last_error"] is None,
+                     "status": state.get_status()},
+                    ensure_ascii=False).encode("utf-8")
+                self._send(200, "application/json; charset=utf-8", payload)
             else:
                 self._send(404, "text/plain; charset=utf-8", b"not found")
 
@@ -1510,8 +2311,51 @@ def _selftest():
         # 环比：上月无数据 → None；月均 7.5/12
         assert st["mom_pct"] is None and st["prev_month_hours"] == 0.0
         assert abs(st["month_avg_12"] - 7.5 / 12) < 0.01, st["month_avg_12"]
+        # 本年拆分：加班 4h / 加点 3.5h；周末 5.5h（10-17 周六）、工作日 2h（10-16 周五）
+        assert st["year_ot"] == 4.0 and st["year_extra"] == 3.5, (st["year_ot"], st["year_extra"])
+        assert st["year_weekend_hours"] == 5.5 and st["year_weekday_hours"] == 2.0
+        assert st["year_weekend_share"] == 73, st["year_weekend_share"]
+        # 峰值日：2026-10-17 共 5.5h
+        assert st["peak_day"]["date"] == "2026-10-17" and st["peak_day"]["hours"] == 5.5, st["peak_day"]
+        assert st["peak_day"]["weekday"] == "周六", st["peak_day"]
+        # 集中度：2 个加班日中前 1 天贡献 5.5/7.5 ≈ 73%
+        assert st["top_days"] == 1 and st["top_share"] == 73, (st["top_days"], st["top_share"])
+        # 同比无去年数据；趋势完整月不足
+        assert st["yoy_pct"] is None and st["prev_year_hours"] == 0.0
+        assert st["trend_text"] == "数据不足"
+        # 季度：仅 2026Q4 有数据，开头的空季度已被裁剪
+        assert st["quarterly"][-1]["label"] == "2026Q4", st["quarterly"]
+        assert st["quarterly"][-1]["hours"] == 7.5, st["quarterly"][-1]
+        assert len(st["quarterly"]) == 1, st["quarterly"]
 
     check("统计口径（时长/请假/加班费/删除）", t_stats)
+
+    def t_stats_trend():
+        backup = json.loads(json.dumps(sample_backup, ensure_ascii=False))
+        recs = []
+        for ym, h in [("2026-04", 4.0), ("2026-05", 4.0), ("2026-06", 4.0),
+                      ("2026-07", 8.0), ("2026-08", 8.0), ("2026-09", 8.0)]:
+            recs.append(dict(sample_record, date=ym + "-10", manualOvertimeHours=h,
+                             manualExtraHours=-1.0, checkOutTime="21:00",
+                             checkInTimestamp=None, checkOutTimestamp=None))
+        recs.append(dict(sample_record, date="2025-10-15", manualOvertimeHours=2.0,
+                         manualExtraHours=-1.0))
+        backup["attendanceRecords"] = recs
+        now = datetime(2026, 10, 20, 12, 0, 0)
+        st = compute_stats(backup, now=now)
+        # 同比：本月 0h vs 去年同月 2h → -100%
+        assert st["prev_year_hours"] == 2.0 and st["yoy_pct"] == -100, (st["prev_year_hours"], st["yoy_pct"])
+        # 趋势：前 3 个完整月（4/5/6 月）均 4h，最近 3 个完整月（7/8/9 月）均 8h → +100% 上升
+        assert st["trend_text"] == "上升" and st["trend_pct"] == 100, (st["trend_text"], st["trend_pct"])
+        assert st["trend_window"] == 3, st["trend_window"]
+        # 本年拆分只统计 2026 年（不含 2025 年那条）
+        assert st["year_ot"] == 36.0, st["year_ot"]
+        # 季度聚合：2026Q2 = 12h，2026Q3 = 24h
+        q = {x["label"]: x["hours"] for x in st["quarterly"]}
+        assert q.get("2026Q2") == 12.0 and q.get("2026Q3") == 24.0, q
+        assert st["peak_day"]["hours"] == 8.0, st["peak_day"]
+
+    check("统计口径（同比/趋势/季度）", t_stats_trend)
 
     def t_stats_custom_rate():
         backup = json.loads(json.dumps(sample_backup, ensure_ascii=False))
@@ -1523,6 +2367,79 @@ def _selftest():
         assert abs(st["month_pay"] - expect) < 0.01, (st["month_pay"], expect)
 
     check("统计口径（自定义倍率覆盖）", t_stats_custom_rate)
+
+    def t_holiday_rules():
+        # 日历类型：法定节假日 > 调休补班(工作日) > 周末 > 工作日
+        assert calendar_day_type("2026-10-01") == DAY_HOLIDAY
+        assert get_holiday_name("2026-10-01") == "国庆节"
+        assert calendar_day_type("2026-09-20") == DAY_WORKDAY      # 周日调休补班
+        assert is_makeup_workday("2026-10-10")
+        assert calendar_day_type("2026-10-10") == DAY_WORKDAY      # 周六调休补班
+        assert calendar_day_type("2026-10-17") == DAY_WEEKEND
+        assert calendar_day_type("2026-10-16") == DAY_WORKDAY
+        # 登记即分类（与 App OvertimeCalculator.effectiveDayType 一致）
+        assert effective_day_type("2026-10-01", 4.0, 0) == DAY_HOLIDAY
+        assert effective_day_type("2026-10-17", 4.0, 0) == DAY_WEEKEND
+        assert effective_day_type("2026-10-16", 4.0, 0) == DAY_WEEKEND
+        assert effective_day_type("2026-10-01", 0, 2.0) == DAY_WORKDAY
+
+        backup = json.loads(json.dumps(sample_backup, ensure_ascii=False))
+        backup["attendanceRecords"] = [
+            dict(sample_record, date="2026-10-01", manualOvertimeHours=4.0, manualExtraHours=-1.0),
+            dict(sample_record, date="2026-09-20", manualOvertimeHours=2.0, manualExtraHours=-1.0),
+            dict(sample_record, date="2026-10-10", manualOvertimeHours=1.0, manualExtraHours=-1.0),
+        ]
+        now = datetime(2026, 10, 20, 12, 0, 0)
+        st = compute_stats(backup, now=now)
+        hourly = 8000.0 / (21.75 * 8.0)
+        # 本月仅 10-01/10-10：法定节假日 3 倍；调休补班日登记加班仍按 App 口径以周末倍率计
+        expect = 4.0 * hourly * 3.0 + 1.0 * hourly * 2.0
+        assert abs(st["month_pay"] - expect) < 0.01, (st["month_pay"], expect)
+        assert st["holiday_ot_hours"] == 4.0 and st["holiday_days"] == 1, st["holiday_ot_hours"]
+        assert st["makeup_ot_hours"] == 3.0 and st["makeup_days"] == 2, st["makeup_ot_hours"]
+        assert st["year_holiday_hours"] == 4.0, st["year_holiday_hours"]
+        # 备份内设置可覆盖节假日倍率
+        backup["settings"] = {"baseSalary": 8000.0, "dailyWorkHours": 8.0,
+                              "overtimeRateHoliday": 4.0}
+        st2 = compute_stats(backup, now=now)
+        expect2 = 4.0 * hourly * 4.0 + 1.0 * hourly * 2.0
+        assert abs(st2["month_pay"] - expect2) < 0.01, (st2["month_pay"], expect2)
+
+    check("节假日/调休口径与倍率", t_holiday_rules)
+
+    def t_targets():
+        backup = json.loads(json.dumps(sample_backup, ensure_ascii=False))
+        backup["attendanceRecords"] = [
+            dict(sample_record, manualOvertimeHours=4.0, manualExtraHours=1.5)]
+        now = datetime(2026, 10, 20, 12, 0, 0)
+        base = compute_stats(backup, now=now)
+        assert base["month_progress_hours"] is None and base["month_target_hours"] == 0.0
+        st = compute_stats(backup, now=now, targets={"month_target_hours": 11})
+        assert st["month_target_hours"] == 11.0 and st["month_progress_hours"] == 50, st["month_progress_hours"]
+        st2 = compute_stats(backup, now=now, targets={"month_target_pay": base["month_pay"] * 2})
+        assert st2["month_progress_pay"] == 50, st2["month_progress_pay"]
+
+    check("月度目标进度", t_targets)
+
+    def t_csv():
+        backup = json.loads(json.dumps(sample_backup, ensure_ascii=False))
+        backup["attendanceRecords"] = [
+            dict(sample_record, date="2026-10-01", manualOvertimeHours=4.0,
+                 manualExtraHours=-1.0, note='含,逗号"引号'),
+            dict(sample_record, date="2026-10-18", isLeave=True, leaveType="年假",
+                 leaveHours=8.0, manualOvertimeHours=-1.0, manualExtraHours=-1.0, note=""),
+        ]
+        st = compute_stats(backup, now=datetime(2026, 10, 20, 12, 0, 0))
+        text = build_csv(st)
+        assert text.startswith("\ufeff"), "缺少 UTF-8 BOM"
+        lines = text.lstrip("\ufeff").split("\r\n")
+        assert lines[0] == ",".join(CSV_HEADERS), lines[0]
+        holiday_row = next(ln for ln in lines if ln.startswith("2026-10-01"))
+        assert "法定节假日,国庆节" in holiday_row, holiday_row
+        assert "3×（法定节假日）" in holiday_row, holiday_row
+        assert '"含,逗号""引号"' in text, text
+
+    check("CSV 导出（表头/BOM/转义）", t_csv)
 
     ok = all(r[1] for r in results)
     for name, passed, err in results:
