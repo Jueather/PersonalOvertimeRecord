@@ -45,6 +45,9 @@ object OvertimeCalculator {
         record: OvertimeRecord,
         settings: OvertimeSettings
     ): OvertimeResult {
+        // 请假记录不产生任何加班/加点与工资（兼容历史数据中残留时长的记录）
+        if (record.isLeave) return OvertimeResult()
+
         // 归一化 -1 哨兵值（未手工设置）为 0
         val overtimeHours = if (record.overtimeHours >= 0) record.overtimeHours else 0.0
         val extraHours = if (record.extraHours >= 0) record.extraHours else 0.0

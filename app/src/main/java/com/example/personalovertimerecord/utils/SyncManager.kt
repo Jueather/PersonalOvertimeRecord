@@ -135,7 +135,11 @@ class SyncManager(
      * 安全约束：仅当确认云端没有数据（404）或能成功解析云端数据时才上传，
      * 下载失败/解密失败一律中止上传，避免本地数据覆盖式冲掉云端备份。
      */
-    private suspend fun uploadBackup(config: WebDAVConfig, options: SyncOptions): SyncReport {
+    private suspend fun uploadBackup(
+        config: WebDAVConfig,
+        options: SyncOptions,
+        prefetchedCloud: CloudResolve? = null
+    ): SyncReport {
         return try {
             // 获取加密设置
             val settings = settingsManager.getSettings()
@@ -144,9 +148,10 @@ class SyncManager(
             // 同步前本地记录数（含软删除墓碑），用于同步报告
             val localCount = attendanceDao.getAllRecordsIncludingDeletedSync().size
 
-            // 读取云端现状（统一解析 明文/信封/旧版密文）
+            // 读取云端现状（统一解析 明文/信封/旧版密文）；
+            // prefetchedCloud 为双向同步已解析的快照，复用可省一次 HTTP GET 与解密
             reportProgress("读取云端现状…")
-            val cloudResolve = cloudResolver.resolveCloud(config, encryptPassword)
+            val cloudResolve = prefetchedCloud ?: cloudResolver.resolveCloud(config, encryptPassword)
 
             var recordsToUpload: List<AttendanceEntityBackup>
             var cloudRecords: List<AttendanceEntityBackup> = emptyList()
@@ -261,7 +266,11 @@ class SyncManager(
      * 从 WebDAV 下载并恢复数据
      * 统一兼容：信封加密、旧版密码直加密、历史未加密三种云端格式
      */
-    private suspend fun downloadAndRestore(config: WebDAVConfig, options: SyncOptions): SyncReport {
+    private suspend fun downloadAndRestore(
+        config: WebDAVConfig,
+        options: SyncOptions,
+        prefetchedCloud: CloudResolve? = null
+    ): SyncReport {
         return try {
             // 获取加密设置
             val settings = settingsManager.getSettings()
@@ -270,9 +279,11 @@ class SyncManager(
             // 同步前本地记录数（含软删除墓碑），用于同步报告
             val localCount = attendanceDao.getAllRecordsIncludingDeletedSync().size
 
-            // 统一解析云端内容（明文 JSON / 信封 / 旧版密文）
+            // 统一解析云端内容（明文 JSON / 信封 / 旧版密文）；
+            // prefetchedCloud 为双向同步已解析的快照，复用可省一次下载
             reportProgress("下载云端备份…")
-            val content = when (val resolve = cloudResolver.resolveCloud(config, decryptPassword)) {
+            val resolve = prefetchedCloud ?: cloudResolver.resolveCloud(config, decryptPassword)
+            val content = when (resolve) {
                 is CloudResolve.Available -> resolve.snapshot.json
                 CloudResolve.NotFound, CloudResolve.DownloadFailed ->
                     return SyncReport(SyncResult.DOWNLOAD_FAILED, localRecordCount = localCount)
@@ -366,28 +377,28 @@ class SyncManager(
             cloudResolve is CloudResolve.NotFound -> {
                 AppLogger.d("云端无数据，执行上传")
                 reportProgress("云端无数据，执行上传")
-                uploadBackup(config, options)
+                uploadBackup(config, options, cloudResolve)
             }
 
             // 情况2：本地从未同步过，下载云端数据
             lastSyncTime == 0L -> {
                 AppLogger.d("本地从未同步过，执行下载")
                 reportProgress("首次同步，执行下载")
-                downloadAndRestore(config, options)
+                downloadAndRestore(config, options, cloudResolve)
             }
 
             // 情况3：云端在本地上次同步之后没有更新，直接上传
             remoteModifiedTime != null && remoteModifiedTime <= lastSyncTime -> {
                 AppLogger.d("云端没有更新，执行上传")
                 reportProgress("云端未更新，执行上传")
-                uploadBackup(config, options)
+                uploadBackup(config, options, cloudResolve)
             }
 
             // 情况4：云端在本地上次同步之后有更新，需要合并
             else -> {
                 AppLogger.d("云端有更新，执行智能合并")
                 reportProgress("云端有更新，执行智能合并")
-                performSmartMerge(config, options)
+                performSmartMerge(config, options, cloudResolve)
             }
         }
     }
@@ -398,7 +409,11 @@ class SyncManager(
      * 2. 与本地数据按策略合并（含删除标记处理）
      * 3. 上传合并结果，并把合并结果写回本地数据库
      */
-    private suspend fun performSmartMerge(config: WebDAVConfig, options: SyncOptions): SyncReport {
+    private suspend fun performSmartMerge(
+        config: WebDAVConfig,
+        options: SyncOptions,
+        prefetchedCloud: CloudResolve? = null
+    ): SyncReport {
         return try {
             // 获取加密设置
             val settings = settingsManager.getSettings()
@@ -407,9 +422,10 @@ class SyncManager(
             // 同步前本地记录数（含软删除墓碑），用于同步报告
             val localCount = attendanceDao.getAllRecordsIncludingDeletedSync().size
 
-            // 下载云端数据（统一解析 明文/信封/旧版密文）
+            // 下载云端数据（统一解析 明文/信封/旧版密文）；
+            // prefetchedCloud 为双向同步已解析的快照，复用可省一次下载
             reportProgress("下载云端数据…")
-            val cloudResolve = cloudResolver.resolveCloud(config, encryptPassword)
+            val cloudResolve = prefetchedCloud ?: cloudResolver.resolveCloud(config, encryptPassword)
             val cloudSnapshot: CloudSnapshot = when (cloudResolve) {
                 is CloudResolve.Available -> cloudResolve.snapshot
                 CloudResolve.NotFound, CloudResolve.DownloadFailed ->

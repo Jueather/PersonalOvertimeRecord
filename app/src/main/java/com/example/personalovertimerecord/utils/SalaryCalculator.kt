@@ -63,6 +63,9 @@ object SalaryCalculator {
         var holidayDays = 0
         
         monthRecords.forEach { record ->
+            // 请假记录不参与加班/加点统计（兼容历史数据中残留时长的记录）
+            if (record.isLeave) return@forEach
+
             val overtime = if (record.overtimeHours >= 0) record.overtimeHours else 0.0
             val extra = if (record.extraHours >= 0) record.extraHours else 0.0
 

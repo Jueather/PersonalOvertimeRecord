@@ -253,6 +253,10 @@ class AddOvertimeDialog(
                     isLeave = true,
                     leaveType = selectedLeaveType.name,
                     leaveHours = leaveHours ?: 1.0,
+                    // 转为请假后清空加班/加点与自定义倍率，避免残留时长继续计入统计
+                    overtimeHours = -1.0,
+                    extraHours = -1.0,
+                    customRate = -1.0,
                     // 请假记录无班次概念，沿用原记录班次（新建默认白班）
                     shiftType = existingRecord.shiftType,
                     note = if (note.isNullOrEmpty()) null else note

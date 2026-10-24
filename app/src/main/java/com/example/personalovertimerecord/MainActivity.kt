@@ -73,6 +73,8 @@ class MainActivity : AppCompatActivity() {
     
     private var currentYear: Int = Calendar.getInstance().get(Calendar.YEAR)
     private var currentMonth: Int = Calendar.getInstance().get(Calendar.MONTH)
+    // 最近一次刷新的日期（yyyy-MM-dd），用于秒级 ticker 检测跨天
+    private var lastKnownDate: String? = null
     
     private var timeUpdateJob: kotlinx.coroutines.Job? = null
     private var startupCheckJob: kotlinx.coroutines.Job? = null
@@ -254,6 +256,7 @@ class MainActivity : AppCompatActivity() {
         timeUpdateJob = lifecycleScope.launch {
             while (true) {
                 updateCurrentTime()
+                refreshDateOnRollover()
                 // 对齐到下一个整秒再刷新：时间显示精确到秒，固定 delay 会漂移，
                 // 导致秒数偶尔跳变不均匀（表现为时间"一卡一卡"）
                 delay(
@@ -380,6 +383,45 @@ class MainActivity : AppCompatActivity() {
         val currentDate = Date()
         binding.tvCurrentDate.text = DateUtils.formatToChineseDate(currentDate)
         binding.tvCurrentWeekday.text = DateUtils.getChineseWeekday(currentDate)
+        lastKnownDate = todayKey()
+    }
+
+    private fun todayKey(): String {
+        val now = Calendar.getInstance()
+        return DateUtils.formatDate(
+            now.get(Calendar.YEAR),
+            now.get(Calendar.MONTH),
+            now.get(Calendar.DAY_OF_MONTH)
+        )
+    }
+
+    /**
+     * 应用长时间驻留时检测跨天：刷新日期/星期，并在跨月且用户仍停留在上一天所在月份时，
+     * 跟随切换到新的当前月（避免列表与统计一直停在旧月份）。
+     */
+    private fun refreshDateOnRollover() {
+        val today = todayKey()
+        if (today == lastKnownDate) return
+
+        val previousParts = lastKnownDate?.let { DateUtils.extractDateParts(it) }
+        updateCurrentDate()
+
+        val now = Calendar.getInstance()
+        val newYear = now.get(Calendar.YEAR)
+        val newMonth = now.get(Calendar.MONTH)
+        val viewingPreviousMonth = previousParts != null &&
+            currentYear == previousParts.first && currentMonth == previousParts.second - 1
+        if (!viewingPreviousMonth || (currentYear == newYear && currentMonth == newMonth)) return
+
+        currentYear = newYear
+        currentMonth = newMonth
+        updateMonthYearText()
+        updateCalendarData()
+        viewModel.allAttendance.value?.let { attendanceList ->
+            val monthRecords = getCurrentMonthRecords(attendanceList)
+            updateMonthlyStats(monthRecords)
+            refreshMonthRecords(monthRecords)
+        }
     }
     
     private fun setupRecyclerView() {
