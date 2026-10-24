@@ -126,7 +126,8 @@ app/
 │   │   ├── Formatter.kt          # 格式化工具
 │   │   ├── GlobalExceptionHandler.kt # 全局异常处理
 │   │   ├── HolidayManager.kt     # 节假日管理 (2024-2028)
-│   │   ├── HolidayStore.kt       # 节假日在线更新（拉取/校验/缓存）
+│   │   ├── HolidayStore.kt       # 节假日在线更新（拉取/校验/缓存，JSON 源 + 接口兜底）
+│   │   ├── HolidayIdNames.kt     # 接口节日 ID → 名称映射
 │   │   ├── NetworkUtils.kt       # 网络状态检查
 │   │   ├── OvertimeCalculator.kt # 加班计算
 │   │   ├── PdfExporter.kt        # PDF 导出
@@ -276,6 +277,7 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 内置节假日数据覆盖 2024-2028，可在设置页「节假日数据」卡片手动检查更新，无需发版即可跟进国家法定节假日与调休安排：
 
 - **数据源** - 仓库固定地址 `holiday/holidays.json`（https）；主源 `raw.githubusercontent.com` 不可达或未发布时，自动依次改用 jsDelivr（cdn/fastly/gcore）镜像读取同一文件
+- **兜底接口** - 以上 JSON 源全部失败时，改用第三方接口 `api.apihubs.cn/holiday/get` 拉取当前年与下一年的放假/调休数据，转成同一份 JSON 结构后缓存；接口有频率限制，提示「请求过于频繁」时稍后再试
 - **覆盖规则** - 在线数据按日期合并覆盖内置数据（未覆盖的日期继续使用内置），应用启动时从本地缓存注入，离线同样生效
 - **校验** - 严格校验日期格式（`yyyy-MM-dd`）、年份范围、节假日名称长度；数据为空或格式非法时拒绝应用并保留当前数据
 - **缓存** - 校验通过后写入本地偏好，下次启动直接生效；更新失败只提示，不影响现有计算
