@@ -193,14 +193,8 @@ class DataManagerActivity : AppCompatActivity() {
     private fun restoreData(backupData: com.example.personalovertimerecord.utils.BackupData) {
         lifecycleScope.launch {
             try {
-                // 备份文件中的设置不含密码（导出时已剥离）；恢复时保留本地已配置的密码
-                val localSettings = settingsManager.getSettings()
-                settingsManager.saveSettings(
-                    backupData.settings.copy(
-                        exportPassword = localSettings.exportPassword,
-                        syncPassword = localSettings.syncPassword
-                    )
-                )
+                // 备份文件中的设置不含密码（导出时已剥离）；恢复时保留本地密码与旧备份缺失的工资扣款配置
+                settingsManager.saveSyncedSettings(backupData.settings)
                 dataExporter.restoreDataFull(backupData)
                 
                 Toast.makeText(this@DataManagerActivity, "数据恢复成功！", Toast.LENGTH_LONG).show()

@@ -1,5 +1,6 @@
 package com.example.personalovertimerecord
 
+import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -12,6 +13,7 @@ import android.widget.ArrayAdapter
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
@@ -23,7 +25,9 @@ import com.example.personalovertimerecord.dialog.UpdateDialog
 import com.example.personalovertimerecord.utils.AppLogger
 import com.example.personalovertimerecord.utils.AutoSyncManager
 import com.example.personalovertimerecord.utils.BiometricManager
+import com.example.personalovertimerecord.utils.CalendarSyncManager
 import com.example.personalovertimerecord.utils.EnvelopeCrypto
+import com.example.personalovertimerecord.utils.HolidayStore
 import com.example.personalovertimerecord.utils.KeyBootstrapResult
 import com.example.personalovertimerecord.utils.NetworkUtils
 import com.example.personalovertimerecord.utils.RecoveryCodeManager
@@ -53,6 +57,24 @@ class SettingsActivity : AppCompatActivity() {
     }
     private var lastResponseCode: Int = 0
     private var isUpdatingAutoSync = false
+
+    private val calendarSyncManager: CalendarSyncManager by lazy {
+        CalendarSyncManager(this)
+    }
+
+    /** 日历权限申请结果：两个权限都授予后才开始同步 */
+    private val calendarPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { result ->
+        val granted = result[Manifest.permission.READ_CALENDAR] == true &&
+            result[Manifest.permission.WRITE_CALENDAR] == true
+        if (granted) {
+            startCalendarSync()
+        } else {
+            Toast.makeText(this, "未授予日历权限，无法同步日历", Toast.LENGTH_LONG).show()
+            refreshCalendarStatus()
+        }
+    }
 
     /** WebDAV 服务器地址/用户名脱敏显示，聚焦修改时恢复明文 */
     private val webdavServerField by lazy {
@@ -87,6 +109,8 @@ class SettingsActivity : AppCompatActivity() {
         setupButtons()
         setupShiftGroup()
         setupUpdate()
+        setupHolidayData()
+        setupCalendarSync()
         setupTeamSync()
         setupScrollToFocusedView()
     }
@@ -248,6 +272,102 @@ class SettingsActivity : AppCompatActivity() {
             .show()
     }
     
+    /** 节假日在线更新：展示当前覆盖年份，手动拉取仓库最新数据 */
+    private fun setupHolidayData() {
+        refreshHolidayInfo()
+
+        binding.btnHolidayUpdate.setOnClickListener {
+            if (!NetworkUtils.isNetworkAvailable(this)) {
+                Toast.makeText(this, "请先检查网络连接", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            binding.btnHolidayUpdate.isEnabled = false
+            binding.btnHolidayUpdate.text = "检查中..."
+
+            lifecycleScope.launch {
+                val result = HolidayStore.refresh(this@SettingsActivity)
+
+                binding.btnHolidayUpdate.isEnabled = true
+                binding.btnHolidayUpdate.text = "检查节假日更新"
+
+                val message = when (result) {
+                    is HolidayStore.RefreshResult.Success ->
+                        "节假日数据已更新到 v${result.version}（覆盖 ${result.years.firstOrNull()} - ${result.years.lastOrNull()}）"
+                    is HolidayStore.RefreshResult.Failure ->
+                        "更新失败：${result.message}\n继续使用当前数据。"
+                }
+                Toast.makeText(this@SettingsActivity, message, Toast.LENGTH_LONG).show()
+                refreshHolidayInfo()
+            }
+        }
+    }
+
+    private fun refreshHolidayInfo() {
+        binding.tvHolidayDataInfo.text = HolidayStore.describe()
+    }
+
+    /** 系统日历双向同步：权限申请、手动同步、状态展示 */
+    private fun setupCalendarSync() {
+        refreshCalendarStatus()
+
+        binding.btnCalendarSync.setOnClickListener {
+            if (calendarSyncManager.hasPermission()) {
+                startCalendarSync()
+            } else {
+                AlertDialog.Builder(this)
+                    .setTitle("日历权限")
+                    .setMessage(
+                        "日历同步需要读取与写入系统日历的权限：\n" +
+                            "• 把加班/请假记录写成全天日程\n" +
+                            "• 把日历里的修改、改期与删除回写到应用"
+                    )
+                    .setPositiveButton("去授权") { _, _ ->
+                        calendarPermissionLauncher.launch(
+                            arrayOf(
+                                Manifest.permission.READ_CALENDAR,
+                                Manifest.permission.WRITE_CALENDAR
+                            )
+                        )
+                    }
+                    .setNegativeButton(R.string.cancel, null)
+                    .show()
+            }
+        }
+    }
+
+    private fun startCalendarSync() {
+        binding.btnCalendarSync.isEnabled = false
+        binding.btnCalendarSync.text = "同步中..."
+
+        lifecycleScope.launch {
+            val report = calendarSyncManager.sync()
+
+            binding.btnCalendarSync.isEnabled = true
+            binding.btnCalendarSync.text = "立即同步日历"
+
+            val message = if (report.success) {
+                buildString {
+                    append("日历同步完成：推送 ${report.pushed} 条，回写 ${report.pulled} 条")
+                    if (report.deletedFromCalendar > 0) append("，日历删除 ${report.deletedFromCalendar} 条")
+                    if (report.deletedFromApp > 0) append("，清理事件 ${report.deletedFromApp} 条")
+                    if (report.skipped > 0) append("，跳过 ${report.skipped} 条")
+                }
+            } else {
+                report.error ?: "同步失败"
+            }
+            Toast.makeText(this@SettingsActivity, message, Toast.LENGTH_LONG).show()
+            refreshCalendarStatus()
+        }
+    }
+
+    private fun refreshCalendarStatus() {
+        lifecycleScope.launch {
+            val status = withContext(Dispatchers.IO) { calendarSyncManager.describeStatus() }
+            binding.tvCalendarSyncStatus.text = status
+        }
+    }
+
     private fun setupUpdate() {
         binding.tvCurrentVersion.text = "当前版本：v${UpdateManager.getCurrentVersionName(this)}"
 
@@ -670,6 +790,16 @@ class SettingsActivity : AppCompatActivity() {
         binding.etPerformancePercent.setText(currentSettings.performancePercent.toString())
         binding.etMonthlyWorkDays.setText(currentSettings.monthlyWorkDays.toString())
         binding.etDailyWorkHours.setText(currentSettings.dailyWorkHours.toString())
+
+        // 五险一金与个税
+        binding.etSocialInsuranceBase.setText(currentSettings.socialInsuranceBase.toString())
+        binding.etHousingFundBase.setText(currentSettings.housingFundBase.toString())
+        binding.etPensionRate.setText(currentSettings.pensionRate.toString())
+        binding.etMedicalRate.setText(currentSettings.medicalRate.toString())
+        binding.etUnemploymentRate.setText(currentSettings.unemploymentRate.toString())
+        binding.etHousingFundRate.setText(currentSettings.housingFundRate.toString())
+        binding.etSpecialDeduction.setText(currentSettings.specialDeduction.toString())
+        binding.switchQuickEntryNotification.isChecked = settingsManager.isQuickEntryNotificationEnabled()
     }
     
     private fun loadWebDAVConfig() {
@@ -713,6 +843,24 @@ class SettingsActivity : AppCompatActivity() {
                 return
             }
 
+            // 五险一金与个税
+            val socialInsuranceBase = binding.etSocialInsuranceBase.text?.toString()?.toDoubleOrNull() ?: 0.0
+            val housingFundBase = binding.etHousingFundBase.text?.toString()?.toDoubleOrNull() ?: 0.0
+            val pensionRate = binding.etPensionRate.text?.toString()?.toDoubleOrNull() ?: 8.0
+            val medicalRate = binding.etMedicalRate.text?.toString()?.toDoubleOrNull() ?: 2.0
+            val unemploymentRate = binding.etUnemploymentRate.text?.toString()?.toDoubleOrNull() ?: 0.5
+            val housingFundRate = binding.etHousingFundRate.text?.toString()?.toDoubleOrNull() ?: 12.0
+            val specialDeduction = binding.etSpecialDeduction.text?.toString()?.toDoubleOrNull() ?: 0.0
+
+            if (!validateDeductionInput(
+                    socialInsuranceBase, housingFundBase,
+                    pensionRate, medicalRate, unemploymentRate, housingFundRate,
+                    specialDeduction
+                )
+            ) {
+                return
+            }
+
             // 工资倍率已从设置页移除，改在添加/编辑加班记录时按条自定义；
             // 保留本地已存储的倍率值，作为新记录的默认倍率来源（老用户已改过的默认值不丢）
             val currentRates = settingsManager.getSettings()
@@ -728,6 +876,15 @@ class SettingsActivity : AppCompatActivity() {
                 performancePercent = performancePercent,
                 monthlyWorkDays = monthlyWorkDays,
                 dailyWorkHours = dailyWorkHours,
+                // 五险一金与个税
+                socialInsuranceBase = socialInsuranceBase,
+                housingFundBase = housingFundBase,
+                pensionRate = pensionRate,
+                medicalRate = medicalRate,
+                unemploymentRate = unemploymentRate,
+                housingFundRate = housingFundRate,
+                specialDeduction = specialDeduction,
+                salaryConfigVersion = 1,
                 // 加密设置
                 exportEncryptionEnabled = binding.switchExportEncryption.isChecked,
                 exportPassword = binding.etExportPassword.text?.toString() ?: "",
@@ -736,6 +893,10 @@ class SettingsActivity : AppCompatActivity() {
             )
 
             settingsManager.saveSettings(settings)
+            // 快捷登记通知开关（设备本地偏好）
+            settingsManager.setQuickEntryNotificationEnabled(binding.switchQuickEntryNotification.isChecked)
+            com.example.personalovertimerecord.widget.QuickRecordWidget.refresh(this)
+            com.example.personalovertimerecord.utils.QuickEntryNotification.sync(this)
 
             // 同步加密密钥材料处理（首次开启时生成恢复码并强制展示），完成后退出页面
             handleSyncKeyMaterialAfterSave(
@@ -1144,6 +1305,34 @@ class SettingsActivity : AppCompatActivity() {
         )
     }
     
+    /**
+     * 五险一金/个税配置校验：基数不可为负，比例 0~100%，专项附加扣除不可为负。
+     */
+    private fun validateDeductionInput(
+        socialInsuranceBase: Double,
+        housingFundBase: Double,
+        pensionRate: Double,
+        medicalRate: Double,
+        unemploymentRate: Double,
+        housingFundRate: Double,
+        specialDeduction: Double
+    ): Boolean {
+        if (socialInsuranceBase < 0 || housingFundBase < 0) {
+            Toast.makeText(this, "缴费基数不能为负数", Toast.LENGTH_SHORT).show()
+            return false
+        }
+        val rates = listOf(pensionRate, medicalRate, unemploymentRate, housingFundRate)
+        if (rates.any { it < 0 || it > 100 }) {
+            Toast.makeText(this, "个人缴纳比例应在0-100%之间", Toast.LENGTH_SHORT).show()
+            return false
+        }
+        if (specialDeduction < 0) {
+            Toast.makeText(this, "专项附加扣除不能为负数", Toast.LENGTH_SHORT).show()
+            return false
+        }
+        return true
+    }
+
     private fun validateInput(
         baseSalary: Double,
         monthlyWorkDays: Double,

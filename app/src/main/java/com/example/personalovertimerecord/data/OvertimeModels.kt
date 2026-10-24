@@ -46,6 +46,18 @@ data class OvertimeSettings(
     var overtimeRateHoliday: Double = 3.0,
     var workStartTime: String = "08:00",
     var workEndTime: String = "17:00",
+    // ---- 五险一金与个税 ----
+    // 缴费基数 <= 0 时按底薪计算，避免用户重复录入
+    var socialInsuranceBase: Double = 0.0,
+    var pensionRate: Double = 8.0,
+    var medicalRate: Double = 2.0,
+    var unemploymentRate: Double = 0.5,
+    var housingFundBase: Double = 0.0,
+    var housingFundRate: Double = 12.0,
+    // 每月专项附加扣除合计（子女教育、房贷、赡养老人等）
+    var specialDeduction: Double = 0.0,
+    // 配置版本：旧备份缺失该字段时 Gson 会置 0，用于识别并保留本机已有的五险一金配置
+    var salaryConfigVersion: Int = 1,
     // 加密相关设置
     var exportEncryptionEnabled: Boolean = false,
     // 密码不参与 Gson 序列化（双保险：导出/上传处也会主动剥离），

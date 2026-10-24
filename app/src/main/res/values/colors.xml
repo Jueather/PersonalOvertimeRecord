@@ -45,4 +45,11 @@
     <!-- 列表卡片内分隔线/详情文字 - 与 values-night 对应 -->
     <color name="record_divider">#FFE0E0E0</color>
     <color name="record_detail_text">#FF757575</color>
+
+    <!-- 桌面小部件 - 与 values-night 对应 -->
+    <color name="widget_background_color">#FFFFFFFF</color>
+    <color name="widget_border_color">#FFE0E0E0</color>
+    <color name="widget_text_primary">#FF333333</color>
+    <color name="widget_text_secondary">#FF757575</color>
+    <color name="widget_accent">#FF6200EE</color>
 </resources>

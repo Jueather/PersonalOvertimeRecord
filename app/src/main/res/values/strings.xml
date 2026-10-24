@@ -135,4 +135,7 @@
     <string name="team_summary_to">结束月</string>
     <string name="team_summary_apply">查询</string>
     <string name="team_summary_row_detail">加班 %1$.1f 小时 · 请假 %2$.1f 小时 · %3$d 条记录 · 请假 %4$d 次</string>
+
+    <!-- 桌面小部件 -->
+    <string name="widget_quick_record_description">快捷登记加班/加点，查看当月工时与实发工资</string>
 </resources>

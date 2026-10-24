@@ -7,6 +7,8 @@ import com.example.personalovertimerecord.repository.AttendanceRepository
 import com.example.personalovertimerecord.repository.RoomAttendanceRepository
 import com.example.personalovertimerecord.utils.AppLogger
 import com.example.personalovertimerecord.utils.GlobalExceptionHandler
+import com.example.personalovertimerecord.utils.HolidayStore
+import com.example.personalovertimerecord.utils.QuickEntryNotification
 import com.example.personalovertimerecord.utils.ThemeManager
 
 /**
@@ -53,6 +55,12 @@ class OvertimeApplication : Application() {
         // 初始化主题管理器并应用保存的主题
         ThemeManager.init(this)
         ThemeManager.applyTheme()
+
+        // 加载已缓存的在线节假日数据（不联网；失败时继续使用内置数据）
+        HolidayStore.loadCached(this)
+
+        // 按设置同步常驻快捷登记通知（关闭开关时自动移除）
+        QuickEntryNotification.sync(this)
 
         // 打卡提醒功能已移除：清理历史版本遗留的 WorkManager 周期提醒任务，防止升级后继续弹通知
         WorkManager.getInstance(this).cancelUniqueWork("work_reminder_work")

@@ -37,6 +37,7 @@ import com.example.personalovertimerecord.utils.DateUtils
 import com.example.personalovertimerecord.utils.Formatter
 import com.example.personalovertimerecord.utils.NetworkUtils
 import com.example.personalovertimerecord.utils.OvertimeCalculator
+import com.example.personalovertimerecord.utils.QuickEntryNotification
 import com.example.personalovertimerecord.utils.SyncDirection
 import com.example.personalovertimerecord.utils.SyncManager
 import com.example.personalovertimerecord.utils.SyncOptions
@@ -47,6 +48,7 @@ import com.example.personalovertimerecord.ui.TeamSummaryActivity
 import com.example.personalovertimerecord.utils.UpdateManager
 import com.example.personalovertimerecord.view.CalendarView
 import com.example.personalovertimerecord.viewmodel.AttendanceViewModel
+import com.example.personalovertimerecord.widget.QuickRecordWidget
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -64,6 +66,9 @@ class MainActivity : AppCompatActivity() {
          * 携带此标志重新进入 MainActivity，避免无限循环触发验证。
          */
         const val EXTRA_BIOMETRIC_PASSED = "biometric_passed"
+
+        /** 小部件/常驻通知点击后直接打开当日登记对话框 */
+        const val EXTRA_QUICK_ADD = "quick_add"
     }
     
     private val viewModel: AttendanceViewModel by viewModels()
@@ -87,6 +92,8 @@ class MainActivity : AppCompatActivity() {
     
     private var currentYear: Int = Calendar.getInstance().get(Calendar.YEAR)
     private var currentMonth: Int = Calendar.getInstance().get(Calendar.MONTH)
+    /** 来自小部件/通知的快捷登记请求，待当月记录加载完成后打开当日登记框 */
+    private var pendingQuickAdd = false
     // 最近一次刷新的日期（yyyy-MM-dd），用于秒级 ticker 检测跨天
     private var lastKnownDate: String? = null
     
@@ -109,7 +116,13 @@ class MainActivity : AppCompatActivity() {
         if (BiometricManager.needsAuthentication(this) &&
             !intent.getBooleanExtra(EXTRA_BIOMETRIC_PASSED, false)
         ) {
-            startActivity(Intent(this, BiometricActivity::class.java))
+            // 快捷登记请求需要在验证通过后继续生效，转发给 BiometricActivity
+            val biometricIntent = Intent(this, BiometricActivity::class.java).apply {
+                if (intent.getBooleanExtra(EXTRA_QUICK_ADD, false)) {
+                    putExtra(EXTRA_QUICK_ADD, true)
+                }
+            }
+            startActivity(biometricIntent)
             finish()
             return
         }
@@ -117,6 +130,10 @@ class MainActivity : AppCompatActivity() {
         window.decorView.animation = AnimationUtils.loadAnimation(this, android.R.anim.fade_in)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // 消费一次性的快捷登记标志，避免配置变更重建时重复弹窗
+        pendingQuickAdd = intent.getBooleanExtra(EXTRA_QUICK_ADD, false)
+        intent.removeExtra(EXTRA_QUICK_ADD)
         
         settingsManager = SettingsManager(this)
         val database = try {
@@ -242,6 +259,18 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (!intent.getBooleanExtra(EXTRA_QUICK_ADD, false)) return
+        intent.removeExtra(EXTRA_QUICK_ADD)
+        if (viewModel.allAttendance.value != null) {
+            openQuickAddDialog()
+        } else {
+            pendingQuickAdd = true
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         startTimeUpdates()
@@ -252,6 +281,9 @@ class MainActivity : AppCompatActivity() {
             updateMonthlyStats(monthRecords)
             refreshMonthRecords(monthRecords)
         }
+        // 工资设置变化会改变实发工资，回到前台时同步刷新小部件与常驻通知
+        QuickRecordWidget.refresh(this)
+        QuickEntryNotification.sync(this)
     }
     
     override fun onPause() {
@@ -341,6 +373,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
+    /** 打开今天的登记对话框（小部件/常驻通知的快捷入口） */
+    private fun openQuickAddDialog() {
+        val now = Calendar.getInstance()
+        showAttendanceDialog(
+            now.get(Calendar.YEAR),
+            now.get(Calendar.MONTH),
+            now.get(Calendar.DAY_OF_MONTH)
+        )
+    }
+
     private fun showAttendanceDialog(year: Int, month: Int, day: Int) {
         val dateStr = DateUtils.formatDate(year, month, day)
         val existingRecord = viewModel.allAttendance.value?.find { it.date == dateStr }
@@ -797,6 +839,16 @@ class MainActivity : AppCompatActivity() {
             updateCalendarData()
             updateMonthlyStats(records)
             applyRecordFilter()
+
+            // 数据变化后刷新小部件与常驻通知
+            QuickRecordWidget.refresh(this)
+            QuickEntryNotification.sync(this)
+
+            // 小部件/通知的快捷登记：数据就绪后再弹出当日登记框
+            if (pendingQuickAdd) {
+                pendingQuickAdd = false
+                openQuickAddDialog()
+            }
         }
         
         viewModel.errorMessage.observe(this) { errorMsg ->

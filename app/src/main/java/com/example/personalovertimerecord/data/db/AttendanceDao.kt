@@ -42,6 +42,13 @@ interface AttendanceDao {
     suspend fun getRecordByDate(date: String): AttendanceEntity?
 
     /**
+     * 根据日期获取记录（含软删除记录）
+     * 日历同步改期/导入时用于探测墓碑，避免 REPLACE 覆盖掉删除标记
+     */
+    @Query("SELECT * FROM attendance_records WHERE date = :date LIMIT 1")
+    suspend fun getAnyRecordByDate(date: String): AttendanceEntity?
+
+    /**
      * 根据ID获取未删除记录
      */
     @Query("SELECT * FROM attendance_records WHERE id = :id AND isDeleted = 0 LIMIT 1")

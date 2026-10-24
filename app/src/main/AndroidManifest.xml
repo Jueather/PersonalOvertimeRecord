@@ -21,6 +21,10 @@
     <!-- 软件自动更新：Android 8.0+ 安装未知来源 APK 需要 -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- 系统日历双向同步：读取/写入日程（运行时申请） -->
+    <uses-permission android:name="android.permission.READ_CALENDAR" />
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
+
     <!-- 测试用：获取完整已安装应用列表（上架前必须移除，Google Play 对此权限有审核要求） -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
@@ -69,6 +73,23 @@
             android:name=".ui.TeamSummaryActivity"
             android:exported="false" />
             
+        <!-- 桌面小部件：展示当月工时/实发并支持快捷登记 -->
+        <receiver
+            android:name=".widget.QuickRecordWidget"
+            android:exported="true"
+            android:label="@string/app_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/quick_record_widget_info" />
+        </receiver>
+        <!-- 小部件/常驻通知的快捷登记广播（仅应用内发送） -->
+        <receiver
+            android:name=".widget.QuickEntryReceiver"
+            android:exported="false" />
+
         <!-- FileProvider for sharing files -->
         <provider
             android:name="androidx.core.content.FileProvider"

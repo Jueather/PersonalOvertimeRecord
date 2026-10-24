@@ -321,14 +321,8 @@ class SyncManager(
 
             if (options.syncSettings) {
                 // 云端设置不含密码字段（上传时已剥离）；恢复时保留本地已配置的密码，
-                // 避免云端空密码覆盖本机的导出/同步加密密码
-                val localSettings = settingsManager.getSettings()
-                settingsManager.saveSettings(
-                    backupData.settings.copy(
-                        exportPassword = localSettings.exportPassword,
-                        syncPassword = localSettings.syncPassword
-                    )
-                )
+                // 同时兼容旧云端数据缺失的五险一金字段
+                settingsManager.saveSyncedSettings(backupData.settings)
             }
 
             settingsManager.saveLastSyncTime(System.currentTimeMillis())
