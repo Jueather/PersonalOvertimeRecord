@@ -44,6 +44,15 @@ class SettingsManager(context: Context) {
             putString(KEY_PERFORMANCE_PERCENT, settings.performancePercent.toString())
             putString(KEY_MONTHLY_WORK_DAYS, settings.monthlyWorkDays.toString())
             putString(KEY_DAILY_WORK_HOURS, settings.dailyWorkHours.toString())
+            // 五险一金与个税
+            putString(KEY_SOCIAL_INSURANCE_BASE, settings.socialInsuranceBase.toString())
+            putString(KEY_PENSION_RATE, settings.pensionRate.toString())
+            putString(KEY_MEDICAL_RATE, settings.medicalRate.toString())
+            putString(KEY_UNEMPLOYMENT_RATE, settings.unemploymentRate.toString())
+            putString(KEY_HOUSING_FUND_BASE, settings.housingFundBase.toString())
+            putString(KEY_HOUSING_FUND_RATE, settings.housingFundRate.toString())
+            putString(KEY_SPECIAL_DEDUCTION, settings.specialDeduction.toString())
+            putInt(KEY_SALARY_CONFIG_VERSION, settings.salaryConfigVersion)
             // 保存加密设置
             putBoolean(KEY_EXPORT_ENCRYPTION_ENABLED, settings.exportEncryptionEnabled)
             putString(KEY_EXPORT_PASSWORD, settings.exportPassword)
@@ -60,8 +69,24 @@ class SettingsManager(context: Context) {
      */
     fun saveSyncedSettings(settings: OvertimeSettings) {
         val current = getSettings()
-        saveSettings(
+        // 旧备份/旧云端数据没有五险一金字段（Gson 缺失字段为 0），
+        // 此时保留本机已配置的缴费基数与比例，避免恢复后被静默清零
+        val normalized = if (settings.salaryConfigVersion <= 0) {
             settings.copy(
+                socialInsuranceBase = current.socialInsuranceBase,
+                pensionRate = current.pensionRate,
+                medicalRate = current.medicalRate,
+                unemploymentRate = current.unemploymentRate,
+                housingFundBase = current.housingFundBase,
+                housingFundRate = current.housingFundRate,
+                specialDeduction = current.specialDeduction,
+                salaryConfigVersion = 1
+            )
+        } else {
+            settings
+        }
+        saveSettings(
+            normalized.copy(
                 exportPassword = current.exportPassword,
                 syncPassword = current.syncPassword
             )
@@ -79,6 +104,15 @@ class SettingsManager(context: Context) {
             performancePercent = prefs.getString(KEY_PERFORMANCE_PERCENT, "0.0")?.toDoubleOrNull() ?: 0.0,
             monthlyWorkDays = prefs.getString(KEY_MONTHLY_WORK_DAYS, "21.75")?.toDoubleOrNull() ?: 21.75,
             dailyWorkHours = prefs.getString(KEY_DAILY_WORK_HOURS, "8.0")?.toDoubleOrNull() ?: 8.0,
+            // 五险一金与个税
+            socialInsuranceBase = prefs.getString(KEY_SOCIAL_INSURANCE_BASE, "0.0")?.toDoubleOrNull() ?: 0.0,
+            pensionRate = prefs.getString(KEY_PENSION_RATE, "8.0")?.toDoubleOrNull() ?: 8.0,
+            medicalRate = prefs.getString(KEY_MEDICAL_RATE, "2.0")?.toDoubleOrNull() ?: 2.0,
+            unemploymentRate = prefs.getString(KEY_UNEMPLOYMENT_RATE, "0.5")?.toDoubleOrNull() ?: 0.5,
+            housingFundBase = prefs.getString(KEY_HOUSING_FUND_BASE, "0.0")?.toDoubleOrNull() ?: 0.0,
+            housingFundRate = prefs.getString(KEY_HOUSING_FUND_RATE, "12.0")?.toDoubleOrNull() ?: 12.0,
+            specialDeduction = prefs.getString(KEY_SPECIAL_DEDUCTION, "0.0")?.toDoubleOrNull() ?: 0.0,
+            salaryConfigVersion = prefs.getInt(KEY_SALARY_CONFIG_VERSION, 1),
             // 读取加密设置
             exportEncryptionEnabled = prefs.getBoolean(KEY_EXPORT_ENCRYPTION_ENABLED, false),
             exportPassword = prefs.getString(KEY_EXPORT_PASSWORD, "") ?: "",
@@ -110,6 +144,15 @@ class SettingsManager(context: Context) {
             remotePath = remotePath
         )
     }
+
+    // ---- 快捷登记通知（设备本地偏好，不随备份同步） ----
+
+    fun setQuickEntryNotificationEnabled(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_QUICK_ENTRY_NOTIFICATION, enabled).apply()
+    }
+
+    fun isQuickEntryNotificationEnabled(): Boolean =
+        prefs.getBoolean(KEY_QUICK_ENTRY_NOTIFICATION, true)
 
     fun saveLastSyncTime(time: Long) {
         prefs.edit().putLong(KEY_LAST_SYNC_TIME, time).apply()
@@ -292,6 +335,17 @@ class SettingsManager(context: Context) {
         private const val KEY_PERFORMANCE_PERCENT = "performance_percent"
         private const val KEY_MONTHLY_WORK_DAYS = "monthly_work_days"
         private const val KEY_DAILY_WORK_HOURS = "daily_work_hours"
+        // 五险一金与个税
+        private const val KEY_SOCIAL_INSURANCE_BASE = "social_insurance_base"
+        private const val KEY_PENSION_RATE = "pension_rate"
+        private const val KEY_MEDICAL_RATE = "medical_rate"
+        private const val KEY_UNEMPLOYMENT_RATE = "unemployment_rate"
+        private const val KEY_HOUSING_FUND_BASE = "housing_fund_base"
+        private const val KEY_HOUSING_FUND_RATE = "housing_fund_rate"
+        private const val KEY_SPECIAL_DEDUCTION = "special_deduction"
+        private const val KEY_SALARY_CONFIG_VERSION = "salary_config_version"
+        // 快捷登记通知
+        private const val KEY_QUICK_ENTRY_NOTIFICATION = "quick_entry_notification"
         private const val KEY_WEBDAV_SERVER_URL = "webdav_server_url"
         private const val KEY_WEBDAV_USERNAME = "webdav_username"
         private const val KEY_WEBDAV_PASSWORD = "webdav_password"

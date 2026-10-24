@@ -7,6 +7,7 @@ import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
 import com.example.personalovertimerecord.data.OvertimeRecord
 import com.example.personalovertimerecord.data.OvertimeSettings
+import com.example.personalovertimerecord.utils.SalaryCalculator.SalaryReport
 import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
@@ -107,6 +108,124 @@ object PdfExporter {
         return file
     }
     
+    /**
+     * 导出月度工资条 PDF：收入明细、五险一金、个税与实发工资。
+     */
+    fun exportSalarySlip(context: Context, report: SalaryReport): File {
+        val document = PdfDocument()
+        val pageInfo = PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, 1).create()
+        val page = document.startPage(pageInfo)
+        val canvas = page.canvas
+        val pageWidth = PAGE_WIDTH - 2 * MARGIN
+
+        var yPosition = MARGIN
+        yPosition = drawTitle(canvas, "${report.year}年${report.month}月工资条", yPosition, pageWidth)
+        yPosition = drawInfo(canvas, yPosition, pageWidth)
+
+        yPosition = drawPayslipSection(
+            canvas,
+            "收入明细",
+            listOf(
+                "底薪" to formatMoney(report.baseSalary),
+                "绩效奖金" to formatMoney(report.performanceBonus),
+                "加班工资" to formatMoney(report.totalOvertimePay),
+                "应发合计" to formatMoney(report.totalSalary)
+            ),
+            yPosition
+        )
+
+        yPosition = drawPayslipSection(
+            canvas,
+            "五险一金（个人）",
+            listOf(
+                "养老保险（基数 ${formatMoney(report.insurance.socialInsuranceBase)}）" to formatMoney(report.insurance.pension),
+                "医疗保险" to formatMoney(report.insurance.medical),
+                "失业保险" to formatMoney(report.insurance.unemployment),
+                "住房公积金（基数 ${formatMoney(report.insurance.housingFundBase)}）" to formatMoney(report.insurance.housingFund),
+                "合计" to formatMoney(report.insurance.total)
+            ),
+            yPosition
+        )
+
+        yPosition = drawPayslipSection(
+            canvas,
+            "个人所得税（累计预扣法）",
+            listOf(
+                "每月专项附加扣除" to formatMoney(report.specialDeduction),
+                "本月应纳税所得额" to formatMoney(report.monthlyTaxableIncome),
+                "累计应纳税所得额" to formatMoney(report.cumulativeTaxableIncome),
+                "本月预扣个税" to formatMoney(report.incomeTax)
+            ),
+            yPosition
+        )
+
+        yPosition = drawPayslipSection(
+            canvas,
+            "实发工资",
+            listOf("应发 - 五险一金 - 个税" to formatMoney(report.netSalary)),
+            yPosition
+        )
+
+        drawFooter(canvas)
+        document.finishPage(page)
+
+        val fileName = "工资条_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())}.pdf"
+        val file = File(context.getExternalFilesDir(null), fileName)
+        try {
+            FileOutputStream(file).use { outputStream ->
+                document.writeTo(outputStream)
+            }
+        } finally {
+            document.close()
+        }
+        return file
+    }
+
+    private fun drawPayslipSection(
+        canvas: Canvas,
+        title: String,
+        rows: List<Pair<String, String>>,
+        y: Float
+    ): Float {
+        var currentY = y
+
+        val titlePaint = Paint().apply {
+            color = Color.rgb(98, 0, 238)
+            textSize = 13f
+            isFakeBoldText = true
+            isAntiAlias = true
+        }
+        canvas.drawText(title, MARGIN, currentY + 14f, titlePaint)
+        currentY += LINE_HEIGHT + 4f
+
+        val labelPaint = Paint().apply {
+            color = Color.BLACK
+            textSize = 11f
+            isAntiAlias = true
+        }
+        val valuePaint = Paint().apply {
+            color = Color.BLACK
+            textSize = 11f
+            isFakeBoldText = true
+            isAntiAlias = true
+        }
+        val rowBgPaint = Paint().apply { color = Color.rgb(248, 248, 248) }
+
+        rows.forEachIndexed { index, (label, value) ->
+            if (index % 2 == 0) {
+                canvas.drawRect(MARGIN, currentY, PAGE_WIDTH - MARGIN, currentY + LINE_HEIGHT, rowBgPaint)
+            }
+            canvas.drawText(label, MARGIN + 6f, currentY + 14f, labelPaint)
+            val valueWidth = valuePaint.measureText(value)
+            canvas.drawText(value, PAGE_WIDTH - MARGIN - valueWidth - 6f, currentY + 14f, valuePaint)
+            currentY += LINE_HEIGHT
+        }
+
+        return currentY + 10f
+    }
+
+    private fun formatMoney(amount: Double): String = String.format(Locale.getDefault(), "¥%.2f", amount)
+
     private fun drawTitle(canvas: Canvas, title: String, y: Float, width: Float): Float {
         val titlePaint = Paint().apply {
             color = Color.BLACK

@@ -224,6 +224,49 @@ object HolidayManager {
         2026 to makeupWorkdays2026
     )
 
+    // ---- 在线更新数据（覆盖/补充内置数据） ----
+    // 由 HolidayStore 在应用启动时注入缓存、或在"检查更新"成功后注入；
+    // 按日期覆盖内置值，未覆盖的日期仍以内置数据兜底，拉取失败不影响原有判定。
+
+    @Volatile
+    private var remoteHolidays: Map<String, String> = emptyMap()
+
+    @Volatile
+    private var remoteMakeupWorkdays: Set<String> = emptySet()
+
+    @Volatile
+    private var remoteVersion: Int = 0
+
+    /**
+     * 注入在线更新的节假日数据。
+     * @param holidays 日期 -> 节日名称（yyyy-MM-dd）
+     * @param makeupWorkdays 调休补班日（yyyy-MM-dd）
+     * @param version 远端数据版本号（用于设置页展示）
+     */
+    fun applyRemoteData(holidays: Map<String, String>, makeupWorkdays: Set<String>, version: Int) {
+        remoteHolidays = holidays
+        remoteMakeupWorkdays = makeupWorkdays
+        remoteVersion = version
+    }
+
+    /** 是否已加载在线更新数据 */
+    fun hasRemoteData(): Boolean = remoteHolidays.isNotEmpty() || remoteMakeupWorkdays.isNotEmpty()
+
+    /** 在线更新数据版本号（0 表示未加载） */
+    fun getRemoteVersion(): Int = remoteVersion
+
+    /** 当前生效的全部年份（内置 + 在线更新），升序 */
+    fun getEffectiveYears(): List<Int> {
+        val years = allHolidays.keys.toMutableSet()
+        remoteHolidays.keys.forEach { date ->
+            date.substring(0, 4).toIntOrNull()?.let { years.add(it) }
+        }
+        remoteMakeupWorkdays.forEach { date ->
+            date.substring(0, 4).toIntOrNull()?.let { years.add(it) }
+        }
+        return years.sorted()
+    }
+
     /**
      * 获取日期类型
      * @param date 日期字符串，格式：yyyy-MM-dd
@@ -252,6 +295,7 @@ object HolidayManager {
      * @return 是否为补班日
      */
     fun isMakeupWorkday(date: String): Boolean {
+        if (remoteMakeupWorkdays.contains(date)) return true
         val year = date.takeIf { it.length >= 4 }?.substring(0, 4)?.toIntOrNull() ?: return false
         return allMakeupWorkdays[year]?.contains(date) == true
     }
@@ -262,6 +306,7 @@ object HolidayManager {
      * @return 是否为节假日
      */
     fun isHoliday(date: String): Boolean {
+        if (remoteHolidays.containsKey(date)) return true
         val year = date.takeIf { it.length >= 4 }?.substring(0, 4)?.toIntOrNull() ?: return false
         return allHolidays[year]?.containsKey(date) == true
     }
@@ -272,6 +317,7 @@ object HolidayManager {
      * @return 节假日名称，如果不为节假日则返回null
      */
     fun getHolidayName(date: String): String? {
+        remoteHolidays[date]?.let { return it }
         val year = date.takeIf { it.length >= 4 }?.substring(0, 4)?.toIntOrNull() ?: return null
         return allHolidays[year]?.get(date)
     }
@@ -322,12 +368,16 @@ object HolidayManager {
      * @return 节假日列表
      */
     fun getMonthHolidays(year: Int, month: Int): List<Pair<String, String>> {
-        val yearHolidays = allHolidays[year] ?: emptyMap()
         val monthPrefix = String.format(Locale.getDefault(), "%04d-%02d", year, month)
-        
-        return yearHolidays.filter { it.key.startsWith(monthPrefix) }
-            .map { it.key to it.value }
-            .sortedBy { it.first }
+        val merged = LinkedHashMap<String, String>()
+        allHolidays[year]?.forEach { (date, name) ->
+            if (date.startsWith(monthPrefix)) merged[date] = name
+        }
+        // 在线更新数据按日期覆盖内置值
+        remoteHolidays.forEach { (date, name) ->
+            if (date.startsWith(monthPrefix)) merged[date] = name
+        }
+        return merged.map { it.key to it.value }.sortedBy { it.first }
     }
     
     /**
@@ -336,8 +386,15 @@ object HolidayManager {
      * @return 节假日列表
      */
     fun getYearHolidays(year: Int): List<Pair<String, String>> {
-        val yearHolidays = allHolidays[year] ?: emptyMap()
-        return yearHolidays.map { it.key to it.value }
-            .sortedBy { it.first }
+        val yearPrefix = "$year-"
+        val merged = LinkedHashMap<String, String>()
+        allHolidays[year]?.forEach { (date, name) ->
+            if (date.startsWith(yearPrefix)) merged[date] = name
+        }
+        // 在线更新数据按日期覆盖内置值
+        remoteHolidays.forEach { (date, name) ->
+            if (date.startsWith(yearPrefix)) merged[date] = name
+        }
+        return merged.map { it.key to it.value }.sortedBy { it.first }
     }
 }

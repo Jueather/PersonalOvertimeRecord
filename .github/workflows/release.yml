@@ -1,5 +1,7 @@
 # Workflow B：打 tag（如 v1.3.0）时，用 GitHub Secrets 里的 keystore 签名，
-# 并自动创建 GitHub Release 挂载 APK。
+# 并自动创建 GitHub Release 挂载 APK 与 AAB：
+#   - APK：应用内自动更新通道（latest.json 指向它），必须保留
+#   - AAB：供 Play Console / 应用商店上架，按设备拆分下发，单机体积更小
 # 使用前需在仓库 Settings -> Secrets and variables -> Actions 添加：
 #   KEYSTORE_BASE64   keystore 文件的 base64 内容
 #   KEYSTORE_PASSWORD keystore 密码
@@ -57,7 +59,7 @@ jobs:
           echo "=== keystore 别名(alias)与 store 密码校验 ==="
           keytool -list -keystore /tmp/release.keystore -storepass "$KEYSTORE_PASSWORD" 2>&1 || echo "⚠️  store 密码错误，请检查 KEYSTORE_PASSWORD"
 
-      - name: Build signed APK from tag
+      - name: Build signed APK & AAB from tag
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -75,7 +77,7 @@ jobs:
             CODE=$(echo "$VERSION" | awk -F. '{printf "%d%02d%02d%02d", $1, $2, $3, $4}')
           fi
           echo "Building versionName=$VERSION versionCode=$CODE"
-          ./gradlew assembleRelease \
+          ./gradlew assembleRelease bundleRelease \
             -PciVersionName="$VERSION" \
             -PciVersionCode="$CODE"
 
@@ -97,6 +99,19 @@ jobs:
           done
           echo "--- release output ---"
           ls -1 app/build/outputs/apk/release/
+
+      # AAB 供商店上架，产物默认名 app-release.aab，重命名成带 tag 版本号便于识别
+      - name: Rename AAB with version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          AAB="app/build/outputs/bundle/release/app-release.aab"
+          if [ -f "$AAB" ]; then
+            mv "$AAB" "app/build/outputs/bundle/release/PersonalOvertimeRecord_${VERSION}_release.aab"
+          else
+            echo "❌ 未找到 AAB 产物：$AAB"
+            exit 1
+          fi
+          ls -l app/build/outputs/bundle/release/
 
       - name: Generate latest.json update manifest
         env:
@@ -145,5 +160,6 @@ jobs:
         with:
           files: |
             app/build/outputs/apk/release/*.apk
+            app/build/outputs/bundle/release/*.aab
             app/build/outputs/apk/release/latest.json
           generate_release_notes: true

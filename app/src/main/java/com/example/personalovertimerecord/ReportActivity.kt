@@ -111,7 +111,7 @@ class ReportActivity : AppCompatActivity() {
     }
     
     private fun showExportDialog() {
-        val options = arrayOf("导出为 PDF", "导出为 CSV")
+        val options = arrayOf("导出为 PDF", "导出为 CSV", "导出工资条 PDF")
         
         AlertDialog.Builder(this)
             .setTitle("导出报告")
@@ -119,10 +119,42 @@ class ReportActivity : AppCompatActivity() {
                 when (which) {
                     0 -> exportToPdf()
                     1 -> exportToCsv()
+                    2 -> exportPayslip()
                 }
             }
             .setNegativeButton("取消", null)
             .show()
+    }
+    
+    /**
+     * 导出当前月份工资条 PDF（应发、五险一金、个税、实发明细）
+     */
+    private fun exportPayslip() {
+        binding.btnExport.isEnabled = false
+        binding.btnExport.text = "导出中..."
+        
+        lifecycleScope.launch {
+            try {
+                val file = withContext(Dispatchers.IO) {
+                    val records = viewModel.allAttendance.value ?: emptyList()
+                    val report = SalaryCalculator.calculateMonthlySalary(
+                        records,
+                        settings,
+                        currentYear,
+                        currentMonth
+                    )
+                    PdfExporter.exportSalarySlip(this@ReportActivity, report)
+                }
+                
+                Toast.makeText(this@ReportActivity, "工资条导出成功", Toast.LENGTH_SHORT).show()
+                shareFile(file)
+            } catch (e: Exception) {
+                Toast.makeText(this@ReportActivity, "导出失败: ${e.message}", Toast.LENGTH_SHORT).show()
+            } finally {
+                binding.btnExport.isEnabled = true
+                binding.btnExport.text = "导出报告"
+            }
+        }
     }
     
     private fun exportToPdf() {
@@ -254,12 +286,26 @@ class ReportActivity : AppCompatActivity() {
             currentMonth
         )
         
-        binding.tvBaseSalary.text = Formatter.formatMoney(settings.baseSalary)
+        binding.tvBaseSalary.text = Formatter.formatMoney(report.baseSalary)
         binding.tvPerformance.text = Formatter.formatMoney(report.performanceBonus)
         binding.tvOvertimePay.text = Formatter.formatMoney(report.totalOvertimePay)
         
-        val totalSalary = settings.baseSalary + report.performanceBonus + report.totalOvertimePay
-        binding.tvTotalSalary.text = Formatter.formatMoney(totalSalary)
+        // 应发 → 五险一金 / 个税 → 实发
+        binding.tvGrossSalary.text = Formatter.formatMoney(report.totalSalary)
+        binding.tvInsuranceTotal.text = "-" + Formatter.formatMoney(report.insurance.total)
+        binding.tvIncomeTax.text = "-" + Formatter.formatMoney(report.incomeTax)
+        binding.tvTotalSalary.text = Formatter.formatMoney(report.netSalary)
+        
+        // 工资条明细
+        binding.tvSocialBase.text = Formatter.formatMoney(report.insurance.socialInsuranceBase)
+        binding.tvHousingFundBase.text = Formatter.formatMoney(report.insurance.housingFundBase)
+        binding.tvPension.text = "-" + Formatter.formatMoney(report.insurance.pension)
+        binding.tvMedical.text = "-" + Formatter.formatMoney(report.insurance.medical)
+        binding.tvUnemployment.text = "-" + Formatter.formatMoney(report.insurance.unemployment)
+        binding.tvHousingFund.text = "-" + Formatter.formatMoney(report.insurance.housingFund)
+        binding.tvSpecialDeduction.text = Formatter.formatMoney(report.specialDeduction)
+        binding.tvMonthlyTaxable.text = Formatter.formatMoney(report.monthlyTaxableIncome)
+        binding.tvCumulativeTaxable.text = Formatter.formatMoney(report.cumulativeTaxableIncome)
     }
     
     private fun setupBarChart(byMonth: Map<String, List<OvertimeRecord>>) {

@@ -11,14 +11,16 @@ import com.example.personalovertimerecord.utils.DatabaseKeyManager
 import net.sqlcipher.database.SupportFactory
 
 @Database(
-    entities = [AttendanceEntity::class],
-    version = 8,
+    entities = [AttendanceEntity::class, CalendarLinkEntity::class],
+    version = 9,
     // 导出 schema 供迁移测试与人工审阅；schema JSON 需随代码提交到 app/schemas/
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun attendanceDao(): AttendanceDao
+
+    abstract fun calendarLinkDao(): CalendarLinkDao
 
     companion object {
         private const val TAG = "AppDatabase"
@@ -203,8 +205,27 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        // 从版本8迁移到版本9（新增系统日历映射表）：
+        // 仅保存本机记录与日历事件的对应关系，不参与备份/云端同步；空表即可，无需迁移历史数据。
+        private val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(database: SupportSQLiteDatabase) {
+                database.execSQL(
+                    "CREATE TABLE IF NOT EXISTS calendar_links (" +
+                        "eventId INTEGER NOT NULL, " +
+                        "calendarId INTEGER NOT NULL, " +
+                        "recordDate TEXT NOT NULL, " +
+                        "syncedAt INTEGER NOT NULL, " +
+                        "PRIMARY KEY(eventId))"
+                )
+                database.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_calendar_links_recordDate " +
+                        "ON calendar_links(recordDate)"
+                )
+            }
+        }
+
         /**
-         * 全部迁移（1→2 … 7→8），构建器与迁移测试共用同一份。
+         * 全部迁移（1→2 … 8→9），构建器与迁移测试共用同一份。
          * 注意：需声明在所有 MIGRATION_x_y 之后。
          */
         @JvmField
@@ -215,7 +236,8 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_4_5,
             MIGRATION_5_6,
             MIGRATION_6_7,
-            MIGRATION_7_8
+            MIGRATION_7_8,
+            MIGRATION_8_9
         )
     }
 }

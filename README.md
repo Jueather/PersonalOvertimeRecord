@@ -19,6 +19,7 @@
 - 🎯 **智能区分** - 工作日、周末、节假日加班倍率自动识别（含调休补班日）
 - 🏖️ **请假/早退登记** - 支持 10 种请假类型（年假、病假、事假、婚假、产假等）按天登记，与加班记录同表管理
 - 🌗 **白班/夜班标记** - 录入时切换班次（默认白班），列表夜班角标，本月统计按班次拆分
+- 🌐 **节假日在线更新** - 内置 2024-2028 节假日与调休补班日，设置页可在线拉取仓库最新数据覆盖内置（校验后本地缓存，离线可用）
 
 ### 数据管理
 - 📤 **数据导出** - 支持导出为 PDF 精美报告、CSV/JSON 格式
@@ -30,6 +31,7 @@
 - 🔑 **同步恢复码** - 开启同步加密时生成离线恢复码，遗忘密码也能凭码重置，不会因忘密码永久丢数据
 - 👥 **团队同步** - 私有服务端多用户同步（JWT 登录 + HTTPS），管理员可建号、重置密码、停用账号并查看按人按月汇总
 - 🖥️ **PC 端仪表盘** - PC 读取器用同一套 WebDAV 凭据拉取备份并本地解密，浏览器查看加班统计
+- 🗓️ **日历双向同步** - 加班/请假记录同步为系统日历全天日程，支持在日历中改时长、改期与删除，再次同步回写应用
 
 ### 用户体验
 - 🌙 **深色模式** - 支持跟随系统/浅色/深色三种主题
@@ -93,7 +95,9 @@ app/
 │   │   ├── db/                   # Room 数据库（DAO、Entity）
 │   │   │   ├── AppDatabase.kt    # 数据库实例与迁移（SQLCipher 加密）
 │   │   │   ├── AttendanceDao.kt  # 数据访问接口
-│   │   │   └── AttendanceEntity.kt # 记录实体
+│   │   │   ├── AttendanceEntity.kt # 记录实体
+│   │   │   ├── CalendarLinkDao.kt # 日历事件映射访问接口
+│   │   │   └── CalendarLinkEntity.kt # 日历事件映射（日期 ↔ 事件 ID）
 │   │   ├── model/                # 团队同步 DTO（请求/响应/异常）
 │   │   ├── OvertimeModels.kt     # 记录/设置/结果模型 + 请假类型（LeaveType）
 │   │   └── SettingsManager.kt    # 设置管理
@@ -108,6 +112,7 @@ app/
 │   │   ├── AutoSyncManager.kt    # 自动同步调度（WorkManager）
 │   │   ├── AutoSyncWorker.kt     # 自动同步 Worker
 │   │   ├── BiometricManager.kt   # 生物识别管理
+│   │   ├── CalendarSyncManager.kt # 系统日历双向同步（推送/回写/冲突处理）
 │   │   ├── CloudBackupResolver.kt # 云端备份解析（明文/信封/旧密文）与快照缓存
 │   │   ├── ConflictStrategy.kt   # 同步冲突策略
 │   │   ├── Constants.kt          # 常量定义
@@ -121,6 +126,7 @@ app/
 │   │   ├── Formatter.kt          # 格式化工具
 │   │   ├── GlobalExceptionHandler.kt # 全局异常处理
 │   │   ├── HolidayManager.kt     # 节假日管理 (2024-2028)
+│   │   ├── HolidayStore.kt       # 节假日在线更新（拉取/校验/缓存）
 │   │   ├── NetworkUtils.kt       # 网络状态检查
 │   │   ├── OvertimeCalculator.kt # 加班计算
 │   │   ├── PdfExporter.kt        # PDF 导出
@@ -162,6 +168,7 @@ app/
     └── xml/                      # 配置文件
 ```
 
+holiday/holidays.json             # 节假日数据源（应用在线更新的固定仓库地址）
 server/                           # 团队服务端（Ktor 3 + SQLite + JWT，独立 Gradle 构建，见 server/README.md）
 pc-monitor/                       # PC 端监控读取器（Python，本地解密 WebDAV 备份）
 
@@ -191,6 +198,12 @@ cd PersonalOvertimeRecord
 
 # 安装到设备
 ./gradlew installDebug
+
+# 构建 Release APK（应用内更新通道）
+./gradlew assembleRelease
+
+# 构建 Release AAB（应用商店上架）
+./gradlew bundleRelease
 ```
 
 ### Gradle 镜像配置
@@ -258,6 +271,27 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 - **加班类型分布饼图**：当月工作日/周末/节假日加班时长占比
 - **加班工资趋势折线图**：全年 12 个月加班工资变化趋势
 
+### 节假日在线更新
+
+内置节假日数据覆盖 2024-2028，可在设置页「节假日数据」卡片手动检查更新，无需发版即可跟进国家法定节假日与调休安排：
+
+- **数据源** - 仓库固定地址 `holiday/holidays.json`（https）；主源 `raw.githubusercontent.com` 不可达或未发布时，自动依次改用 jsDelivr（cdn/fastly/gcore）镜像读取同一文件
+- **覆盖规则** - 在线数据按日期合并覆盖内置数据（未覆盖的日期继续使用内置），应用启动时从本地缓存注入，离线同样生效
+- **校验** - 严格校验日期格式（`yyyy-MM-dd`）、年份范围、节假日名称长度；数据为空或格式非法时拒绝应用并保留当前数据
+- **缓存** - 校验通过后写入本地偏好，下次启动直接生效；更新失败只提示，不影响现有计算
+- **状态展示** - 卡片显示覆盖年份与数据版本（当前使用内置数据 / 在线数据 vN）
+
+### 系统日历双向同步
+
+把加班/请假记录同步到系统日历，并接收日历侧的修改，实现「录入一次，两处可见」：
+
+- **权限** - 需要 `READ_CALENDAR` / `WRITE_CALENDAR`，设置页点击「立即同步日历」时按需申请
+- **写为全天日程** - 每条有效记录写成一个全天事件，标题携带类型与工时（如 `[加班] 加班2h 加点1h ×1.5 夜班`、`[请假] 年假 1天`），描述带固定标记用于识别
+- **回写应用** - 同步时优先读取日历：标题中的加班/加点时长、自定义倍率、请假类型与天数回写到应用；在日历中移动日期会改期到新日期；删除事件则同步删除应用记录
+- **冲突规则** - 以每条记录上次同步时间（`syncedAt`）为准：应用侧在同步后未再修改时接受日历改动；应用侧有更新改动时以应用为准覆盖日历
+- **实践边界** - 映射关系存于本机数据库（数据库 8→9 新增 `calendar_links` 表），不参与云备份与团队同步；同步为手动触发，避免后台写日历
+- **结果反馈** - 完成后提示推送、回写、删除与跳过条数，并在卡片展示当前可写日历与上次同步时间
+
 ### 云端同步机制
 
 - **双向同步** - 智能合并本地与云端数据，保持两端一致
@@ -308,7 +342,9 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 
 ### 软件自动更新机制
 
-- **分发渠道** - 基于 GitHub Releases 分发，`release.yml` 打 tag 时自动生成 `latest.json` 更新清单并随 APK 一起发布
+- **分发渠道** - 基于 GitHub Releases 分发，`release.yml` 打 tag 时自动生成 `latest.json` 更新清单，并同时上传签名 APK 与 AAB：APK 供应用内自动更新（`latest.json` 指向它），AAB 供 Play Console 等应用商店上架
+- **包体差异** - APK 含全部 ABI（arm64-v8a / armeabi-v7a / x86 / x86_64），体积较大；AAB 由商店按设备拆分下发，单机下载体积更小。因此 GitHub 直装包与商店包分开产出，两者不可互换使用
+- **渠道签名** - 若商店启用 Play App Signing，商店版会被 Google 用另一把密钥重签，与 GitHub APK 签名不一致，两个渠道的安装包不能互相覆盖安装；如需互通须保持同一签名密钥，或只使用单一分发渠道
 - **检查方式** - 启动时静默检查（24 小时节流），设置页可手动"检查更新"
 - **更新流程** - 拉取清单 → 比较 versionCode → 下载 APK（带进度）→ SHA-256 校验 → 签名一致性校验 → 调起系统安装器
 - **强制更新** - 清单 `minVersionCode` 高于当前版本时弹窗不可取消、无"稍后"按钮
@@ -330,6 +366,8 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 | 团队同步 | 修改密码 | 修改团队账号密码 |
 | 团队同步 | 成员汇总 | 管理员查看按人按月加班/请假汇总 |
 | 软件更新 | 检查更新 | 手动检查并安装新版本 |
+| 节假日数据 | 检查节假日更新 | 从仓库拉取最新节假日/调休数据并缓存 |
+| 日历同步 | 立即同步日历 | 申请日历读写权限后与系统日历双向同步 |
 | 自动同步 | 同步开关 | 启用/停用后台自动同步 |
 | 自动同步 | 同步间隔 | 15 分钟 ~ 24 小时可选 |
 | 自动同步 | WiFi 限制 | 仅在 WiFi 下自动同步 |
@@ -374,6 +412,11 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 
 ## 更新日志
 
+
+### v0.2.1（2026-10-24）
+- 🌐 **节假日在线更新**：新增 `holiday/holidays.json` 固定数据源与 `HolidayStore`，设置页可手动检查更新；在线数据按日期覆盖内置数据（未覆盖部分继续用内置），严格校验后写入本地缓存，启动时注入、离线可用，更新失败不影响现有计算
+- 🗓️ **系统日历双向同步**：新增 `CalendarSyncManager`，把加班/请假记录写成系统日历全天日程（标题携带工时/倍率/请假类型），同步时回写日历侧的时长修改、改期与删除；以 `syncedAt` 做最后写入者优先；数据库 8→9 新增 `calendar_links` 映射表（本机保存，不参与云同步）；设置页新增同步卡片与按需权限申请
+- 🔐 **新增权限**：`READ_CALENDAR` / `WRITE_CALENDAR`（仅日历同步使用）
 
 ### v0.2.0（2026-10-24）
 - 🌗 **白班/夜班标记**：录入对话框可切换班次（默认白班），列表显示夜班角标，本月统计按班次拆分；数据库 7→8 迁移，旧行统一填 DAY，历史语义不变
