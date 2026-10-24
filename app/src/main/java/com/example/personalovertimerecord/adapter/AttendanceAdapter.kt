@@ -133,6 +133,7 @@ class AttendanceAdapter(
                    oldItem.isLeave == newItem.isLeave &&
                    oldItem.leaveType == newItem.leaveType &&
                    oldItem.leaveHours == newItem.leaveHours &&
+                   oldItem.customRate == newItem.customRate &&
                    oldItem.shiftType == newItem.shiftType
         }
     }
