@@ -16,6 +16,7 @@
 
 ### 改进
 - 节假日在线更新增加备用数据源：主源 `raw.githubusercontent.com` 下载失败时自动依次尝试 jsDelivr（cdn/fastly/gcore）镜像，避免部分网络环境下恒为超时；单源超时缩短为连接 5s / 读取 7s，失败提示会带上具体原因
+- 节假日在线更新增加第三级兜底：JSON 源全部失败时改用 `api.apihubs.cn/holiday/get` 拉取当前年与下一年的放假/调休数据，转换后写入同一份本地缓存；新增 `HolidayIdNames` 节日 ID 映射表，接口频率超限时提示稍后再试
 
 ## [0.2.0] - 2026-10-24
 
