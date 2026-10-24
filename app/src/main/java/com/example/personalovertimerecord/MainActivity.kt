@@ -1,6 +1,7 @@
 package com.example.personalovertimerecord
 
 import android.Manifest
+import android.app.DatePickerDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -16,8 +17,11 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
 import com.example.personalovertimerecord.adapter.AttendanceAdapter
+import com.example.personalovertimerecord.adapter.RecordListItem
 import com.example.personalovertimerecord.data.OvertimeRecord
 import com.example.personalovertimerecord.data.OvertimeSettings
 import com.example.personalovertimerecord.data.SettingsManager
@@ -47,8 +51,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
+import java.util.Locale
 
 class MainActivity : AppCompatActivity() {
     
@@ -70,6 +76,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvStatus: android.widget.TextView
     private lateinit var statusProgress: ProgressBar
     private var currentSettings: OvertimeSettings = OvertimeSettings()
+
+    /** 明细筛选条件 */
+    private enum class RecordFilter { ALL, OVERTIME, EXTRA, LEAVE, NIGHT }
+
+    private var recordFilter = RecordFilter.ALL
+    private var sortByAmount = false
+    /** 当前月份的原始记录（筛选/排序前），切换筛选时无需重新查库 */
+    private var monthRecords: List<OvertimeRecord> = emptyList()
     
     private var currentYear: Int = Calendar.getInstance().get(Calendar.YEAR)
     private var currentMonth: Int = Calendar.getInstance().get(Calendar.MONTH)
@@ -425,12 +439,199 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun setupRecyclerView() {
+        // 点击卡片展开/收起详情；编辑、删除、复制走长按菜单
         adapter = AttendanceAdapter(
             settings = currentSettings,
-            onItemClick = { attendance -> showAttendanceDialog(attendance) }
+            onItemLongClick = { attendance -> showRecordMenu(attendance) }
         )
         binding.recyclerView.adapter = adapter
         binding.recyclerView.layoutManager = LinearLayoutManager(this)
+        attachSwipeToDelete()
+        setupRecordFilter()
+    }
+
+    /** 左滑删除：滑动后先复位视图，再弹确认框（取消时记录原样保留） */
+    private fun attachSwipeToDelete() {
+        val callback = object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT) {
+            override fun onMove(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder,
+                target: RecyclerView.ViewHolder
+            ): Boolean = false
+
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.bindingAdapterPosition
+                val row = adapter.currentList.getOrNull(position) as? RecordListItem.Row ?: return
+                adapter.notifyItemChanged(position)
+                confirmDeleteRecord(row.record)
+            }
+
+            // 周分组头不可滑动删除
+            override fun getMovementFlags(
+                recyclerView: RecyclerView,
+                viewHolder: RecyclerView.ViewHolder
+            ): Int {
+                val position = viewHolder.bindingAdapterPosition
+                val swipable = adapter.currentList.getOrNull(position) is RecordListItem.Row
+                return if (swipable) makeMovementFlags(0, ItemTouchHelper.LEFT) else makeMovementFlags(0, 0)
+            }
+        }
+        ItemTouchHelper(callback).attachToRecyclerView(binding.recyclerView)
+    }
+
+    /** 长按快捷菜单：编辑 / 删除 / 复制到其他日期 */
+    private fun showRecordMenu(record: OvertimeRecord) {
+        val options = arrayOf("编辑记录", "删除记录", "复制到其他日期")
+        AlertDialog.Builder(this)
+            .setTitle(Formatter.formatDate(record.date))
+            .setItems(options) { _, which ->
+                when (which) {
+                    0 -> showAttendanceDialog(record)
+                    1 -> confirmDeleteRecord(record)
+                    2 -> copyRecordToAnotherDate(record)
+                }
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun confirmDeleteRecord(record: OvertimeRecord) {
+        AlertDialog.Builder(this)
+            .setTitle("删除记录")
+            .setMessage("确定删除 ${Formatter.formatDate(record.date)} 的记录吗？删除会同步到其他设备。")
+            .setPositiveButton("删除") { _, _ ->
+                viewModel.deleteAttendance(record)
+                updateCalendarData()
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    /**
+     * 复制当天记录到其他日期：仅复制时长/倍率/备注等登记内容，目标日期已存在记录时拒绝，
+     * 避免同一日期出现两行（与录入表单的互斥约定保持一致）。
+     */
+    private fun copyRecordToAnotherDate(record: OvertimeRecord) {
+        val parts = DateUtils.extractDateParts(record.date) ?: return
+        val (year, month, day) = parts
+        DatePickerDialog(this, { _, newYear, newMonth, newDay ->
+            val newDate = DateUtils.formatDate(newYear, newMonth, newDay)
+            when {
+                newDate > todayKey() -> Toast.makeText(
+                    this, "不能复制到未来日期", Toast.LENGTH_SHORT
+                ).show()
+                viewModel.allAttendance.value?.any { it.date == newDate } == true ->
+                    Toast.makeText(this, "该日期已有记录，请直接编辑", Toast.LENGTH_SHORT).show()
+                else -> {
+                    viewModel.addAttendance(
+                        record.copy(id = 0L, date = newDate, createdAt = System.currentTimeMillis())
+                    )
+                    updateCalendarData()
+                    Toast.makeText(this, "已复制到 ${Formatter.formatDate(newDate)}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }, year, month, day).show()
+    }
+
+    /** 筛选 chip 与排序切换：只在内存中过滤当前月记录，不触发数据库查询 */
+    private fun setupRecordFilter() {
+        binding.chipGroupFilter.setOnCheckedStateChangeListener { _, checkedIds ->
+            recordFilter = when (checkedIds.firstOrNull()) {
+                R.id.chipOvertime -> RecordFilter.OVERTIME
+                R.id.chipExtra -> RecordFilter.EXTRA
+                R.id.chipLeave -> RecordFilter.LEAVE
+                R.id.chipNight -> RecordFilter.NIGHT
+                else -> RecordFilter.ALL
+            }
+            adapter.clearExpandedState()
+            applyRecordFilter()
+        }
+
+        binding.chipSort.setOnClickListener {
+            sortByAmount = !sortByAmount
+            binding.chipSort.text = if (sortByAmount) "按金额" else "按日期"
+            adapter.clearExpandedState()
+            applyRecordFilter()
+        }
+    }
+
+    /** 按当前筛选/排序条件刷新列表 */
+    private fun applyRecordFilter() {
+        val filtered = monthRecords.filter { record ->
+            when (recordFilter) {
+                RecordFilter.ALL -> true
+                RecordFilter.OVERTIME -> !record.isLeave && record.overtimeHours > 0
+                RecordFilter.EXTRA -> !record.isLeave && record.extraHours > 0
+                RecordFilter.LEAVE -> record.isLeave && record.leaveHours > 0
+                RecordFilter.NIGHT -> record.shiftType == ShiftType.NIGHT.name
+            }
+        }
+        val sorted = if (sortByAmount) {
+            filtered.sortedByDescending {
+                OvertimeCalculator.calculateOvertime(it, currentSettings).estimatedPay
+            }
+        } else {
+            filtered.sortedByDescending { it.date }
+        }
+
+        // 月均基准取当月全部记录（不受筛选影响），排序按金额时不插入周分组头
+        val (averagePay, sampleCount) = payStats(monthRecords)
+        adapter.updateMonthAverage(averagePay, sampleCount)
+        adapter.submitList(buildRecordListItems(sorted))
+        updateEmptyState(sorted)
+    }
+
+    /** 当月非请假记录的平均加班费与参与平均的条数（条数不足 2 时明细不显示对比） */
+    private fun payStats(records: List<OvertimeRecord>): Pair<Double, Int> {
+        val pays = records.filter { !it.isLeave }
+            .map { OvertimeCalculator.calculateOvertime(it, currentSettings).estimatedPay }
+            .filter { it > 0 }
+        return (if (pays.isEmpty()) 0.0 else pays.average()) to pays.size
+    }
+
+    /**
+     * 按日期排序时插入周分组头（周一为一周起点），按金额排序时保持扁平列表，
+     * 否则分组顺序与金额顺序冲突。
+     */
+    private fun buildRecordListItems(records: List<OvertimeRecord>): List<RecordListItem> {
+        if (sortByAmount) return records.map { RecordListItem.Row(it) }
+
+        val items = mutableListOf<RecordListItem>()
+        var lastWeekKey: String? = null
+        records.forEach { record ->
+            val week = weekHeaderOf(record.date)
+            if (week != null && week.first != lastWeekKey) {
+                items.add(RecordListItem.WeekHeader(week.first, week.second))
+                lastWeekKey = week.first
+            }
+            items.add(RecordListItem.Row(record))
+        }
+        return items
+    }
+
+    /** 计算日期所属周：返回（周一日期键，显示文案"第 N 周 · 10.06 – 10.12"） */
+    private fun weekHeaderOf(date: String): Pair<String, String>? {
+        val parsed = DateUtils.parseDate(date) ?: return null
+        val parts = DateUtils.extractDateParts(date) ?: return null
+        val (year, monthZero, day) = parts
+
+        val weekStart = Calendar.getInstance().apply {
+            time = parsed
+            // 周一=0 … 周日=6（Calendar 中周日为 1，故先偏移）
+            add(Calendar.DAY_OF_YEAR, -((get(Calendar.DAY_OF_WEEK) + 5) % 7))
+        }
+        val weekEnd = (weekStart.clone() as Calendar).apply { add(Calendar.DAY_OF_YEAR, 6) }
+
+        val monthDayFormat = SimpleDateFormat("MM.dd", Locale.getDefault())
+        val key = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(weekStart.time)
+
+        // 周序号：以记录所在月的 1 号为基准，按周一对齐计算
+        val firstOfMonth = Calendar.getInstance().apply { set(year, monthZero, 1) }
+        val firstOffset = (firstOfMonth.get(Calendar.DAY_OF_WEEK) + 5) % 7
+        val weekNo = (day + firstOffset - 1) / 7 + 1
+
+        val label = "第 $weekNo 周 · ${monthDayFormat.format(weekStart.time)} – ${monthDayFormat.format(weekEnd.time)}"
+        return key to label
     }
     
     private fun setupButtons() {
@@ -591,11 +792,11 @@ class MainActivity : AppCompatActivity() {
     private fun observeViewModel() {
         viewModel.allAttendance.observe(this) { attendanceList ->
             // 只过滤一次，供记录列表/空状态/本月统计复用，避免对每条记录重复解析日期
-            val monthRecords = getCurrentMonthRecords(attendanceList)
-            adapter.submitList(monthRecords)
+            val records = getCurrentMonthRecords(attendanceList)
+            monthRecords = records
             updateCalendarData()
-            updateMonthlyStats(monthRecords)
-            updateEmptyState(monthRecords)
+            updateMonthlyStats(records)
+            applyRecordFilter()
         }
         
         viewModel.errorMessage.observe(this) { errorMsg ->
@@ -606,8 +807,14 @@ class MainActivity : AppCompatActivity() {
         }
     }
     
-    private fun updateEmptyState(monthRecords: List<OvertimeRecord>) {
-        if (monthRecords.isEmpty()) {
+    private fun updateEmptyState(visibleRecords: List<OvertimeRecord>) {
+        if (visibleRecords.isEmpty()) {
+            // 当月有记录但被筛选条件全部过滤掉时，提示"无匹配"而不是"暂无考勤记录"
+            val filteredOut = monthRecords.isNotEmpty()
+            binding.tvEmptyTitle.text =
+                if (filteredOut) "当前筛选无记录" else getString(R.string.no_attendance)
+            binding.tvEmptyHint.text =
+                if (filteredOut) "试试切换到「全部」" else getString(R.string.no_attendance_hint)
             binding.recyclerView.visibility = View.GONE
             binding.emptyStateLayout.visibility = View.VISIBLE
         } else {
@@ -663,10 +870,11 @@ class MainActivity : AppCompatActivity() {
     
     /**
      * 切换月份后，刷新"加班记录"列表与空状态显示。
-     * @param monthRecords 已按当前所选月份过滤好的记录
+     * @param records 已按当前所选月份过滤好的记录
      */
-    private fun refreshMonthRecords(monthRecords: List<OvertimeRecord>) {
-        adapter.submitList(monthRecords)
-        updateEmptyState(monthRecords)
+    private fun refreshMonthRecords(records: List<OvertimeRecord>) {
+        monthRecords = records
+        adapter.clearExpandedState()
+        applyRecordFilter()
     }
 }

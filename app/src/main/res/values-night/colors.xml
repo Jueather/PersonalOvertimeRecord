@@ -38,4 +38,16 @@
     <!-- 考勤列表时长文字：暗色主题使用提亮色阶 -->
     <color name="leave_hours_color">#FFFFB74D</color>
     <color name="overtime_hours_color">#FF64B5F6</color>
+
+    <!-- 记录类型主色（左侧色条与摘要文字） -->
+    <color name="record_type_overtime">#FFB39DDB</color>
+    <color name="record_type_extra">#FFFFB74D</color>
+    <color name="record_type_leave">#FFFFD54F</color>
+    <color name="record_type_night">#FF90A4AE</color>
+    <color name="record_type_neutral">#FF616161</color>
+    <!-- 明细里的加班费金额色 -->
+    <color name="record_pay_color">#FF4DB6AC</color>
+    <!-- 列表卡片内分隔线/详情文字 -->
+    <color name="record_divider">#FF3A3A3A</color>
+    <color name="record_detail_text">#B3FFFFFF</color>
 </resources>

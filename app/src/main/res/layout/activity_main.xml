@@ -372,11 +372,87 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="点击日历添加记录"
+                    android:text="点击卡片展开 · 长按更多"
                     android:textSize="12sp"
                     android:textColor="@android:color/darker_gray" />
 
             </LinearLayout>
+
+            <!-- 明细筛选/排序：单选筛选 + 排序切换 -->
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:scrollbars="none">
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <com.google.android.material.chip.ChipGroup
+                        android:id="@+id/chipGroupFilter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        app:chipSpacingHorizontal="6dp"
+                        app:selectionRequired="true"
+                        app:singleLine="true"
+                        app:singleSelection="true">
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipAll"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:checked="true"
+                            android:text="全部" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipOvertime"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="加班" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipExtra"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="加点" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipLeave"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="请假" />
+
+                        <com.google.android.material.chip.Chip
+                            android:id="@+id/chipNight"
+                            style="@style/Widget.Material3.Chip.Filter"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="夜班" />
+
+                    </com.google.android.material.chip.ChipGroup>
+
+                    <!-- 排序切换：日期倒序 ↔ 金额倒序 -->
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipSort"
+                        style="@style/Widget.Material3.Chip.Filter"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:checkable="false"
+                        android:clickable="true"
+                        android:focusable="true"
+                        android:text="按日期" />
+
+                </LinearLayout>
+
+            </HorizontalScrollView>
 
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/recyclerView"
@@ -393,6 +469,7 @@
                 android:visibility="gone">
 
                 <TextView
+                    android:id="@+id/tvEmptyTitle"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/no_attendance"
@@ -400,6 +477,7 @@
                     android:textColor="@android:color/darker_gray" />
 
                 <TextView
+                    android:id="@+id/tvEmptyHint"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:text="@string/no_attendance_hint"

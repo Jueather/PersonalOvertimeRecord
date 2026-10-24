@@ -286,6 +286,9 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 
 - 口径与 App 一致：法定节假日 3 倍、周末 2 倍、加点 1.5 倍，内置 2024-2028 节假日与调休补班日，支持 `overtimeRateHoliday` 等备份内倍率
 - 明细表支持按月份/类型/关键字筛选与按日期/时长排序；`/export.csv` 可导出全量记录（UTF-8 BOM，Excel 直接打开）
+- 支持在浏览器中**修改/软删除已有记录**（加班、加点、自定义倍率、备注），写回云端后手机端下次同步即生效；为保护数据，仅允许改/删已有日期，不支持从 PC 新增记录
+- 写回安全：每次保存重新拉取最新云端再改一条记录，PUT 带 `If-Match`/`If-Unmodified-Since` 条件（412 自动重试），写前在本机 `backup_history/` 归档原始密文（保留最近 50 份），写后回读解密校验；重封信封时保留原密码槽，恢复码持续有效；旧版 AES-CBC 备份拒绝写回，需先在 App 同步升级
+- 写入接口仅接受本机来源（Host/Origin 校验），防 DNS rebinding 与 CSRF
 - 可在 `config.json` 配置 `month_target_hours` / `month_target_pay` 显示月度目标进度条；`notify_on_error` 控制拉取失败时的 Windows 通知
 - 仪表盘仅绑定 `127.0.0.1`，不向局域网暴露数据；凭据仅发给同注册域主机，拒绝 https→http 降级
 - 使用方式详见脚本头部注释（`python overtime_monitor.py`，支持 `--selftest` / `--port` / `--no-browser`）

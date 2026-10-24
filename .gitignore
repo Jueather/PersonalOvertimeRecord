@@ -24,3 +24,5 @@ debug.log
 /app/version.properties
 # PC 端监控：本地配置含 WebDAV 明文凭据，绝不要提交
 /pc-monitor/config.json
+# PC 端监控：写回前归档的云端原始备份（可能含敏感数据），仅保留在本机
+/pc-monitor/backup_history/

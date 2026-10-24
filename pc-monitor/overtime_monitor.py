@@ -153,7 +153,7 @@ _HOLIDAY_RANGES = [
     ("国庆节", "2028-10-01", "2028-10-08"),
 ]
 
-# 调休补班日（周末上班，按工作日 1.5 倍计）
+# 调休补班日（仅用于日历类型标记：该日按工作日展示；登记加班时仍按 App 口径以周末倍率计）
 MAKEUP_WORKDAYS = frozenset({
     "2024-02-04", "2024-02-18", "2024-04-07", "2024-04-28",
     "2024-05-11", "2024-09-14", "2024-09-29", "2024-10-12",
@@ -251,6 +251,12 @@ def _aesgcm_decrypt(key, iv, data):
     return AESGCM(key).decrypt(iv, data, None)
 
 
+def _aesgcm_encrypt(key, iv, data):
+    _require_crypto()
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    return AESGCM(key).encrypt(iv, data, None)
+
+
 def unwrap_slot(slot_bytes, secret):
     """EnvelopeCrypto.unwrapDek：成功返回 32B DEK，失败返回 None"""
     if len(slot_bytes) != SLOT_SIZE:
@@ -266,8 +272,9 @@ def unwrap_slot(slot_bytes, secret):
         return None
 
 
-def open_envelope(wire, password=None, recovery_code=None):
-    """解开信封，返回 (plaintext_bytes, source)；失败抛 NeedKeyError"""
+def open_envelope(wire, password=None, recovery_code=None, want_ctx=False):
+    """解开信封，返回 (plaintext_bytes, source)；want_ctx=True 时额外返回重封上下文
+    （保留原密码槽/恢复码槽，只换 payload IV 与正文，避免恢复码失效）"""
     blob = _b64_decode_flexible(wire[len(WIRE_PREFIX):])
     if blob[:4] != ENVELOPE_MAGIC:
         raise NeedKeyError("信封 magic 不匹配（文件可能已损坏）")
@@ -297,6 +304,9 @@ def open_envelope(wire, password=None, recovery_code=None):
         plaintext = _aesgcm_decrypt(dek, payload_iv, payload)
     except Exception:
         raise NeedKeyError("正文解密失败（数据可能被篡改）")
+    if want_ctx:
+        return plaintext, source, {"kind": "envelope", "dek": dek,
+                                   "header": blob[:5 + SLOT_SIZE * 2]}
     return plaintext, source
 
 
@@ -334,16 +344,23 @@ def decrypt_legacy(raw_b64, password):
     return _unpad_pkcs7(padded), "legacy_cbc"
 
 
-def parse_wire(raw, password=None, recovery_code=None):
+def parse_wire(raw, password=None, recovery_code=None, want_ctx=False):
     """
     按 App resolveCloud 的顺序解析云端内容。
-    返回 (backup_dict, source_meta)；无法识别/密钥不符时抛异常。
+    返回 (backup_dict, source_meta[, seal_ctx])；无法识别/密钥不符时抛异常。
+    seal_ctx 仅用于把修改后的数据按原格式加密写回云端。
     """
     trimmed = raw.lstrip()
     if trimmed.startswith("{") or trimmed.startswith("["):
-        return json.loads(raw), {"format": "plain", "decrypted": False, "key_source": None}
+        backup = json.loads(raw)
+        meta = {"format": "plain", "decrypted": False, "key_source": None}
+        return (backup, meta, {"kind": "plain"} if want_ctx else None) if want_ctx else (backup, meta)
 
     if trimmed.startswith(WIRE_PREFIX):
+        if want_ctx:
+            plaintext, source, ctx = open_envelope(trimmed, password, recovery_code, want_ctx=True)
+            backup = json.loads(plaintext.decode("utf-8"))
+            return backup, {"format": "envelope", "decrypted": True, "key_source": source}, ctx
         plaintext, source = open_envelope(trimmed, password, recovery_code)
         backup = json.loads(plaintext.decode("utf-8"))
         return backup, {"format": "envelope", "decrypted": True, "key_source": source}
@@ -352,7 +369,33 @@ def parse_wire(raw, password=None, recovery_code=None):
         raise NeedKeyError("云端数据是加密的旧版格式，但未配置 sync_password")
     plaintext, fmt = decrypt_legacy(trimmed, password)
     backup = json.loads(plaintext.decode("utf-8"))
-    return backup, {"format": fmt, "decrypted": True, "key_source": "sync_password"}
+    meta = {"format": fmt, "decrypted": True, "key_source": "sync_password"}
+    if want_ctx:
+        ctx = {"kind": "legacy_gcm" if fmt.startswith("legacy_G") else "legacy_cbc",
+               "password": password}
+        return backup, meta, ctx
+    return backup, meta
+
+
+def seal_wire(ctx, backup, password=None):
+    """把修改后的备份按原格式加密，返回可直接 PUT 的文本"""
+    kind = ctx.get("kind")
+    payload = json.dumps(backup, ensure_ascii=False).encode("utf-8")
+    if kind == "plain":
+        return json.dumps(backup, ensure_ascii=False)
+    if kind == "envelope":
+        iv = os.urandom(GCM_IV_SIZE)
+        blob = ctx["header"] + iv + _aesgcm_encrypt(ctx["dek"], iv, payload)
+        return WIRE_PREFIX + base64.b64encode(blob).decode("ascii")
+    if kind == "legacy_gcm":
+        secret = password or ctx.get("password") or ""
+        if not secret:
+            raise ValueError("旧版加密备份写回需要同步密码")
+        salt = os.urandom(SLOT_SALT_SIZE)
+        iv = os.urandom(GCM_IV_SIZE)
+        key = derive_key(secret, salt, PBKDF2_ITERATIONS)
+        return base64.b64encode(GCM_MAGIC + salt + iv + _aesgcm_encrypt(key, iv, payload)).decode("ascii")
+    raise ValueError("旧版 AES-CBC 备份不支持从桌面端写入，请先在 App 中同步升级为信封加密")
 
 
 # ---------------------------------------------------------------------------
@@ -511,7 +554,8 @@ def webdav_request(method, url, username, password, body=None, headers=None):
             raise IOError("网络请求失败: %s" % e)
 
 
-def fetch_backup_raw(cfg):
+def fetch_backup_snapshot(cfg):
+    """下载云端备份：返回 (raw_text, last_modified, etag, url)"""
     url = build_url(cfg["server_url"], cfg.get("remote_path") or "/", BACKUP_FILENAME)
     status, headers, content = webdav_request("GET", url, cfg.get("username"), cfg.get("password"))
     if status < 200 or status >= 300:
@@ -521,7 +565,36 @@ def fetch_backup_raw(cfg):
             raise IOError("WebDAV 认证失败（401），请检查账号/密码")
         raise IOError("下载失败，HTTP %d：%s" % (status, url))
     last_modified = headers.get("Last-Modified") or headers.get("last-modified") or ""
-    return content.decode("utf-8"), last_modified, url
+    etag = headers.get("ETag") or headers.get("etag") or ""
+    return content.decode("utf-8"), last_modified, etag, url
+
+
+def fetch_backup_raw(cfg):
+    raw, last_modified, _etag, url = fetch_backup_snapshot(cfg)
+    return raw, last_modified, url
+
+
+class WriteConflictError(RuntimeError):
+    """云端文件在读取后被其他设备更新（ETag/If-Unmodified-Since 不匹配）"""
+
+
+def upload_backup_raw(cfg, wire_text, etag="", last_modified=""):
+    """条件写入云端备份：带 If-Match（或 If-Unmodified-Since）避免覆盖并发修改"""
+    url = build_url(cfg["server_url"], cfg.get("remote_path") or "/", BACKUP_FILENAME)
+    headers = {"Content-Type": "application/octet-stream; charset=utf-8"}
+    if etag:
+        headers["If-Match"] = etag
+    elif last_modified:
+        headers["If-Unmodified-Since"] = last_modified
+    status, resp_headers, content = webdav_request(
+        "PUT", url, cfg.get("username"), cfg.get("password"),
+        body=wire_text.encode("utf-8"), headers=headers)
+    if status == 412:
+        raise WriteConflictError("云端备份在保存期间被其他设备更新，请重试")
+    if status not in (200, 201, 204):
+        detail = content[:200].decode("utf-8", "ignore")
+        raise IOError("上传失败，HTTP %d：%s" % (status, detail or url))
+    return resp_headers
 
 
 # ---------------------------------------------------------------------------
@@ -668,6 +741,7 @@ def _record_view(r, hourly, rates):
         "pay": round(pay, 2) if (ot + extra) > 0 else None,
         "rate_text": rate_text,
         "custom_rate": ("×%g" % custom_rate) if (custom_rate is not None and custom_rate >= 0) else "默认",
+        "custom_raw": custom_rate if (custom_rate is not None and custom_rate >= 0) else None,
         "note": r.get("note") or "",
         "device": r.get("lastModifiedBy") or "",
         "shift": shift,
@@ -1406,6 +1480,20 @@ button:disabled{background:#93a4f7;cursor:default}
 .export:hover{text-decoration:underline}
 .livebar{max-width:960px;margin:0 auto;color:#9ca3af;font-size:11px;padding:0 0 24px;line-height:1.8}
 .livebar a{color:#6b7280}
+.row-btn{background:none;border:0;color:#4c6ef5;cursor:pointer;font-size:12px;padding:0 3px}
+.row-btn:hover{text-decoration:underline}
+.row-btn.del{color:#ef4444}
+.mask{position:fixed;inset:0;background:rgba(15,23,42,.45);display:none;align-items:center;justify-content:center;z-index:50}
+.mask.show{display:flex}
+.dialog{background:#fff;border-radius:12px;padding:18px 20px;width:380px;max-width:92vw;box-shadow:0 18px 48px rgba(0,0,0,.25);text-align:left}
+.dialog h3{margin:0 0 6px;font-size:16px;color:#111827}
+.dialog .hint{font-size:11px;color:#b45309;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:6px 8px;margin:8px 0}
+.dialog label{font-size:12px;color:#6b7280;display:block;margin:10px 0 4px}
+.dialog input{width:100%;box-sizing:border-box;border:1px solid #e5e7eb;border-radius:6px;padding:6px 8px;font-size:13px;color:#111827}
+.dialog .err{color:#dc2626;font-size:12px;margin-top:8px}
+.dialog .actions{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.dialog button.ghost{background:#f3f4f6;color:#374151}
+.dialog button.danger{background:#ef4444}
 """
 
 _PAGE_SKELETON = """<!DOCTYPE html>
@@ -1415,6 +1503,26 @@ _PAGE_SKELETON = """<!DOCTYPE html>
 <style>__CSS__</style></head>
 <body><div class="wrap" id="dashboard" data-refresh="__REFRESH__">__BODY__</div>
 <div class="livebar">每 __REFRESH__ 秒自动局部刷新 · <span id="countdown">--</span> · <span id="last-sync">等待首次自动刷新</span></div>
+<div class="mask" id="edit-mask">
+  <div class="dialog">
+    <h3>编辑 <span id="edit-date">--</span></h3>
+    <div class="hint">保存会直接写回云端备份（加密后上传），手机端下次同步即生效。写入前会在本机 backup_history/ 保留一份原始快照。</div>
+    <label>加班时长（小时，留空 = 未登记）</label>
+    <input id="edit-ot" type="number" step="0.5" min="0" max="24" placeholder="例如 4">
+    <label>加点时长（小时，留空 = 未登记）</label>
+    <input id="edit-extra" type="number" step="0.5" min="0" max="24" placeholder="例如 1.5">
+    <label>自定义倍率（1.0~4.0，留空 = 按默认）</label>
+    <input id="edit-rate" type="number" step="0.1" min="1" max="4" placeholder="留空">
+    <label>备注</label>
+    <input id="edit-note" type="text" maxlength="500" placeholder="可选">
+    <div class="err" id="edit-msg" style="display:none"></div>
+    <div class="actions">
+      <button class="ghost" id="edit-cancel">取消</button>
+      <button class="danger" id="edit-delete">删除记录</button>
+      <button id="edit-save">保存到云端</button>
+    </div>
+  </div>
+</div>
 <script>__JS__</script>
 </body></html>"""
 
@@ -1423,6 +1531,7 @@ _JS = """
 (function () {
   var state = { month: '', type: '', kw: '', sort: 'date_desc' };
   var timer = null, left = 60;
+  var currentEdit = null;
 
   function byId(id) { return document.getElementById(id); }
 
@@ -1514,6 +1623,51 @@ _JS = """
     });
   }
 
+  function openEdit(btn) {
+    var row = btn.closest ? btn.closest('tr') : null;
+    if (!row) return;
+    currentEdit = row.getAttribute('data-date');
+    byId('edit-date').textContent = currentEdit;
+    var ot = row.getAttribute('data-ot') || '-1';
+    var extra = row.getAttribute('data-extra') || '-1';
+    var rate = row.getAttribute('data-rate') || '';
+    byId('edit-ot').value = (ot === '-1' || ot === '') ? '' : ot;
+    byId('edit-extra').value = (extra === '-1' || extra === '') ? '' : extra;
+    byId('edit-rate').value = rate;
+    byId('edit-note').value = row.getAttribute('data-note') || '';
+    byId('edit-msg').style.display = 'none';
+    byId('edit-mask').classList.add('show');
+  }
+
+  function closeEdit() {
+    byId('edit-mask').classList.remove('show');
+    currentEdit = null;
+  }
+
+  function saveEdit(payload) {
+    var msg = byId('edit-msg');
+    if (msg) msg.style.display = 'none';
+    fetch('/api/record', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j.ok) throw new Error(j.error || '保存失败');
+      closeEdit();
+      loadFragment(false);
+      var el = byId('last-sync');
+      if (el) {
+        el.textContent = (payload.action === 'delete' ? '已删除并写回云端' : '已保存到云端')
+          + ' · ' + new Date().toLocaleTimeString();
+      }
+    }).catch(function (err) {
+      if (msg) {
+        msg.textContent = err.message;
+        msg.style.display = 'block';
+      }
+    });
+  }
+
   document.addEventListener('change', function (e) {
     var id = e.target && e.target.id;
     if (id === 'f-month' || id === 'f-type' || id === 'f-sort') {
@@ -1531,7 +1685,48 @@ _JS = """
 
   document.addEventListener('click', function (e) {
     var t = e.target;
-    if (!t || t.id !== 'btn-refresh') return;
+    if (!t) return;
+
+    if (t.id === 'edit-cancel' || t.id === 'edit-mask') {
+      if (t.id !== 'edit-cancel' && t.id !== 'edit-mask') return;
+      if (t.id === 'edit-mask' && e.target !== t) return;
+      closeEdit();
+      return;
+    }
+    if (t.id === 'edit-save') {
+      if (!currentEdit) return;
+      var ot = byId('edit-ot').value.trim();
+      var extra = byId('edit-extra').value.trim();
+      var rate = byId('edit-rate').value.trim();
+      saveEdit({
+        date: currentEdit,
+        action: 'update',
+        manualOvertimeHours: ot === '' ? -1 : parseFloat(ot),
+        manualExtraHours: extra === '' ? -1 : parseFloat(extra),
+        customRate: rate === '' ? null : parseFloat(rate),
+        note: byId('edit-note').value
+      });
+      return;
+    }
+    if (t.id === 'edit-delete') {
+      if (!currentEdit) return;
+      if (!confirm('确定删除 ' + currentEdit + ' 这条记录吗？删除会软删除并同步到手机端。')) return;
+      saveEdit({ date: currentEdit, action: 'delete' });
+      return;
+    }
+    if (t.getAttribute && t.getAttribute('data-edit')) {
+      openEdit(t);
+      return;
+    }
+    if (t.getAttribute && t.getAttribute('data-del')) {
+      var row = t.closest ? t.closest('tr') : null;
+      var date = row ? row.getAttribute('data-date') : '';
+      if (date && confirm('确定删除 ' + date + ' 这条记录吗？删除会软删除并同步到手机端。')) {
+        saveEdit({ date: date, action: 'delete' });
+      }
+      return;
+    }
+    if (t.id !== 'btn-refresh') return;
     e.preventDefault();
     t.disabled = true;
     t.textContent = '拉取中…';
@@ -1871,6 +2066,8 @@ def _records_table(recent):
             html.escape(r["rate_text"]),
             html.escape(r["note"]),
             html.escape(r["device"]),
+            ('<button class="row-btn" data-edit="1">编辑</button>'
+             '<button class="row-btn del" data-del="1">删除</button>'),
         ]
         type_keys = []
         if r["ot"]:
@@ -1880,13 +2077,19 @@ def _records_table(recent):
         if r["leave_hours"] is not None:
             type_keys.append("leave")
         rows.append(
-            '<tr class="rec" data-date="%s" data-month="%s" data-hours="%g" data-type="%s">%s</tr>'
+            '<tr class="rec" data-date="%s" data-month="%s" data-hours="%g" data-type="%s"'
+            ' data-ot="%s" data-extra="%s" data-rate="%s" data-note="%s">%s</tr>'
             % (html.escape(r["date"]), html.escape(r["date"][:7]), r["total"],
-               " ".join(type_keys), "".join("<td>%s</td>" % c for c in cells))
+               " ".join(type_keys),
+               ("%g" % r["ot"]) if r["ot"] is not None else "-1",
+               ("%g" % r["extra"]) if r["extra"] is not None else "-1",
+               ("%g" % r["custom_raw"]) if r["custom_raw"] is not None else "",
+               html.escape(r["note"]),
+               "".join("<td>%s</td>" % c for c in cells))
         )
     head = "".join("<th>%s</th>" % h for h in
                    ["日期", "日期类型", "类型", "上下班", "加班", "加点", "请假",
-                    "预估加班费", "计费倍率", "备注", "来源设备"])
+                    "预估加班费", "计费倍率", "备注", "来源设备", "操作"])
     return ('<div class="panel"><h2>记录明细（共 %d 条）'
             '<a class="export" href="/export.csv">下载全部 CSV</a></h2>'
             '<div class="filters">'
@@ -1982,15 +2185,141 @@ def _show_windows_notification(title, message):
             pass
 
 
+DEVICE_NAME_PC = "PC 监控"
+EDIT_HOUR_MAX = 24.0
+EDIT_RATE_RANGE = (1.0, 4.0)
+
+
+def _edit_hours(value, label):
+    """校验加班/加点时长：空或 -1 表示未登记，否则 0~24"""
+    if value is None or value == "":
+        return -1.0
+    v = float(value)
+    if v == -1.0:
+        return -1.0
+    if v < 0 or v > EDIT_HOUR_MAX:
+        raise ValueError("%s 需为 0~24 小时（留空表示未登记）" % label)
+    return round(v, 2)
+
+
+def apply_record_edit(backup, edit, now_ms=None):
+    """修改/软删除指定日期的已有记录（MVP 不新增日期）。
+
+    原地修改 backup，返回 {date, action, updated, values}。
+    与 App 的 NEWER_WINS 保持一致：写入 modifiedAt=当前时间 + lastModifiedBy。
+    """
+    now_ms = now_ms or int(time.time() * 1000)
+    date_s = str(edit.get("date") or "").strip()
+    if _parse_date(date_s) is None:
+        raise ValueError("日期格式应为 yyyy-MM-dd")
+    action = edit.get("action") or "update"
+    if action not in ("update", "delete"):
+        raise ValueError("不支持的 action：%s" % action)
+
+    records = backup.get("attendanceRecords") or []
+    targets = [r for r in records if r.get("date") == date_s and not r.get("isDeleted")]
+    if not targets:
+        raise ValueError("%s 没有可编辑的活跃记录（MVP 仅支持修改已有记录）" % date_s)
+
+    if action == "delete":
+        for r in targets:
+            r["isDeleted"] = True
+            r["modifiedAt"] = now_ms
+            r["lastModifiedBy"] = DEVICE_NAME_PC
+        return {"date": date_s, "action": action, "updated": len(targets), "values": None}
+
+    values = {}
+    if "manualOvertimeHours" in edit:
+        values["manualOvertimeHours"] = _edit_hours(edit.get("manualOvertimeHours"), "加班时长")
+    if "manualExtraHours" in edit:
+        values["manualExtraHours"] = _edit_hours(edit.get("manualExtraHours"), "加点时长")
+    if "customRate" in edit:
+        raw_rate = edit.get("customRate")
+        if raw_rate is None or raw_rate == "":
+            values["customRate"] = None
+        else:
+            rate = round(float(raw_rate), 3)
+            low, high = EDIT_RATE_RANGE
+            if rate < low or rate > high:
+                raise ValueError("自定义倍率需在 %.1f~%.1f 之间（留空按默认倍率）" % (low, high))
+            values["customRate"] = rate
+    if "note" in edit:
+        note = str(edit.get("note") or "").strip()
+        if len(note) > 500:
+            raise ValueError("备注最多 500 字")
+        values["note"] = note or None
+
+    for r in targets:
+        for k, v in values.items():
+            if v is None:
+                r.pop(k, None)
+            else:
+                r[k] = v
+        r["modifiedAt"] = now_ms
+        r["lastModifiedBy"] = DEVICE_NAME_PC
+    return {"date": date_s, "action": action, "updated": len(targets), "values": values}
+
+
+def _verify_edit_applied(backup, result):
+    """回读校验：确认云端已包含本次修改"""
+    recs = [r for r in backup.get("attendanceRecords") or [] if r.get("date") == result["date"]]
+    if not recs:
+        return False
+    if result["action"] == "delete":
+        return all(bool(r.get("isDeleted")) for r in recs)
+
+    active = [r for r in recs if not r.get("isDeleted")]
+    if len(active) != result["updated"]:
+        return False
+    for key, expected in (result.get("values") or {}).items():
+        for r in active:
+            actual = r.get(key)
+            if key in ("manualOvertimeHours", "manualExtraHours"):
+                if abs(float(actual if actual is not None else -1) - expected) > 1e-6:
+                    return False
+            elif key == "customRate":
+                if expected is None:
+                    if actual not in (None, -1):
+                        return False
+                elif abs(float(actual or 0) - expected) > 1e-9:
+                    return False
+            else:
+                if (actual or None) != expected:
+                    return False
+    return True
+
+
+def archive_cloud_backup(raw_text, keep=50):
+    """写回前把云端原始内容留一份本地快照（pc-monitor/backup_history/）"""
+    base = os.path.dirname(os.path.abspath(__file__))
+    folder = os.path.join(base, "backup_history")
+    os.makedirs(folder, exist_ok=True)
+    # 用微秒精度命名：连续两次保存若落在同一毫秒会互相覆盖快照
+    path = os.path.join(folder, "overtime_backup_%s.json" % datetime.now().strftime("%Y%m%d_%H%M%S_%f"))
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(raw_text)
+    # 只保留最近 keep 份，避免无限增长
+    files = sorted((os.path.join(folder, n) for n in os.listdir(folder)
+                    if n.startswith("overtime_backup_")), reverse=True)
+    for old in files[keep:]:
+        try:
+            os.remove(old)
+        except OSError:
+            pass
+    return path
+
+
 class MonitorState:
     def __init__(self, cfg):
         self.cfg = cfg
         self.lock = threading.Lock()
+        self.write_lock = threading.Lock()
         self.snapshot = None
         self.last_error = None
         self.last_attempt_ms = None
         self.last_ok_ms = None
         self.last_notify_ms = None
+        self.last_write_ms = None
         self.version = 0
         self.refresh_event = threading.Event()
         self.stop_event = threading.Event()
@@ -2045,6 +2374,55 @@ class MonitorState:
             print("[%s] 拉取失败：%s" % (datetime.now().strftime("%H:%M:%S"), e))
             if is_new_failure:
                 self._notify_failure(str(e))
+
+    def save_record(self, edit):
+        """修改/软删除云端已有记录：重新拉取最新云端 → 修改 → 条件写回 → 回读校验。
+
+        写入策略（避免覆盖并发修改）：
+        1. 每次保存都重新 GET 云端，只在最新内容上改一条记录；
+        2. PUT 带 If-Match/If-Unmodified-Since，冲突则重试一次；
+        3. 写回前本地归档原始密文，写回后重新下载并解密校验。
+        """
+        pw = (self.cfg.get("sync_password") or "").strip() or None
+        rc = (self.cfg.get("recovery_code") or "").strip() or None
+        with self.write_lock:
+            last_error = None
+            for attempt in (1, 2):
+                raw, last_modified, etag, _url = fetch_backup_snapshot(self.cfg)
+                backup, _meta, ctx = parse_wire(raw, pw, rc, want_ctx=True)
+                if not isinstance(backup, dict) or "attendanceRecords" not in backup:
+                    raise ValueError("云端内容不是有效的备份数据（缺少 attendanceRecords）")
+                if backup.get("checksum") and verify_checksum(backup) != "ok":
+                    raise ValueError(
+                        "云端 checksum 与本机序列化复刻不一致，为避免写坏数据已拒绝保存")
+                result = apply_record_edit(backup, edit)
+                if backup.get("checksum"):
+                    backup["checksum"] = compute_records_checksum(
+                        backup.get("attendanceRecords") or [])
+                wire_text = seal_wire(ctx, backup, pw)
+                archive_path = archive_cloud_backup(raw)
+                try:
+                    upload_backup_raw(self.cfg, wire_text, etag, last_modified)
+                except WriteConflictError as e:
+                    last_error = e
+                    if attempt == 1:
+                        continue
+                    raise
+                # 回读校验：确认云端已是本次修改后的内容
+                raw2, _lm2, _e2, _u2 = fetch_backup_snapshot(self.cfg)
+                verified, _vmeta = parse_wire(raw2, pw, rc)
+                if not _verify_edit_applied(verified, result):
+                    raise IOError("回读校验失败：云端内容与本次修改不一致，已保留本地快照 %s" % archive_path)
+                self.do_poll()
+                with self.lock:
+                    self.last_write_ms = time.time()
+                return {
+                    "date": result["date"],
+                    "action": result["action"],
+                    "updated": result["updated"],
+                    "archive": os.path.basename(archive_path),
+                }
+            raise last_error or IOError("保存失败")
 
     def poll_loop(self):
         interval = self.cfg["poll_interval_minutes"] * 60
@@ -2137,6 +2515,18 @@ def make_handler(state):
             else:
                 self._send(404, "text/plain; charset=utf-8", b"not found")
 
+        def _local_request(self):
+            """只接受本机来源的写入请求（防 DNS rebinding / 恶意网页跨站写云端）"""
+            host = (self.headers.get("Host") or "").lower()
+            if not (host.startswith("127.0.0.1") or host.startswith("localhost")
+                    or host.startswith("[::1]")):
+                return False
+            origin = (self.headers.get("Origin") or "").lower()
+            if origin and not (origin.startswith("http://127.0.0.1")
+                               or origin.startswith("http://localhost")):
+                return False
+            return True
+
         def do_POST(self):
             if self.path == "/api/refresh":
                 before = state.get_status()["version"]
@@ -2153,6 +2543,25 @@ def make_handler(state):
                      "status": state.get_status()},
                     ensure_ascii=False).encode("utf-8")
                 self._send(200, "application/json; charset=utf-8", payload)
+            elif self.path == "/api/record":
+                if not self._local_request():
+                    self._send(403, "application/json; charset=utf-8",
+                               '{"ok":false,"error":"仅允许本机页面写入"}'.encode("utf-8"))
+                    return
+                try:
+                    length = int(self.headers.get("Content-Length") or 0)
+                    if length <= 0 or length > 64 * 1024:
+                        raise ValueError("请求体大小非法")
+                    edit = json.loads(self.rfile.read(length).decode("utf-8"))
+                    if not isinstance(edit, dict):
+                        raise ValueError("请求体必须是 JSON 对象")
+                    body = {"ok": True, "result": state.save_record(edit)}
+                    code = 200
+                except Exception as e:
+                    body = {"ok": False, "error": str(e)}
+                    code = 400
+                self._send(code, "application/json; charset=utf-8",
+                           json.dumps(body, ensure_ascii=False).encode("utf-8"))
             else:
                 self._send(404, "text/plain; charset=utf-8", b"not found")
 
@@ -2286,6 +2695,89 @@ def _selftest():
     check("旧版 G2 (AES-GCM 600k)", lambda: _legacy("g2", GCM_MAGIC, PBKDF2_ITERATIONS, "gcm"))
     check("旧版 GM (AES-GCM 65k)", lambda: _legacy("gm", GCM_MAGIC_LEGACY, PBKDF2_ITERATIONS_LEGACY, "gcm"))
     check("旧版 CBC (PKCS7 65k)", lambda: _legacy("cbc", b"", PBKDF2_ITERATIONS_LEGACY, "cbc"))
+
+    def t_envelope_reseal():
+        """重封信封必须保留原 header（两个密码槽），否则恢复码会失效"""
+        pt = json.dumps(sample_backup, ensure_ascii=False).encode("utf-8")
+        wire = make_envelope("p@ss1234", "ABCD-EFGH-IJKL-MNOP", pt)
+        backup, _meta, ctx = parse_wire(wire, password="p@ss1234", want_ctx=True)
+        header_len = 5 + SLOT_SIZE * 2
+        blob = base64.b64decode(wire[len(WIRE_PREFIX):])
+        assert ctx["header"] == blob[:header_len], "seal_ctx 未保留原始 header"
+        backup["attendanceRecords"][0]["manualOvertimeHours"] = 6.0
+        wire2 = seal_wire(ctx, backup, "p@ss1234")
+        blob2 = base64.b64decode(wire2[len(WIRE_PREFIX):])
+        assert blob2[:header_len] == blob[:header_len], "重封改动了密码槽，恢复码将失效"
+        assert blob2[header_len:header_len + GCM_IV_SIZE] != blob[header_len:header_len + GCM_IV_SIZE]
+        # 恢复码（归一化写法）与同步密码都必须仍能解开新密文
+        out, meta = parse_wire(wire2, recovery_code="abcd efgh ijkl mnop")
+        assert meta["key_source"] == "recovery_code"
+        assert out["attendanceRecords"][0]["manualOvertimeHours"] == 6.0
+        out2, _ = parse_wire(wire2, password="p@ss1234")
+        assert out2["attendanceRecords"][0]["manualOvertimeHours"] == 6.0
+
+    check("信封重封（保留密码槽/恢复码可用）", t_envelope_reseal)
+
+    def t_edit_update():
+        backup = json.loads(json.dumps(sample_backup, ensure_ascii=False))
+        res = apply_record_edit(
+            backup,
+            {"date": "2026-10-17", "manualOvertimeHours": 6,
+             "manualExtraHours": "", "customRate": 2.5, "note": "  改备注  "},
+            now_ms=1700000000000)
+        rec = backup["attendanceRecords"][0]
+        assert res["action"] == "update" and res["updated"] == 1, res
+        assert rec["manualOvertimeHours"] == 6.0 and rec["manualExtraHours"] == -1.0, rec
+        assert rec["customRate"] == 2.5 and rec["note"] == "改备注", rec
+        assert rec["modifiedAt"] == 1700000000000 and rec["lastModifiedBy"] == DEVICE_NAME_PC
+        # 未提交的字段保持原值
+        assert rec["checkInTime"] == "09:00" and rec["date"] == "2026-10-17"
+        # checksum 必须跟着更新，否则 App 恢复时会因校验失败中止
+        backup["checksum"] = compute_records_checksum(backup["attendanceRecords"])
+        assert verify_checksum(backup) == "ok"
+        assert _verify_edit_applied(backup, res)
+
+    check("记录编辑（部分字段/checksum 同步）", t_edit_update)
+
+    def t_edit_clear_and_delete():
+        backup = json.loads(json.dumps(sample_backup, ensure_ascii=False))
+        rec = backup["attendanceRecords"][0]
+        rec["customRate"] = 3.0
+        rec["note"] = "旧备注"
+        res = apply_record_edit(backup, {"date": "2026-10-17", "customRate": None, "note": ""})
+        assert "customRate" not in rec and "note" not in rec, rec
+        assert _verify_edit_applied(backup, res)
+        # 软删除：置 isDeleted 而非移除（跨设备同步删除依赖该标记）
+        res_del = apply_record_edit(backup, {"date": "2026-10-17", "action": "delete"})
+        assert rec["isDeleted"] is True and len(backup["attendanceRecords"]) == 1, rec
+        assert res_del["updated"] == 1 and _verify_edit_applied(backup, res_del)
+        # 已删除记录不可再编辑（MVP 不支持新增/复活）
+        try:
+            apply_record_edit(backup, {"date": "2026-10-17", "manualOvertimeHours": 1})
+            raise AssertionError("已软删除记录竟可编辑")
+        except ValueError:
+            pass
+
+    check("记录编辑（清空字段/软删除）", t_edit_clear_and_delete)
+
+    def t_edit_invalid():
+        cases = [
+            {"date": "2026-10-17", "manualOvertimeHours": 25},      # 超范围
+            {"date": "2026-10-17", "manualExtraHours": -2},          # 非法负值
+            {"date": "2026-10-17", "customRate": 5},                 # 倍率超范围
+            {"date": "2026-10-17", "action": "create"},              # MVP 不支持新增
+            {"date": "2026-13-01", "manualOvertimeHours": 1},        # 非法日期
+            {"date": "2026-10-16", "manualOvertimeHours": 1},        # 无活跃记录
+        ]
+        for case in cases:
+            backup = json.loads(json.dumps(sample_backup, ensure_ascii=False))
+            try:
+                apply_record_edit(backup, case)
+                raise AssertionError("非法编辑未被拒绝：%s" % case)
+            except ValueError:
+                pass
+
+    check("记录编辑（非法输入拒绝）", t_edit_invalid)
 
     def t_stats():
         backup = json.loads(json.dumps(sample_backup, ensure_ascii=False))
