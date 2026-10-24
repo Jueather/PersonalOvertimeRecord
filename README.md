@@ -2,7 +2,7 @@
 
 一个功能丰富、稳定可靠的Android应用，用于记录个人的加班信息和计算加班工资。
 
-![Version](https://img.shields.io/badge/version-0.2.0-blue)
+![Version](https://img.shields.io/badge/version-0.2.1-blue)
 ![Min SDK](https://img.shields.io/badge/minSdk-24-green)
 ![Target SDK](https://img.shields.io/badge/targetSdk-36-orange)
 
@@ -30,7 +30,7 @@
 - 🗑️ **删除同步** - 删除操作可跨设备同步，已删除的记录不会"复活"
 - 🔑 **同步恢复码** - 开启同步加密时生成离线恢复码，遗忘密码也能凭码重置，不会因忘密码永久丢数据
 - 👥 **团队同步** - 私有服务端多用户同步（JWT 登录 + HTTPS），管理员可建号、重置密码、停用账号并查看按人按月汇总
-- 🖥️ **PC 端仪表盘** - PC 读取器用同一套 WebDAV 凭据拉取备份并本地解密，浏览器查看加班统计
+- 🖥️ **PC 端仪表盘** - PC 读取器用同一套 WebDAV 凭据拉取备份并本地解密，浏览器查看加班统计，可直接修改/软删除已有记录并写回云端
 - 🗓️ **日历双向同步** - 加班/请假记录同步为系统日历全天日程，支持在日历中改时长、改期与删除，再次同步回写应用
 
 ### 用户体验
@@ -171,7 +171,7 @@ app/
 
 holiday/holidays.json             # 节假日数据源（应用在线更新的固定仓库地址）
 server/                           # 团队服务端（Ktor 3 + SQLite + JWT，独立 Gradle 构建，见 server/README.md）
-pc-monitor/                       # PC 端监控读取器（Python，本地解密 WebDAV 备份）
+pc-monitor/                       # PC 端监控读取器（Python，本地解密 WebDAV 备份，支持改/删写回）
 
 ## 快速开始
 
@@ -419,6 +419,9 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 - 🌐 **节假日在线更新**：新增 `holiday/holidays.json` 固定数据源与 `HolidayStore`，设置页可手动检查更新；在线数据按日期覆盖内置数据（未覆盖部分继续用内置），严格校验后写入本地缓存，启动时注入、离线可用，更新失败不影响现有计算
 - 🗓️ **系统日历双向同步**：新增 `CalendarSyncManager`，把加班/请假记录写成系统日历全天日程（标题携带工时/倍率/请假类型），同步时回写日历侧的时长修改、改期与删除；以 `syncedAt` 做最后写入者优先；数据库 8→9 新增 `calendar_links` 映射表（本机保存，不参与云同步）；设置页新增同步卡片与按需权限申请
 - 🔐 **新增权限**：`READ_CALENDAR` / `WRITE_CALENDAR`（仅日历同步使用）
+- 🖥️ **PC 端监控增强**：仪表盘改为局部刷新（不打断筛选/排序），明细表支持按月份/类型/关键字筛选与排序，新增 `/export.csv` 全量导出、月度目标进度条、节假日倍率校验及拉取失败 Windows 通知
+- ✏️ **PC 端可改/删记录**：浏览器中可修改加班、加点、自定义倍率与备注，或软删除已有记录并写回云端；每次保存重新拉取最新云端，`If-Match`/`If-Unmodified-Since` 条件写入（412 自动重试），写前归档原始密文到 `backup_history/`、写后回读解密校验；重封信封保留原密码槽，恢复码持续有效；写入接口仅接受本机来源
+- ✅ PC 端新增 20 项自测（信封重封、记录编辑/软删除、非法值拒绝、checksum 同步等）及本地假 WebDAV 端到端验证
 
 ### v0.2.0（2026-10-24）
 - 🌗 **白班/夜班标记**：录入对话框可切换班次（默认白班），列表显示夜班角标，本月统计按班次拆分；数据库 7→8 迁移，旧行统一填 DAY，历史语义不变
