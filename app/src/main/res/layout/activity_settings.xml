@@ -83,8 +83,8 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:inputType="text"
-                            android:maxLength="23"
-                            android:hint="如 ABCD-1234-EFGH-5678" />
+                            android:maxLength="32"
+                            android:hint="形如 XXXXXXXXXXXXX-XXXXXXXXXXXXX（27 位）" />
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <com.google.android.material.button.MaterialButton
