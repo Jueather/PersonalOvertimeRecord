@@ -44,6 +44,25 @@ object Schema {
                 """.trimIndent()
             )
             st.execute("CREATE INDEX IF NOT EXISTS idx_records_user_deleted ON records(user_id, is_deleted)")
+            st.execute(
+                """
+                CREATE TABLE IF NOT EXISTS trial_codes (
+                  id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  code TEXT NOT NULL UNIQUE,
+                  trial_days INTEGER NOT NULL,
+                  max_uses INTEGER NOT NULL DEFAULT 1,
+                  used_count INTEGER NOT NULL DEFAULT 0,
+                  bound_device_id TEXT,
+                  activated_at INTEGER,
+                  expires_at INTEGER,
+                  created_at INTEGER NOT NULL,
+                  created_by TEXT NOT NULL,
+                  is_revoked INTEGER NOT NULL DEFAULT 0
+                )
+                """.trimIndent()
+            )
+            st.execute("CREATE INDEX IF NOT EXISTS idx_trial_codes_code ON trial_codes(code)")
+            st.execute("CREATE INDEX IF NOT EXISTS idx_trial_codes_device ON trial_codes(bound_device_id)")
         }
         // 老库升级：CREATE TABLE IF NOT EXISTS 不会为已存在的表补列，
         // SQLite 的 ADD COLUMN 也没有 IF NOT EXISTS，需先用 PRAGMA table_info 判存在性

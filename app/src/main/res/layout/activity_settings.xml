@@ -36,6 +36,120 @@
             android:orientation="vertical"
             android:padding="16dp">
 
+            <!-- 软件激活 / 试用 -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/cardTrialLicense"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                app:cardElevation="2dp"
+                app:cardCornerRadius="12dp"
+                app:cardBackgroundColor="@color/white">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="🎫 软件激活"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="#333333"
+                        android:layout_marginBottom="4dp" />
+
+                    <TextView
+                        android:id="@+id/tvTrialStatus"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="未激活"
+                        android:textSize="13sp"
+                        android:textColor="#666666"
+                        android:layout_marginBottom="12dp" />
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilTrialCode"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:hint="输入激活码"
+                        android:layout_marginBottom="8dp"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etTrialCode"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="text"
+                            android:maxLength="23"
+                            android:hint="如 ABCD-1234-EFGH-5678" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnActivateTrial"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="激活 / 续期"
+                        android:textSize="14sp"
+                        app:cornerRadius="8dp" />
+
+                    <!-- 离线/无服务器时的 deviceId 展示 + 提示 -->
+                    <LinearLayout
+                        android:id="@+id/layoutOfflineHint"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical"
+                        android:layout_marginTop="12dp"
+                        android:visibility="gone">
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="⚠️ 服务器未配置或离线"
+                            android:textSize="12sp"
+                            android:textColor="#E65100"
+                            android:layout_marginBottom="2dp" />
+
+                        <TextView
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:text="请将下方设备 ID 发给开发者获取离线激活码："
+                            android:textSize="11sp"
+                            android:textColor="#757575"
+                            android:layout_marginBottom="4dp" />
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="horizontal"
+                            android:gravity="center_vertical">
+
+                            <TextView
+                                android:id="@+id/tvDeviceId"
+                                android:layout_width="0dp"
+                                android:layout_height="wrap_content"
+                                android:layout_weight="1"
+                                android:text="设备 ID"
+                                android:textSize="12sp"
+                                android:textColor="#424242"
+                                android:fontFamily="monospace" />
+
+                            <com.google.android.material.button.MaterialButton
+                                android:id="@+id/btnCopyDeviceId"
+                                style="@style/Widget.MaterialComponents.Button.TextButton"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:text="复制"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                </LinearLayout>
+
+            </com.google.android.material.card.MaterialCardView>
+
             <!-- 生物识别保护设置 -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"

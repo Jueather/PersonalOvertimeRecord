@@ -218,6 +218,18 @@ class SettingsManager(context: Context) {
         }
     }
 
+    // ---- 试用/激活服务器地址（独立于团队登录态） ----
+
+    fun saveTrialServerUrl(url: String) {
+        prefs.edit().putString(KEY_TRIAL_SERVER_URL, url.trim()).apply()
+    }
+
+    /** 优先返回独立配置的试用服务器地址；未配置时 fallback 到团队登录态的服务器地址 */
+    fun getTrialServerUrl(): String? {
+        prefs.getString(KEY_TRIAL_SERVER_URL, null)?.let { if (it.isNotBlank()) return it }
+        return getTeamAuth()?.serverUrl
+    }
+
     // ---- 信封加密：本地密钥材料 ----
 
     /** 读取同步加密密钥材料；未生成时返回 null（字段不全视为无效材料） */
@@ -358,6 +370,8 @@ class SettingsManager(context: Context) {
         private const val KEY_TEAM_USERNAME = "team_username"
         private const val KEY_TEAM_DISPLAY_NAME = "team_display_name"
         private const val KEY_TEAM_ROLE = "team_role"
+        // 试用/激活服务器地址
+        private const val KEY_TRIAL_SERVER_URL = "trial_server_url"
         // 加密设置键
         private const val KEY_EXPORT_ENCRYPTION_ENABLED = "export_encryption_enabled"
         private const val KEY_EXPORT_PASSWORD = "export_password"

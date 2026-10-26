@@ -5,6 +5,7 @@ import com.example.overtimeserver.api.adminRoutes
 import com.example.overtimeserver.api.authRoutes
 import com.example.overtimeserver.api.healthRoutes
 import com.example.overtimeserver.api.syncRoutes
+import com.example.overtimeserver.api.trialRoutes
 import com.example.overtimeserver.auth.JwtService
 import com.example.overtimeserver.auth.configureAuth
 import com.example.overtimeserver.bootstrap.AdminBootstrap
@@ -12,6 +13,7 @@ import com.example.overtimeserver.config.AppConfig
 import com.example.overtimeserver.db.Database
 import com.example.overtimeserver.db.RecordDao
 import com.example.overtimeserver.db.Schema
+import com.example.overtimeserver.db.TrialCodeDao
 import com.example.overtimeserver.db.UserDao
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.json.json
@@ -37,6 +39,7 @@ fun Application.module() {
 
     val userDao = UserDao(db)
     val recordDao = RecordDao(db)
+    val trialDao = TrialCodeDao(db)
     val jwt = JwtService(
         secretFile = appConfig.jwtSecretFile,
         issuer = appConfig.jwtIssuer,
@@ -69,8 +72,9 @@ fun Application.module() {
     routing {
         healthRoutes()
         authRoutes(userDao, jwt)
+        trialRoutes(trialDao)
         syncRoutes(recordDao)
-        adminRoutes(userDao, recordDao)
+        adminRoutes(userDao, recordDao, trialDao)
     }
 
     environment.log.info("加班记录服务端已启动：db=${appConfig.dbPath}")
