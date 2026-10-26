@@ -3,6 +3,7 @@ package com.example.overtimeserver.api
 import com.example.overtimeserver.auth.PasswordHasher
 import com.example.overtimeserver.auth.requireAdmin
 import com.example.overtimeserver.db.RecordDao
+import com.example.overtimeserver.db.TrialCodeDao
 import com.example.overtimeserver.db.UserDao
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
@@ -14,7 +15,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 
-fun Route.adminRoutes(userDao: UserDao, recordDao: RecordDao) {
+fun Route.adminRoutes(userDao: UserDao, recordDao: RecordDao, trialDao: TrialCodeDao) {
     route("/api/admin") {
         authenticate("auth-jwt") {
             get("/users") {
@@ -126,6 +127,63 @@ fun Route.adminRoutes(userDao: UserDao, recordDao: RecordDao) {
                     (from.isNullOrBlank() || e.month >= from) && (to.isNullOrBlank() || e.month <= to)
                 }
                 call.respond(SummaryResponse(entries))
+            }
+
+            // POST /api/admin/trial/generate — 批量生成激活码
+            post("/trial/generate") {
+                val admin = call.requireAdmin(userDao)
+                if (admin == null) {
+                    call.respond(HttpStatusCode.Forbidden, ErrorResponse("需要管理员权限"))
+                    return@post
+                }
+                val req = call.receive<TrialCodeGenerateRequest>()
+                if (req.count !in 1..500) {
+                    call.respond(HttpStatusCode.BadRequest, ErrorResponse("生成数量需在 1-500 之间"))
+                    return@post
+                }
+                if (req.trialDays !in 1..3650) {
+                    call.respond(HttpStatusCode.BadRequest, ErrorResponse("试用天数需在 1-3650 之间"))
+                    return@post
+                }
+                if (req.maxUses !in 1..100) {
+                    call.respond(HttpStatusCode.BadRequest, ErrorResponse("最大使用次数需在 1-100 之间"))
+                    return@post
+                }
+                val rows = trialDao.batchGenerate(req.count, req.trialDays, req.maxUses, admin.username)
+                call.respond(
+                    HttpStatusCode.Created,
+                    TrialCodeGenerateResponse(codes = rows.map { it.toDto() })
+                )
+            }
+
+            // GET /api/admin/trial/codes — 列出所有激活码
+            get("/trial/codes") {
+                if (call.requireAdmin(userDao) == null) {
+                    call.respond(HttpStatusCode.Forbidden, ErrorResponse("需要管理员权限"))
+                    return@get
+                }
+                val rows = trialDao.listAll()
+                call.respond(rows.map { it.toDto() })
+            }
+
+            // POST /api/admin/trial/revoke — 吊销激活码
+            post("/trial/revoke") {
+                val admin = call.requireAdmin(userDao)
+                if (admin == null) {
+                    call.respond(HttpStatusCode.Forbidden, ErrorResponse("需要管理员权限"))
+                    return@post
+                }
+                val req = call.receive<TrialCodeRevokeRequest>()
+                val code = req.code.trim()
+                if (code.isEmpty()) {
+                    call.respond(HttpStatusCode.BadRequest, ErrorResponse("激活码不能为空"))
+                    return@post
+                }
+                if (!trialDao.revoke(code)) {
+                    call.respond(HttpStatusCode.NotFound, ErrorResponse("激活码不存在"))
+                    return@post
+                }
+                call.respond(MessageResponse("已吊销"))
             }
         }
     }

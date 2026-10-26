@@ -45,6 +45,8 @@ import com.example.personalovertimerecord.utils.SyncPresets
 import com.example.personalovertimerecord.utils.WebDAVManager
 import com.example.personalovertimerecord.utils.SyncResult
 import com.example.personalovertimerecord.ui.TeamSummaryActivity
+import com.example.personalovertimerecord.utils.TrialLicenseManager
+import com.example.personalovertimerecord.utils.LocalLicenseState
 import com.example.personalovertimerecord.utils.UpdateManager
 import com.example.personalovertimerecord.view.CalendarView
 import com.example.personalovertimerecord.viewmodel.AttendanceViewModel
@@ -69,6 +71,10 @@ class MainActivity : AppCompatActivity() {
 
         /** 小部件/常驻通知点击后直接打开当日登记对话框 */
         const val EXTRA_QUICK_ADD = "quick_add"
+
+        /** 试用提醒：SharedPreferences 名称与 key */
+        private const val TRIAL_PREFS = "trial_reminder"
+        private const val KEY_LAST_REMIND_DAY = "last_remind_day"
     }
     
     private val viewModel: AttendanceViewModel by viewModels()
@@ -148,6 +154,9 @@ class MainActivity : AppCompatActivity() {
         // 团队管理员才显示全员汇总入口（普通成员隐藏）
         binding.btnTeamSummary.visibility =
             if (settingsManager.getTeamAuth()?.isAdmin == true) View.VISIBLE else View.GONE
+
+        // 温和提醒：试用过期 / 剩余 ≤3 天时弹窗（不阻断核心功能）
+        checkTrialReminder()
 
         requestNotificationPermissionIfNeeded()
         
@@ -928,5 +937,63 @@ class MainActivity : AppCompatActivity() {
         monthRecords = records
         adapter.clearExpandedState()
         applyRecordFilter()
+    }
+
+    // ========== 试用/激活 温和提醒 ==========
+
+    /**
+     * 温和提醒（不阻断核心功能）：
+     *   - 已过期 → 每次启动都提醒，"继续使用"+"输入激活码"
+     *   - 剩余 ≤3 天 → 每天只提醒一次（避免烦扰）
+     *   - NO_LICENSE / 剩余充足 → 不弹窗
+     */
+    private fun checkTrialReminder() {
+        val manager = TrialLicenseManager(this)
+        val state = manager.checkLocalStatus()
+        val daysLeft = manager.remainingDays()
+
+        when {
+            // 任何形式的授权已过期 → 每次启动都提醒
+            (state is LocalLicenseState.Active && daysLeft != null && daysLeft <= 0) ||
+                (state is LocalLicenseState.FreeTrial && daysLeft != null && daysLeft <= 0) -> {
+                AlertDialog.Builder(this)
+                    .setTitle("试用已结束")
+                    .setMessage("您的试用期已结束。输入激活码可以继续使用，未激活期间核心功能不受影响。")
+                    .setPositiveButton("输入激活码") { _, _ ->
+                        startActivity(Intent(this, SettingsActivity::class.java))
+                    }
+                    .setNegativeButton("继续使用", null)
+                    .setCancelable(true)
+                    .show()
+            }
+            // 有激活（任何来源）且剩余 ≤3 天 → 每天只提醒一次
+            (state is LocalLicenseState.Active && daysLeft != null && daysLeft in 1..3) ||
+                (state is LocalLicenseState.FreeTrial && daysLeft != null && daysLeft in 1..3) -> {
+                if (shouldRemindToday()) {
+                    AlertDialog.Builder(this)
+                        .setTitle("试用即将结束")
+                        .setMessage("您的试用还剩 $daysLeft 天，请在过期前激活以获得完整功能体验。")
+                        .setPositiveButton("输入激活码") { _, _ ->
+                            startActivity(Intent(this, SettingsActivity::class.java))
+                        }
+                        .setNegativeButton("稍后再说", null)
+                        .setCancelable(true)
+                        .show()
+                }
+            }
+        }
+    }
+
+    /** 当天是否还没提醒过（用日历日期对比，0 点后自动重置） */
+    private fun shouldRemindToday(): Boolean {
+        val prefs = getSharedPreferences(TRIAL_PREFS, MODE_PRIVATE)
+        val today = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val lastRemind = prefs.getLong(KEY_LAST_REMIND_DAY, 0L)
+        if (lastRemind >= today) return false
+        prefs.edit().putLong(KEY_LAST_REMIND_DAY, today).apply()
+        return true
     }
 }

@@ -36,6 +36,10 @@ import com.example.personalovertimerecord.utils.SyncManager
 import com.example.personalovertimerecord.utils.SyncResult
 import com.example.personalovertimerecord.utils.ThemeManager
 import com.example.personalovertimerecord.utils.ThemeMode
+import com.example.personalovertimerecord.utils.TrialLicenseManager
+import com.example.personalovertimerecord.utils.LocalLicenseState
+import com.example.personalovertimerecord.utils.LicenseSource
+import com.example.personalovertimerecord.utils.RedeemResult
 import com.example.personalovertimerecord.utils.UpdateManager
 import com.example.personalovertimerecord.utils.WebDAVConfig
 import com.example.personalovertimerecord.utils.WebDAVManager
@@ -112,6 +116,7 @@ class SettingsActivity : AppCompatActivity() {
         setupHolidayData()
         setupCalendarSync()
         setupTeamSync()
+        setupTrialLicense()
         setupScrollToFocusedView()
     }
 
@@ -1351,5 +1356,103 @@ class SettingsActivity : AppCompatActivity() {
             return false
         }
         return true
+    }
+
+    // ========== 软件激活 / 试用 ==========
+
+    /** 试用/激活卡片：展示状态 + 兑换激活码 */
+    private fun setupTrialLicense() {
+        val licenseManager = TrialLicenseManager(this)
+        val deviceId = licenseManager.getDeviceId()
+        val readableDeviceId = licenseManager.getDeviceIdReadable()
+
+        // 判断服务器是否可用（有无配置）
+        val hasServerConfigured = SettingsManager(this).getTrialServerUrl() != null
+        binding.layoutOfflineHint.visibility = if (hasServerConfigured) View.GONE else View.VISIBLE
+        binding.tvDeviceId.text = readableDeviceId
+
+        binding.btnCopyDeviceId.setOnClickListener {
+            val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("设备ID", deviceId))
+            Toast.makeText(this, "设备 ID 已复制", Toast.LENGTH_SHORT).show()
+        }
+
+        fun refreshStatus() {
+            val state = licenseManager.checkLocalStatus()
+            val daysLeft = licenseManager.remainingDays()
+            binding.tvTrialStatus.text = when (state) {
+                is LocalLicenseState.Active -> {
+                    val days = daysLeft ?: 0
+                    val sourceLabel = when (state.source) {
+                        LicenseSource.SERVER -> "正式激活"
+                        LicenseSource.OFFLINE -> "离线激活"
+                    }
+                    if (days > 0) "$sourceLabel，剩余 $days 天"
+                    else "激活已过期（$sourceLabel）"
+                }
+                is LocalLicenseState.FreeTrial -> {
+                    val days = daysLeft ?: 0
+                    if (days > 0) "免费试用中，剩余 $days 天"
+                    else "免费试用已结束（可输入激活码继续使用）"
+                }
+                LocalLicenseState.NO_LICENSE -> "未激活，输入激活码开始试用"
+            }
+            // 剩余 ≤3 天 / 已过期时用醒目的卡片底色
+            val warnBg = when {
+                state is LocalLicenseState.Active && daysLeft != null && daysLeft in 1..3 -> 0xFFFFF3E0.toInt()
+                state is LocalLicenseState.Active && daysLeft != null && daysLeft <= 0 -> 0xFFFDECEA.toInt()
+                state is LocalLicenseState.FreeTrial && daysLeft != null && daysLeft in 1..3 -> 0xFFFFF3E0.toInt()
+                state is LocalLicenseState.FreeTrial && daysLeft != null && daysLeft <= 0 -> 0xFFFDECEA.toInt()
+                else -> 0xFFFFFFFF.toInt()
+            }
+            binding.cardTrialLicense.setCardBackgroundColor(warnBg)
+        }
+
+        refreshStatus()
+
+        // 页面打开时后台尝试从服务器同步一次（有网络时刷新状态）
+        lifecycleScope.launch {
+            licenseManager.syncFromServer() // 网络失败自动保留本地缓存
+            refreshStatus()
+        }
+
+        binding.btnActivateTrial.setOnClickListener {
+            val code = binding.etTrialCode.text?.toString()?.trim().orEmpty()
+            if (code.isEmpty()) {
+                binding.tilTrialCode.error = "请输入激活码"
+                return@setOnClickListener
+            }
+            binding.tilTrialCode.error = null
+            binding.btnActivateTrial.isEnabled = false
+            binding.btnActivateTrial.text = "激活中..."
+            lifecycleScope.launch {
+                val result = licenseManager.redeemCode(code)
+                binding.btnActivateTrial.isEnabled = true
+                binding.btnActivateTrial.text = "激活 / 续期"
+                when (result) {
+                    is RedeemResult.Success -> {
+                        val days = result.response.remainingMs / (24L * 60L * 60L * 1000L)
+                        val sourceLabel = when (result.source) {
+                            LicenseSource.SERVER -> "服务器验证"
+                            LicenseSource.OFFLINE -> "离线签名验证"
+                        }
+                        Toast.makeText(
+                            this@SettingsActivity,
+                            "🎉 激活成功（$sourceLabel）！剩余 ${days} 天",
+                            Toast.LENGTH_LONG
+                        ).show()
+                        binding.etTrialCode.text?.clear()
+                        refreshStatus()
+                    }
+                    is RedeemResult.Error -> {
+                        Toast.makeText(
+                            this@SettingsActivity,
+                            result.message,
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                }
+            }
+        }
     }
 }

@@ -110,3 +110,59 @@ data class SummaryResponse(val entries: List<SummaryEntry>)
 
 @Serializable
 data class HealthResponse(val status: String, val time: Long)
+
+// ================== 激活码 / 试用 ==================
+
+@Serializable
+data class TrialRedeemRequest(val code: String, val deviceId: String)
+
+@Serializable
+enum class TrialStatus { ACTIVE, EXPIRED, NO_LICENSE }
+
+@Serializable
+data class TrialStatusResponse(
+    val status: TrialStatus,
+    val remainingMs: Long,          // 剩余毫秒；ACTIVE 时为正数，EXPIRED 时为负数
+    val expiresAt: Long? = null,    // 到期绝对时间（epoch ms）
+    val activatedAt: Long? = null,  // 激活绝对时间
+    val trialDays: Int? = null,
+    val serverTime: Long,
+)
+
+@Serializable
+data class TrialRedeemResponse(
+    val status: TrialStatus,        // ACTIVE 表示激活成功
+    val remainingMs: Long,
+    val expiresAt: Long,
+    val activatedAt: Long,
+    val trialDays: Int,
+    val serverTime: Long,
+)
+
+@Serializable
+data class TrialCodeGenerateRequest(
+    val count: Int = 10,
+    val trialDays: Int = 30,
+    val maxUses: Int = 1,
+)
+
+@Serializable
+data class TrialCodeDto(
+    val id: Long,
+    val code: String,
+    val trialDays: Int,
+    val maxUses: Int,
+    val usedCount: Int,
+    val boundDeviceId: String? = null,
+    val activatedAt: Long? = null,
+    val expiresAt: Long? = null,
+    val createdAt: Long,
+    val createdBy: String,
+    val isRevoked: Boolean,
+)
+
+@Serializable
+data class TrialCodeGenerateResponse(val codes: List<TrialCodeDto>)
+
+@Serializable
+data class TrialCodeRevokeRequest(val code: String)

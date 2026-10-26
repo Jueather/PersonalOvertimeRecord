@@ -13,6 +13,8 @@ import com.example.personalovertimerecord.data.model.TeamSetActiveRequest
 import com.example.personalovertimerecord.data.model.TeamSummaryResponse
 import com.example.personalovertimerecord.data.model.TeamSyncRequest
 import com.example.personalovertimerecord.data.model.TeamSyncResponse
+import com.example.personalovertimerecord.data.model.TrialRedeemResponse
+import com.example.personalovertimerecord.data.model.TrialStatusResponse
 import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -124,6 +126,29 @@ class TeamApiClient(
         val path = if (query.isEmpty()) "/api/admin/summary" else "/api/admin/summary?$query"
         val body = request("GET", path, bodyJson = null, token = token)
         gson.fromJson(body, TeamSummaryResponse::class.java)
+    }
+
+    // ================== 激活码 / 试用（公开端点，无需 token） ==================
+
+    suspend fun redeemTrial(code: String, deviceId: String): TrialRedeemResponse =
+        withContext(Dispatchers.IO) {
+            val body = request(
+                method = "POST",
+                path = "/api/trial/redeem",
+                bodyJson = gson.toJson(mapOf("code" to code, "deviceId" to deviceId)),
+                token = null
+            )
+            gson.fromJson(body, TrialRedeemResponse::class.java)
+        }
+
+    suspend fun checkTrialStatus(deviceId: String): TrialStatusResponse = withContext(Dispatchers.IO) {
+        val body = request(
+            method = "GET",
+            path = "/api/trial/status?deviceId=$deviceId",
+            bodyJson = null,
+            token = null
+        )
+        gson.fromJson(body, TrialStatusResponse::class.java)
     }
 
     // ================== 底层请求 ==================

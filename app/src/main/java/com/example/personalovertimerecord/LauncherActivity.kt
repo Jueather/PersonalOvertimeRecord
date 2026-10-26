@@ -13,6 +13,9 @@ import androidx.appcompat.app.AppCompatActivity
  * 通过携带 Intent Extra（如 biometric_passed=true）绕过身份验证
  * 直接进入主界面；一切外部启动请求都先经过本页，再转交 MainActivity
  * 由其内部的验证逻辑决定是否要求生物识别。
+ *
+ * 试用状态检查已移至 MainActivity.onCreate()（避免 LauncherActivity
+ * 中转时 Activity 立即被 finish() 导致对话框消失/window leak）。
  */
 class LauncherActivity : AppCompatActivity() {
 
