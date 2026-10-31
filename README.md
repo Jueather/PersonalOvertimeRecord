@@ -482,8 +482,9 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 
 ## 更新日志
 
-### v0.2.6（2026-10-31）
-修复v0.2.5日期版 versionCode 超出 Int 范围问题
+### v0.2.7（2026-11-01）
+修复v0.2.6.20261031 versionCode 编码问题，增加软件容错率。
+修复v0.2.5 versionCode 超出 Int 范围问题
 增强：
 - 增加多语言支持，中文/英文界面随系统语言自动切换
 - 增加深色模式，跟随系统/浅色/深色三种主题
