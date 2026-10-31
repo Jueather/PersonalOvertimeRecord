@@ -2,7 +2,7 @@
 
 一个功能丰富、稳定可靠的Android应用，用于记录个人的加班信息和计算加班工资。
 
-![Version](https://img.shields.io/badge/version-0.2.5-blue)
+![Version](https://img.shields.io/badge/version-0.2.6-blue)
 ![Min SDK](https://img.shields.io/badge/minSdk-24-green)
 ![Target SDK](https://img.shields.io/badge/targetSdk-36-orange)
 
@@ -43,6 +43,7 @@
 - 📜 **应用内更新日志** - 设置页离线查看各版本更新内容
 - 🎫 **软件激活** - 试用期后凭码激活，支持服务器兑换与离线激活码两种方式，设备 ID 一键复制
 - 🙈 **敏感字段脱敏** - WebDAV 服务器地址/用户名默认掩码显示，聚焦编辑时恢复明文；密码支持长按眼睛图标临时查看
+- 🌿 **解压小游戏** - 呼吸引导与捏泡泡纸两个本地小游戏，支持节日活动配置下发标题与配色，离线也能玩
 
 ### 安全与稳定
 - 🔒 **数据加密** - SQLCipher 数据库加密，主密钥由 Android Keystore 保护（不再明文存储）
@@ -50,6 +51,7 @@
 - 🛡️ **健壮性** - 全局异常处理、数据验证机制
 - 📡 **网络健壮** - 超时处理、连接测试、标准 SSL 证书校验；禁止明文 HTTP 流量（WebDAV 仅 https）；429/5xx 自动重试
 - 🔐 **同步安全** - 信封加密（随机 DEK + 同步密码/恢复码双钥匙，AES-256-GCM，PBKDF2 60 万次派生）；全局互斥锁避免并发同步冲突
+- 🗜️ **备份体积优化** - 云端备份上传前先 gzip 压缩：信封正文"先压缩再加密"，未加密时使用 `PORE_GZ1:` 线路格式；JSON 通常可压至原体积 10%~20%，旧版明文/信封/旧密文仍可正常读取
 
 ## 技术栈
 
@@ -84,7 +86,7 @@
 
 ### 配套组件
 - **团队服务端**（`server/`）- Ktor 3 + SQLite（WAL）+ JWT Bearer，HTTPS 反向代理部署，含管理员 API 与 systemd 配置，详见 [server/README.md](server/README.md)
-- **PC 端监控**（`pc-monitor/`）- Python 读取器，与 App 云端三种格式逐字节对齐（明文/信封/旧版密文），本地解密后浏览器仪表盘展示，仅绑定 127.0.0.1
+- **PC 端监控**（`pc-monitor/`）- Python 读取器，与 App 云端四种线路形态逐字节对齐（明文 JSON / gzip 压缩 / 信封 / 旧版密文），本地解密后浏览器仪表盘展示，仅绑定 127.0.0.1
 
 ## 项目结构
 
@@ -117,9 +119,10 @@ app/
 │   │   ├── AppLogger.kt          # 日志工具
 │   │   ├── AutoSyncManager.kt    # 自动同步调度（WorkManager）
 │   │   ├── AutoSyncWorker.kt     # 自动同步 Worker
+│   │   ├── BackupCompression.kt  # 云端备份 gzip 压缩（明文线路/信封正文）
 │   │   ├── BiometricManager.kt   # 生物识别管理
 │   │   ├── CalendarSyncManager.kt # 系统日历双向同步（推送/回写/冲突处理）
-│   │   ├── CloudBackupResolver.kt # 云端备份解析（明文/信封/旧密文）与快照缓存
+│   │   ├── CloudBackupResolver.kt # 云端备份解析（明文/压缩/信封/旧密文）与快照缓存
 │   │   ├── ConflictStrategy.kt   # 同步冲突策略
 │   │   ├── Constants.kt          # 常量定义
 │   │   ├── CsvExporter.kt        # CSV 导出
@@ -138,6 +141,7 @@ app/
 │   │   ├── OvertimeCalculator.kt # 加班计算
 │   │   ├── PdfExporter.kt        # PDF 导出
 │   │   ├── RecoveryCodeManager.kt # 同步恢复码生成/校验（Crockford Base32）
+│   │   ├── RelaxCampaignStore.kt # 解压小游戏节日活动配置（拉取/校验/缓存/按日期生效）
 │   │   ├── SalaryCalculator.kt   # 工资计算
 │   │   ├── SecurePreferencesManager.kt # 加密存储
 │   │   ├── SensitiveTextField.kt # 敏感字段脱敏（WebDAV 地址/用户名/密码掩码）
@@ -152,6 +156,8 @@ app/
 │   │   ├── UpdateManager.kt      # 软件自动更新
 │   │   └── WebDAVManager.kt      # WebDAV 客户端
 │   ├── view/                     # 自定义视图
+│   │   ├── BreathCircleView.kt    # 呼吸引导圆环（阶段配色/缓动缩放）
+│   │   ├── BubbleWrapView.kt      # 泡泡纸（捏爆涟漪/触感/纸痕）
 │   │   └── CalendarView.kt       # 日历视图
 │   ├── viewmodel/                # ViewModel 层
 │   │   └── AttendanceViewModel.kt # 考勤数据 ViewModel
@@ -159,6 +165,9 @@ app/
 │   │   ├── LoginActivity.kt      # 团队登录
 │   │   └── TeamSummaryActivity.kt # 管理员按人按月汇总
 │   ├── LauncherActivity.kt       # 中转启动页（唯一 exported 入口）
+│   ├── RelaxActivity.kt          # 解压小游戏入口（卡片列表 + 节日活动横幅）
+│   ├── BreathGuideActivity.kt    # 解压小游戏：4-7-8 呼吸引导
+│   ├── BubblePopActivity.kt      # 解压小游戏：捏泡泡纸
 │   ├── MainActivity.kt           # 主界面
 │   ├── SettingsActivity.kt       # 设置界面
 │   ├── DataManagerActivity.kt    # 数据管理界面（导入/导出/恢复/修改日志入口）
@@ -178,6 +187,7 @@ app/
 ```
 
 holiday/holidays.json             # 节假日数据源（应用在线更新的固定仓库地址）
+relax/campaign.json               # 解压小游戏节日活动配置（标题/时间范围/配色，按日期自动生效）
 server/                           # 团队服务端（Ktor 3 + SQLite + JWT，独立 Gradle 构建，见 server/README.md）
 pc-monitor/                       # PC 端监控读取器（Python，本地解密 WebDAV 备份，支持改/删写回）
 
@@ -293,6 +303,37 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 - **校验** - 严格校验日期格式（`yyyy-MM-dd`）、年份范围、节假日名称长度；数据为空或格式非法时拒绝应用并保留当前数据
 - **缓存** - 校验通过后写入本地偏好，下次启动直接生效；更新失败只提示，不影响现有计算
 - **状态展示** - 卡片显示覆盖年份与数据版本（当前使用内置数据 / 在线数据 vN）
+
+### 解压小游戏
+
+主界面工具栏的「解压」图标进入小游戏列表（`RelaxActivity`），全部玩法由本地 Canvas 绘制，不联网也能玩，且不读写任何业务数据：
+
+- **呼吸引导** - 4 秒吸气 / 7 秒屏息 / 8 秒呼气循环，圆环随阶段缓动缩放并显示剩余秒数与轮次；阶段切换触感提示（页内可开关），运行中保持屏幕常亮，离开页面自动暂停并保留进度
+- **捏泡泡纸** - 按屏幕铺满泡泡网格，按下或滑动经过即捏爆（扩散涟漪 + 触感），顶部显示「已捏 N / 总数」，全部捏完提示并可「换一张」重新铺
+- **节日活动配置** - 仅下发展示参数，玩法仍在本地：活动按日期自动生效/过期，无需发版
+  - **数据源** - 仓库固定地址 `relax/campaign.json`（https）；主源不可达时依次改用 jsDelivr（cdn/fastly/gcore）镜像
+  - **刷新策略** - 进入解压页先读本机缓存，超过 6 小时且联网才尝试刷新；全部失败沿用缓存，无缓存则使用默认配色
+  - **校验** - 日期 `yyyy-MM-dd` 且起止有序、三个颜色均为 `#RRGGBB`、标题/副标题长度限制；非法活动直接跳过
+  - **生效范围** - 解压页展示「限时活动」横幅（标题/副标题/配色图标），三个颜色同时应用到呼吸三阶段与泡泡纸配色
+
+配置示例：
+
+```json
+{
+  "version": 1,
+  "updatedAt": "2026-10-31",
+  "campaigns": [
+    {
+      "id": "spring-festival-2027",
+      "title": "春节限定",
+      "subtitle": "泡泡纸也过年，捏出一年好运",
+      "startDate": "2027-01-20",
+      "endDate": "2027-02-20",
+      "colors": ["#D32F2F", "#FFC107", "#FF7043"]
+    }
+  ]
+}
+```
 
 ### 系统日历双向同步
 
@@ -437,6 +478,7 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 6. **云端同步**: 配置 WebDAV 后可自动同步数据
 7. **团队同步（可选）**: 按 [server/README.md](server/README.md) 部署私有服务端后，在设置页登录团队账号即可多人/多端同步，管理员可在设置页查看成员汇总
 8. **同步加密（建议开启）**: 在设置中开启同步加密并设置密码后，务必在弹窗中抄写并离线保存恢复码——它是忘记同步密码时恢复数据的唯一途径；更换手机/重装应用时使用原密码接入即可，原恢复码继续有效
+9. **解压一下**: 主界面点击「解压」图标，可选择 4-7-8 呼吸引导或捏泡泡纸；节日期间会显示限时活动横幅与对应配色，离线也能使用
 
 ## 更新日志
 
@@ -446,6 +488,9 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 - 增加多语言支持，中文/英文界面随系统语言自动切换
 - 增加深色模式，跟随系统/浅色/深色三种主题
 - 增加流畅动画，提升用户体验
+- 🌿 **新增解压小游戏**：呼吸引导（4-7-8，圆环缓动 + 触感提示）与捏泡泡纸（滑动连爆 + 涟漪），入口为主界面工具栏「解压」图标，纯本地运行、离线可用
+- 🎏 **节日活动配置**：新增 `relax/campaign.json` 与 `RelaxCampaignStore`，按日期下发活动横幅与三个主题色（呼吸三阶段/泡泡共用），自动过期，支持 jsDelivr 镜像与本地缓存，拉取失败不影响默认配色
+- 🗜️ **云端备份体积优化**：新增 `BackupCompression`，上传前先 gzip 压缩 JSON——开启同步加密时正文"先压缩再加密"（AES-GCM 密文不可压缩，顺序必须是压缩在加密之前），未加密时输出 `PORE_GZ1:` + Base64(gzip)，压缩后反而更大则回退明文；解码端按 gzip magic 自动识别新旧格式，并设 64MB 解压上限防压缩炸弹；PC 端读取器同步支持压缩备份的读写
 
 ### v0.2.5（2026-10-31）
 - 🌏 **完整英文界面**：所有界面文案、提示、PDF/CSV 报告、同步与错误提示统一抽取为字符串资源，新增 `res/values-en/strings.xml`（与中文基准 key 一一对应）；系统语言为英文时自动切换，中文环境行为不变。枚举显示名、CSV 列名与匹配逻辑、日历事件标题等数据约定仍保持原值，确保备份与同步兼容

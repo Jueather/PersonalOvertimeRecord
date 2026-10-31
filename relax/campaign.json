@@ -1,0 +1,46 @@
+{
+  "version": 3,
+  "updatedAt": "2026-10-31",
+  "campaigns": [
+    {
+      "id": "new-year-2027",
+      "title": "元旦限定",
+      "subtitle": "新的一年，先松一口气",
+      "startDate": "2026-12-30",
+      "endDate": "2027-01-03",
+      "colors": ["#1E88E5", "#64B5F6", "#FFC107"]
+    },
+    {
+      "id": "spring-festival-2027",
+      "title": "春节限定",
+      "subtitle": "泡泡纸也过年，捏出一年好运",
+      "startDate": "2027-01-20",
+      "endDate": "2027-02-20",
+      "colors": ["#D32F2F", "#FFC107", "#FF7043"]
+    },
+    {
+      "id": "dragon-boat-2027",
+      "title": "端午限定",
+      "subtitle": "捏个泡泡，解解乏",
+      "startDate": "2027-06-05",
+      "endDate": "2027-06-14",
+      "colors": ["#00897B", "#4DB6AC", "#FFB300"]
+    },
+    {
+      "id": "mid-autumn-2027",
+      "title": "中秋限定",
+      "subtitle": "月圆之前，先放松一下",
+      "startDate": "2027-09-10",
+      "endDate": "2027-09-20",
+      "colors": ["#5E35B1", "#FFB300", "#FF8F00"]
+    },
+    {
+      "id": "national-day-2027",
+      "title": "国庆限定",
+      "subtitle": "假期模式，慢慢来",
+      "startDate": "2027-10-01",
+      "endDate": "2027-10-08",
+      "colors": ["#C62828", "#FFB300", "#EF6C00"]
+    }
+  ]
+}

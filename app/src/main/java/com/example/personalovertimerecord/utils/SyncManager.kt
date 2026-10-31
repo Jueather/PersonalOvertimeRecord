@@ -238,7 +238,7 @@ class SyncManager(
             val (wire, recoveryGenerated) = if (encryptPassword != null) {
                 keyManager.buildUploadWire(content, encryptPassword, cloudSnapshot)
             } else {
-                content to false
+                BackupCompression.encodePlaintext(content) to false
             }
             reportProgress(str(R.string.sync_progress_upload_fmt, recordsToUpload.size))
             val success = webDAVManager.uploadRawFile(config, wire)
@@ -477,7 +477,7 @@ class SyncManager(
             val (wire, recoveryGenerated) = if (encryptPassword != null) {
                 keyManager.buildUploadWire(content, encryptPassword, cloudSnapshot)
             } else {
-                content to false
+                BackupCompression.encodePlaintext(content) to false
             }
             reportProgress(str(R.string.sync_progress_upload_merged_fmt, mergedRecords.size))
             val success = webDAVManager.uploadRawFile(config, wire)

@@ -227,7 +227,8 @@ internal class SyncKeyManager(
             dek = dek,
             pwdSlot = passwordSlot,
             existingRecSlot = recoverySlot,
-            plaintext = json.toByteArray(Charsets.UTF_8)
+            // 先压缩再加密：信封正文是密文，压缩必须在加密之前完成
+            plaintext = BackupCompression.compress(json.toByteArray(Charsets.UTF_8))
         )
         return wire to generated
     }

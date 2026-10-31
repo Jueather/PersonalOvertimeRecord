@@ -69,6 +69,15 @@
             android:name=".ChangeLogActivity"
             android:exported="false" />
         <activity
+            android:name=".RelaxActivity"
+            android:exported="false" />
+        <activity
+            android:name=".BreathGuideActivity"
+            android:exported="false" />
+        <activity
+            android:name=".BubblePopActivity"
+            android:exported="false" />
+        <activity
             android:name=".ui.LoginActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />

@@ -46,6 +46,11 @@
     <color name="record_divider">#FFE0E0E0</color>
     <color name="record_detail_text">#FF757575</color>
 
+    <!-- 解压小游戏：呼吸阶段色 - 与 values-night 对应 -->
+    <color name="relax_phase_inhale">#FF7E57C2</color>
+    <color name="relax_phase_hold">#FF03DAC5</color>
+    <color name="relax_phase_exhale">#FFFFB74D</color>
+
     <!-- 桌面小部件 - 与 values-night 对应 -->
     <color name="widget_background_color">#FFFFFFFF</color>
     <color name="widget_border_color">#FFE0E0E0</color>

@@ -51,6 +51,11 @@
     <color name="record_divider">#FF3A3A3A</color>
     <color name="record_detail_text">#B3FFFFFF</color>
 
+    <!-- 解压小游戏：呼吸阶段色（暗色主题提亮） -->
+    <color name="relax_phase_inhale">#FFB39DDB</color>
+    <color name="relax_phase_hold">#FF03DAC5</color>
+    <color name="relax_phase_exhale">#FFFFCC80</color>
+
     <!-- 桌面小部件（暗色） -->
     <color name="widget_background_color">#FF2D2D2D</color>
     <color name="widget_border_color">#FF3A3A3A</color>

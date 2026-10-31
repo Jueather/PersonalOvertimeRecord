@@ -79,6 +79,16 @@
                 app:tint="@color/white"
                 android:contentDescription="@string/settings" />
 
+            <ImageButton
+                android:id="@+id/btnRelax"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="end|center_vertical"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@drawable/ic_relax"
+                app:tint="@color/white"
+                android:contentDescription="@string/relax_title" />
+
         </androidx.appcompat.widget.Toolbar>
 
     </com.google.android.material.appbar.AppBarLayout>

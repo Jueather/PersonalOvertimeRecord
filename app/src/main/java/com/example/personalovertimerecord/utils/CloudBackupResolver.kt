@@ -82,6 +82,15 @@ internal class CloudBackupResolver(
             return CloudResolve.Available(CloudSnapshot(raw, null, null))
         }
 
+        // 未加密的压缩线路格式：PORE_GZ1: + Base64(gzip(JSON))
+        if (BackupCompression.isCompressedWire(raw)) {
+            val json = runCatching { BackupCompression.decodeCompressedWire(raw) }.getOrNull()
+            if (json != null && isJsonLike(json)) {
+                return CloudResolve.Available(CloudSnapshot(json, null, null))
+            }
+            return CloudResolve.EncryptionMismatch
+        }
+
         if (EnvelopeCrypto.isEnvelope(raw)) {
             val local = settingsManager.getSyncKeyMaterial()
             val pwd = password?.takeIf { it.isNotBlank() }
@@ -104,10 +113,11 @@ internal class CloudBackupResolver(
             }
             opened ?: return CloudResolve.EncryptionMismatch
             val dek = opened.dek
-            // String 构造会按 UTF-8 拷贝字节，明文原数组此后不再使用，立即清零
-            val json = String(opened.plaintext, Charsets.UTF_8).also {
-                java.util.Arrays.fill(opened.plaintext, 0)
-            }
+            // String 构造会按 UTF-8 拷贝字节，明文原数组此后立即清零；新格式正文是 gzip，
+            // 由 BackupCompression 按 magic 判断，旧版未压缩信封原样读取
+            val json = runCatching { BackupCompression.decodePlaintext(opened.plaintext) }.getOrNull()
+            java.util.Arrays.fill(opened.plaintext, 0)
+            if (json == null) return CloudResolve.EncryptionMismatch
             val dekB64 = Base64.encodeToString(dek, Base64.NO_WRAP)
             val slotB64 = Base64.encodeToString(opened.recSlot.toBytes(), Base64.NO_WRAP)
             val pwdSlotB64 = Base64.encodeToString(opened.pwdSlot.toBytes(), Base64.NO_WRAP)

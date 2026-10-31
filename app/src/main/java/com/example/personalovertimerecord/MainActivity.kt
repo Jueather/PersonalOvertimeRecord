@@ -716,6 +716,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        binding.btnRelax.setOnClickListener {
+            startActivity(Intent(this, RelaxActivity::class.java))
+        }
+
     }
     
     private fun showSyncDialog() {
