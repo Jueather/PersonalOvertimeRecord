@@ -66,13 +66,18 @@ jobs:
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          # 兼容两种 tag 版本号格式：
-          #   3 段 v1.3.0   -> versionCode 10300
-          #   4 段 v0.1.4.1 -> versionCode 0010401 (即 10401)
+          # 兼容三种 tag 版本号格式：
+          #   3 段 v1.3.0        -> versionCode 10300
+          #   4 段 v0.1.4.1      -> versionCode 10401
+          #   4 段日期 v0.2.5.20261031 -> versionCode 20261031（直接取 YYYYMMDD）
+          # 注意：日期版本号（8 位）不能按 4 段公式拼接，否则超过 Int/Play 上限（2,100,000,000）
           VERSION="${GITHUB_REF_NAME#v}"
           SEGS=$(echo "$VERSION" | awk -F. '{print NF}')
+          LAST=$(echo "$VERSION" | awk -F. '{print $NF}')
           if [ "$SEGS" = "3" ]; then
             CODE=$(echo "$VERSION" | awk -F. '{printf "%d%02d%02d", $1, $2, $3}')
+          elif [ "${#LAST}" = "8" ]; then
+            CODE="$LAST"
           else
             CODE=$(echo "$VERSION" | awk -F. '{printf "%d%02d%02d%02d", $1, $2, $3, $4}')
           fi
@@ -120,8 +125,12 @@ jobs:
           # 与 Build 步骤相同的版本号逻辑（run 之间 shell 状态不保留，需重新计算）
           VERSION="${GITHUB_REF_NAME#v}"
           SEGS=$(echo "$VERSION" | awk -F. '{print NF}')
+          LAST=$(echo "$VERSION" | awk -F. '{print $NF}')
           if [ "$SEGS" = "3" ]; then
             CODE=$(echo "$VERSION" | awk -F. '{printf "%d%02d%02d", $1, $2, $3}')
+          elif [ "${#LAST}" = "8" ]; then
+            # 日期版本 v0.2.5.20261031：versionCode = YYYYMMDD
+            CODE="$LAST"
           else
             CODE=$(echo "$VERSION" | awk -F. '{printf "%d%02d%02d%02d", $1, $2, $3, $4}')
           fi

@@ -364,6 +364,21 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 - **安全** - 清单与 APK 均走 https；SHA-256 防篡改；下载包签名与已安装应用不一致时拒绝安装
 - **兼容** - Android 8.0+ 通过 `REQUEST_INSTALL_PACKAGES` + FileProvider 调起安装器，未授权时引导用户开启"允许安装未知来源应用"
 
+### 版本号规则
+
+- **命名格式** - 发布 tag 使用 `vX.Y.Z.YYYYMMDD`（如 `v0.2.5.20261031`），versionName 为去掉 `v` 的 `0.2.5.20261031`
+- **versionCode 映射**（由 `release.yml` 按 tag 计算）：
+
+  | tag 格式 | 示例 | versionCode |
+  |----------|------|-------------|
+  | 三段 | `v1.3.0` | `10300` |
+  | 四段 | `v0.1.4.1` | `10401` |
+  | 四段日期 | `v0.2.5.20261031` | `20261031`（直接取 YYYYMMDD） |
+
+- **上限约束** - versionCode 必须为正整数且不超过 Play 上限 `2,100,000,000`；8 位日期按四段公式拼接会溢出，因此单独按日期取值
+- **单调递增** - 日期版 versionCode 远大于三段版；一旦采用日期命名，后续发布须继续使用 `vX.Y.Z.YYYYMMDD`，不可回退三段 tag，否则 versionCode 变小会导致商店拒绝上传或无法覆盖安装
+- **本地构建** - 不经过 CI 时读取 `app/version.properties`：`BASE_VERSION` 决定 versionName，`BUILD_NUMBER` 自增作为 versionCode（仅在产出 APK 的任务中递增）
+
 ### 设置选项
 
 | 类别 | 选项 | 说明 |
@@ -429,6 +444,7 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 ### v0.2.5（2026-10-31）
 - 🌏 **完整英文界面**：所有界面文案、提示、PDF/CSV 报告、同步与错误提示统一抽取为字符串资源，新增 `res/values-en/strings.xml`（与中文基准 key 一一对应）；系统语言为英文时自动切换，中文环境行为不变。枚举显示名、CSV 列名与匹配逻辑、日历事件标题等数据约定仍保持原值，确保备份与同步兼容
 - 🧪 **单元测试适配**：备份字段校验文案改为资源取用后，纯 JVM 单测（无 Application）自动回退占位文案，避免 `UninitializedPropertyAccessException`；相关测试断言改为语义断言，`testDebugUnitTest` 全部通过
+- 🏷️ **版本命名与打包**：发布 tag 采用 `vX.Y.Z.YYYYMMDD`（如 `v0.2.5.20261031`），日期版 versionCode 直接取 `YYYYMMDD`（如 `20261031`），修复四段公式拼接日期导致超出 Int 范围的打包失败；详见「版本号规则」
 
 ### v0.2.4（2026-10-30）
 - 📝 **修改日志（数据修改记录）**：新增 `change_logs` 表（数据库 9→10），在 Repository 层对本机手动增/改/删/清空统一留痕——修改展示字段级前后值 diff（如「加班：2h → 3h」），新增/删除展示字段快照；数据管理页「数据统计」卡片新增入口，列表按时间倒序、类型标签着色；自动保留最近 1000 条。同步回写（WebDAV/团队/日历）不记入，仅留痕本机用户操作；日志写入失败不阻断保存

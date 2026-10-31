@@ -32,7 +32,8 @@ val producesArtifact = gradle.startParameter.taskNames.any { taskName ->
 
 if (!ciVersionName.isNullOrBlank() && !ciVersionCode.isNullOrBlank()) {
     // CI（GitHub Actions）根据 git tag 传入版本号，不修改 version.properties
-    appVersionCode = ciVersionCode.toInt()
+    appVersionCode = ciVersionCode.toIntOrNull()
+        ?: error("❌ ciVersionCode 非法：$ciVersionCode（需为 Int 范围内整数，Play 上限 2,100,000,000）")
     appVersionName = ciVersionName
     println("🔢 CI version from tag: $appVersionName (build #$appVersionCode)")
 } else if (versionPropsFile.exists()) {
