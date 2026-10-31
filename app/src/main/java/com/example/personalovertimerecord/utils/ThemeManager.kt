@@ -3,14 +3,15 @@ package com.example.personalovertimerecord.utils
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.appcompat.app.AppCompatDelegate
+import com.example.personalovertimerecord.R
 
 /**
  * 主题管理模式枚举
  */
-enum class ThemeMode(val value: Int, val displayName: String) {
-    SYSTEM(0, "跟随系统"),
-    LIGHT(1, "浅色模式"),
-    DARK(2, "深色模式");
+enum class ThemeMode(val value: Int, val labelRes: Int) {
+    SYSTEM(0, R.string.settings_theme_system),
+    LIGHT(1, R.string.settings_theme_light),
+    DARK(2, R.string.settings_theme_dark);
 
     companion object {
         fun fromValue(value: Int): ThemeMode {

@@ -62,8 +62,12 @@ object QuickEntryNotification {
         scope.launch {
             try {
                 val summary = QuickEntrySummaryLoader.load(context)
-                val contentText = "${summary.month}月加班 ${Formatter.formatHoursShort(summary.totalHours)}" +
-                    " · 实发 ${Formatter.formatMoney(summary.netSalary)}"
+                val contentText = context.getString(
+                    R.string.notify_quick_content,
+                    summary.month,
+                    Formatter.formatHoursShort(summary.totalHours),
+                    Formatter.formatMoney(summary.netSalary)
+                )
                 manager.notify(NOTIFICATION_ID, buildNotification(context, contentText))
             } catch (e: Exception) {
                 AppLogger.e(TAG, "刷新快捷登记通知失败", e)
@@ -74,7 +78,7 @@ object QuickEntryNotification {
     private fun buildNotification(context: Context, contentText: String) =
         NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_check_in)
-            .setContentTitle("快捷登记")
+            .setContentTitle(context.getString(R.string.notify_quick_title))
             .setContentText(contentText)
             .setContentIntent(openEntryPendingIntent(context))
             .setOngoing(true)
@@ -83,9 +87,9 @@ object QuickEntryNotification {
             .setSilent(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
-            .addAction(0, "加班+1h", actionPendingIntent(context, QuickRecordWidget.ACTION_ADD_OVERTIME, 11))
-            .addAction(0, "加点+1h", actionPendingIntent(context, QuickRecordWidget.ACTION_ADD_EXTRA, 12))
-            .addAction(0, "打开登记", openEntryPendingIntent(context))
+            .addAction(0, context.getString(R.string.widget_quick_overtime), actionPendingIntent(context, QuickRecordWidget.ACTION_ADD_OVERTIME, 11))
+            .addAction(0, context.getString(R.string.widget_quick_extra), actionPendingIntent(context, QuickRecordWidget.ACTION_ADD_EXTRA, 12))
+            .addAction(0, context.getString(R.string.notify_action_open), openEntryPendingIntent(context))
             .build()
 
     private fun createChannel(context: Context) {
@@ -94,10 +98,10 @@ object QuickEntryNotification {
         if (manager.getNotificationChannel(CHANNEL_ID) != null) return
         val channel = NotificationChannel(
             CHANNEL_ID,
-            "快捷登记",
+            context.getString(R.string.notify_quick_title),
             NotificationManager.IMPORTANCE_LOW
         ).apply {
-            description = "通知栏常驻加班/加点快捷登记入口"
+            description = context.getString(R.string.notify_channel_desc)
             setShowBadge(false)
         }
         manager.createNotificationChannel(channel)

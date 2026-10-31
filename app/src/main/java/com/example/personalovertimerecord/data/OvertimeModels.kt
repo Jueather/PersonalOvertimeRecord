@@ -39,6 +39,8 @@ data class OvertimeRecord(
 data class OvertimeSettings(
     var baseSalary: Double = 5000.0,
     var performancePercent: Double = 0.0,
+    // 固定奖金（元/月）：随工资固定发放的奖金，计入应发工资、时薪与个税
+    var fixedBonus: Double = 0.0,
     var monthlyWorkDays: Double = 21.75,
     var dailyWorkHours: Double = 8.0,
     var overtimeRateNormal: Double = 1.5,

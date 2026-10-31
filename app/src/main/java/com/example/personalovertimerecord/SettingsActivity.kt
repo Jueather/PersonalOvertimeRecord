@@ -75,7 +75,7 @@ class SettingsActivity : AppCompatActivity() {
         if (granted) {
             startCalendarSync()
         } else {
-            Toast.makeText(this, "未授予日历权限，无法同步日历", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.calendar_no_permission), Toast.LENGTH_LONG).show()
             refreshCalendarStatus()
         }
     }
@@ -132,7 +132,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.btnTeamSync.setOnClickListener {
             lifecycleScope.launch {
                 binding.btnTeamSync.isEnabled = false
-                binding.btnTeamSync.text = "同步中..."
+                binding.btnTeamSync.text = getString(R.string.common_syncing)
                 try {
                     val report = withContext(Dispatchers.IO) { teamSyncManager().performSync() }
                     val message = when (report.result) {
@@ -156,7 +156,7 @@ class SettingsActivity : AppCompatActivity() {
                     Toast.makeText(this@SettingsActivity, message, Toast.LENGTH_LONG).show()
                 } finally {
                     binding.btnTeamSync.isEnabled = true
-                    binding.btnTeamSync.text = "立即同步"
+                    binding.btnTeamSync.text = getString(R.string.settings_sync_now)
                 }
             }
         }
@@ -168,9 +168,9 @@ class SettingsActivity : AppCompatActivity() {
         binding.btnTeamLogout.setOnClickListener {
             if (settingsManager.getTeamAuth() == null) return@setOnClickListener
             com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
-                .setTitle("退出登录")
-                .setMessage("退出后将停止团队同步（本地数据不受影响），确定退出？")
-                .setPositiveButton(R.string.delete) { _, _ ->
+                .setTitle(R.string.team_logout)
+                .setMessage(R.string.team_logout_confirm)
+                .setPositiveButton(R.string.team_logout) { _, _ ->
                     settingsManager.clearTeamAuth()
                     refreshTeamStatus()
                 }
@@ -254,7 +254,7 @@ class SettingsActivity : AppCompatActivity() {
                 val oldPwd = oldInput.text?.toString().orEmpty()
                 val newPwd = newInput.text?.toString().orEmpty()
                 if (oldPwd.isBlank() || newPwd.length < 6) {
-                    Toast.makeText(context, "新密码至少 6 位", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, getString(R.string.team_new_password_short), Toast.LENGTH_SHORT).show()
                     return@setPositiveButton
                 }
                 lifecycleScope.launch {
@@ -283,24 +283,29 @@ class SettingsActivity : AppCompatActivity() {
 
         binding.btnHolidayUpdate.setOnClickListener {
             if (!NetworkUtils.isNetworkAvailable(this)) {
-                Toast.makeText(this, "请先检查网络连接", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.settings_no_network), Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
             binding.btnHolidayUpdate.isEnabled = false
-            binding.btnHolidayUpdate.text = "检查中..."
+            binding.btnHolidayUpdate.text = getString(R.string.settings_checking)
 
             lifecycleScope.launch {
                 val result = HolidayStore.refresh(this@SettingsActivity)
 
                 binding.btnHolidayUpdate.isEnabled = true
-                binding.btnHolidayUpdate.text = "检查节假日更新"
+                binding.btnHolidayUpdate.text = getString(R.string.settings_check_holiday_update)
 
                 val message = when (result) {
                     is HolidayStore.RefreshResult.Success ->
-                        "节假日数据已更新到 v${result.version}（覆盖 ${result.years.firstOrNull()} - ${result.years.lastOrNull()}）"
+                        getString(
+                            R.string.settings_holiday_update_success,
+                            result.version,
+                            result.years.firstOrNull()?.toString().orEmpty(),
+                            result.years.lastOrNull()?.toString().orEmpty()
+                        )
                     is HolidayStore.RefreshResult.Failure ->
-                        "更新失败：${result.message}\n继续使用当前数据。"
+                        getString(R.string.settings_holiday_update_failed, result.message)
                 }
                 Toast.makeText(this@SettingsActivity, message, Toast.LENGTH_LONG).show()
                 refreshHolidayInfo()
@@ -321,13 +326,9 @@ class SettingsActivity : AppCompatActivity() {
                 startCalendarSync()
             } else {
                 AlertDialog.Builder(this)
-                    .setTitle("日历权限")
-                    .setMessage(
-                        "日历同步需要读取与写入系统日历的权限：\n" +
-                            "• 把加班/请假记录写成全天日程\n" +
-                            "• 把日历里的修改、改期与删除回写到应用"
-                    )
-                    .setPositiveButton("去授权") { _, _ ->
+                    .setTitle(R.string.settings_calendar_permission_title)
+                    .setMessage(R.string.settings_calendar_permission_message)
+                    .setPositiveButton(R.string.settings_go_authorize) { _, _ ->
                         calendarPermissionLauncher.launch(
                             arrayOf(
                                 Manifest.permission.READ_CALENDAR,
@@ -343,23 +344,29 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun startCalendarSync() {
         binding.btnCalendarSync.isEnabled = false
-        binding.btnCalendarSync.text = "同步中..."
+        binding.btnCalendarSync.text = getString(R.string.common_syncing)
 
         lifecycleScope.launch {
             val report = calendarSyncManager.sync()
 
             binding.btnCalendarSync.isEnabled = true
-            binding.btnCalendarSync.text = "立即同步日历"
+            binding.btnCalendarSync.text = getString(R.string.settings_calendar_sync_now)
 
             val message = if (report.success) {
                 buildString {
-                    append("日历同步完成：推送 ${report.pushed} 条，回写 ${report.pulled} 条")
-                    if (report.deletedFromCalendar > 0) append("，日历删除 ${report.deletedFromCalendar} 条")
-                    if (report.deletedFromApp > 0) append("，清理事件 ${report.deletedFromApp} 条")
-                    if (report.skipped > 0) append("，跳过 ${report.skipped} 条")
+                    append(getString(R.string.settings_calendar_sync_done, report.pushed, report.pulled))
+                    if (report.deletedFromCalendar > 0) {
+                        append(getString(R.string.settings_calendar_deleted_from_calendar, report.deletedFromCalendar))
+                    }
+                    if (report.deletedFromApp > 0) {
+                        append(getString(R.string.settings_calendar_deleted_from_app, report.deletedFromApp))
+                    }
+                    if (report.skipped > 0) {
+                        append(getString(R.string.settings_calendar_skipped, report.skipped))
+                    }
                 }
             } else {
-                report.error ?: "同步失败"
+                report.error ?: getString(R.string.common_sync_failed)
             }
             Toast.makeText(this@SettingsActivity, message, Toast.LENGTH_LONG).show()
             refreshCalendarStatus()
@@ -374,7 +381,8 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupUpdate() {
-        binding.tvCurrentVersion.text = "当前版本：v${UpdateManager.getCurrentVersionName(this)}"
+        binding.tvCurrentVersion.text =
+            getString(R.string.settings_current_version, UpdateManager.getCurrentVersionName(this))
 
         binding.btnCheckUpdate.setOnClickListener {
             checkForUpdate()
@@ -393,11 +401,11 @@ class SettingsActivity : AppCompatActivity() {
                     assets.open("changelog.md").bufferedReader(Charsets.UTF_8).use { it.readText() }
                 }.getOrDefault("")
             }
-            val content = formatChangelog(raw.ifBlank { "暂无日志" })
+            val content = formatChangelog(raw.ifBlank { getString(R.string.settings_changelog_empty) })
             val view = layoutInflater.inflate(R.layout.dialog_changelog, null)
             view.findViewById<android.widget.TextView>(R.id.tvChangelog).text = content
             AlertDialog.Builder(this@SettingsActivity)
-                .setTitle("修改日志")
+                .setTitle(R.string.settings_change_log_title)
                 .setView(view)
                 .setPositiveButton(R.string.cancel, null)
                 .show()
@@ -426,12 +434,12 @@ class SettingsActivity : AppCompatActivity() {
     
     private fun checkForUpdate() {
         if (!NetworkUtils.isNetworkAvailable(this)) {
-            Toast.makeText(this, "请先检查网络连接", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.settings_no_network), Toast.LENGTH_SHORT).show()
             return
         }
         
         binding.btnCheckUpdate.isEnabled = false
-        binding.btnCheckUpdate.text = "检查中..."
+        binding.btnCheckUpdate.text = getString(R.string.settings_checking)
         
         lifecycleScope.launch {
             val info = withContext(Dispatchers.IO) {
@@ -439,12 +447,12 @@ class SettingsActivity : AppCompatActivity() {
             }
             
             binding.btnCheckUpdate.isEnabled = true
-            binding.btnCheckUpdate.text = "检查更新"
+            binding.btnCheckUpdate.text = getString(R.string.settings_check_update)
             
             if (info == null) {
                 UpdateDialog.showError(
                     this@SettingsActivity,
-                    "无法获取更新信息，请检查网络后重试。\n\n若为刚发布的版本，GitHub 可能需要几分钟生成更新清单。"
+                    getString(R.string.settings_update_fetch_failed)
                 )
                 return@launch
             }
@@ -472,18 +480,25 @@ class SettingsActivity : AppCompatActivity() {
         if (!isSupported) {
             binding.switchBiometric.isEnabled = false
             binding.switchBiometric.isChecked = false
-            binding.tvBiometricStatus.text = "设备不支持生物识别功能"
+            binding.tvBiometricStatus.text = getString(R.string.settings_biometric_unsupported)
             binding.tvBiometricStatus.setTextColor(android.graphics.Color.GRAY)
             return
         }
         
         binding.switchBiometric.isChecked = BiometricManager.isBiometricEnabled(this)
-        binding.tvBiometricStatus.text = "已准备就绪（支持指纹/面容解锁）"
+        binding.tvBiometricStatus.text = getString(R.string.settings_biometric_ready)
         binding.tvBiometricStatus.setTextColor(android.graphics.Color.GREEN)
         
         binding.switchBiometric.setOnCheckedChangeListener { _, isChecked ->
             BiometricManager.setBiometricEnabled(this, isChecked)
-            Toast.makeText(this, if (isChecked) "已启用生物识别保护" else "已禁用生物识别保护", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                this,
+                getString(
+                    if (isChecked) R.string.settings_biometric_enabled
+                    else R.string.settings_biometric_disabled
+                ),
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
     
@@ -516,7 +531,14 @@ class SettingsActivity : AppCompatActivity() {
             if (!isUpdatingAutoSync) {
                 AutoSyncManager.setSyncEnabled(this, isChecked)
                 updateAutoSyncSettingsVisibility()
-                Toast.makeText(this, if (isChecked) "已启用自动同步" else "已禁用自动同步", Toast.LENGTH_SHORT).show()
+                Toast.makeText(
+                    this,
+                    getString(
+                        if (isChecked) R.string.settings_auto_sync_enabled
+                        else R.string.settings_auto_sync_disabled
+                    ),
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
         
@@ -552,21 +574,22 @@ class SettingsActivity : AppCompatActivity() {
     }
     
     private fun updateLastSyncTime() {
-        binding.tvLastSyncTime.text = "上次同步：${AutoSyncManager.getLastSyncTimeString(this@SettingsActivity)}"
+        binding.tvLastSyncTime.text =
+            getString(R.string.settings_last_sync_fmt, AutoSyncManager.getLastSyncTimeString(this@SettingsActivity))
     }
     
     private fun performManualSync() {
         if (!NetworkUtils.isNetworkAvailable(this)) {
-            Toast.makeText(this, "请先检查网络连接", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.settings_no_network), Toast.LENGTH_SHORT).show()
             return
         }
         
         binding.btnSyncNow.isEnabled = false
-        binding.btnSyncNow.text = "同步中..."
+        binding.btnSyncNow.text = getString(R.string.common_syncing)
         
         AutoSyncManager.performSync(this) { success, message ->
             binding.btnSyncNow.isEnabled = true
-            binding.btnSyncNow.text = "立即同步"
+            binding.btnSyncNow.text = getString(R.string.settings_sync_now)
             updateLastSyncTime()
             Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
         }
@@ -589,7 +612,7 @@ class SettingsActivity : AppCompatActivity() {
                 else -> ThemeMode.SYSTEM
             }
             ThemeManager.setThemeMode(newTheme)
-            Toast.makeText(this, "主题已切换为${newTheme.displayName}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.settings_theme_changed, getString(newTheme.labelRes)), Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -611,28 +634,42 @@ class SettingsActivity : AppCompatActivity() {
         // 导出加密开关监听
         binding.switchExportEncryption.setOnCheckedChangeListener { _, isChecked ->
             updateExportPasswordVisibility()
-            Toast.makeText(this, if (isChecked) "已启用导出加密" else "已禁用导出加密", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                this,
+                getString(
+                    if (isChecked) R.string.settings_export_encrypt_enabled
+                    else R.string.settings_export_encrypt_disabled
+                ),
+                Toast.LENGTH_SHORT
+            ).show()
         }
         
         // 同步加密开关监听
         binding.switchSyncEncryption.setOnCheckedChangeListener { _, isChecked ->
             updateSyncPasswordVisibility()
-            Toast.makeText(this, if (isChecked) "已启用同步加密" else "已禁用同步加密", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                this,
+                getString(
+                    if (isChecked) R.string.settings_sync_encrypt_enabled
+                    else R.string.settings_sync_encrypt_disabled
+                ),
+                Toast.LENGTH_SHORT
+            ).show()
             // 密码留空时“加密”实际不生效（SyncManager 以密码是否为空为准），及时提醒
             if (isChecked && binding.etSyncPassword.text?.toString().isNullOrBlank()) {
-                Toast.makeText(this, "请设置同步加密密码；密码留空时等同于未加密", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.settings_sync_encrypt_need_password), Toast.LENGTH_LONG).show()
             }
         }
 
         // 查看同步密码（生物识别通过后展示）
         binding.btnViewSyncPassword.setOnClickListener {
-            withBiometricAuth("查看同步密码") {
+            withBiometricAuth(getString(R.string.settings_view_sync_password)) {
                 val pwd = binding.etSyncPassword.text?.toString()
                     ?.takeIf { it.isNotBlank() }
                     ?: settingsManager.getSettings().syncPassword
                 showSimpleTextDialog(
-                    title = "同步密码",
-                    message = pwd.ifBlank { "（未设置）" },
+                    title = getString(R.string.settings_sync_password_title),
+                    message = pwd.ifBlank { getString(R.string.settings_not_set) },
                     copyable = true
                 )
             }
@@ -640,10 +677,10 @@ class SettingsActivity : AppCompatActivity() {
 
         // 查看/更换恢复码（生物识别通过后展示）
         binding.btnViewRecoveryCode.setOnClickListener {
-            withBiometricAuth("查看恢复码") { showRecoveryCodeOptions() }
+            withBiometricAuth(getString(R.string.settings_view_recovery_code)) { showRecoveryCodeOptions() }
         }
         binding.tvRecoveryPending.setOnClickListener {
-            withBiometricAuth("查看恢复码") { showRecoveryCodeOptions() }
+            withBiometricAuth(getString(R.string.settings_view_recovery_code)) { showRecoveryCodeOptions() }
         }
 
         // 忘记同步密码：用恢复码重置并恢复云端数据
@@ -676,7 +713,7 @@ class SettingsActivity : AppCompatActivity() {
         if (!nowOn) {
             if (prevOn) {
                 settingsManager.clearSyncKeyMaterial()
-                Toast.makeText(this, "已关闭同步加密：之后上传不再加密，云端历史文件仍为密文", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, getString(R.string.settings_sync_encrypt_off_notice), Toast.LENGTH_LONG).show()
             }
             afterDone()
             return
@@ -688,8 +725,8 @@ class SettingsActivity : AppCompatActivity() {
 
         val password = settingsManager.getSettings().syncPassword
         val progress = AlertDialog.Builder(this)
-            .setTitle("正在检查云端备份")
-            .setMessage("正在确认云端是否已有加密备份，请稍候…")
+            .setTitle(R.string.settings_check_cloud_title)
+            .setMessage(R.string.settings_check_cloud_message)
             .setCancelable(false)
             .show()
 
@@ -709,13 +746,9 @@ class SettingsActivity : AppCompatActivity() {
                 is KeyBootstrapResult.Adopted -> {
                     updateSyncPasswordVisibility()
                     AlertDialog.Builder(this@SettingsActivity)
-                        .setTitle("已接入现有加密备份")
-                        .setMessage(
-                            "检测到云端已有使用该密码的加密备份，已直接接入：\n\n" +
-                                "· 原恢复码继续有效，无需重新保存；\n" +
-                                "· 本机不保存恢复码明文。若原恢复码已遗失，可在下方通过生物识别后重新签发。"
-                        )
-                        .setPositiveButton("知道了") { _, _ -> afterDone() }
+                        .setTitle(R.string.settings_adopted_title)
+                        .setMessage(R.string.settings_adopted_message)
+                        .setPositiveButton(R.string.settings_got_it) { _, _ -> afterDone() }
                         .setCancelable(false)
                         .show()
                 }
@@ -732,10 +765,10 @@ class SettingsActivity : AppCompatActivity() {
                 is KeyBootstrapResult.WrongPassword -> {
                     // 留在当前页让用户立即修正密码；材料未生成，任何同步都会因密码不匹配而中止，不会覆盖云端
                     AlertDialog.Builder(this@SettingsActivity)
-                        .setTitle("同步密码不匹配")
-                        .setMessage("云端已有加密备份，但当前填写的密码无法解开。\n\n请输入与原设备一致的同步密码后重新保存；若已忘记密码，可使用恢复码找回。")
-                        .setPositiveButton("重新输入", null)
-                        .setNeutralButton("用恢复码找回") { _, _ -> startRecoveryWithCode() }
+                        .setTitle(R.string.settings_password_mismatch_title)
+                        .setMessage(R.string.settings_password_mismatch_message)
+                        .setPositiveButton(R.string.settings_reenter, null)
+                        .setNeutralButton(R.string.settings_recover_short) { _, _ -> startRecoveryWithCode() }
                         .setCancelable(false)
                         .show()
                 }
@@ -744,7 +777,7 @@ class SettingsActivity : AppCompatActivity() {
                     // NoConfig / Unavailable：设置已保存，材料推迟到首次联网同步时自动接入或生成
                     Toast.makeText(
                         this@SettingsActivity,
-                        "暂时无法检查云端备份，将在下次联网同步时自动确认并处理",
+                        getString(R.string.settings_cloud_unavailable),
                         Toast.LENGTH_LONG
                     ).show()
                     afterDone()
@@ -793,6 +826,7 @@ class SettingsActivity : AppCompatActivity() {
         binding.etWorkEnd.setText(currentSettings.workEndTime)
         binding.etBaseSalary.setText(currentSettings.baseSalary.toString())
         binding.etPerformancePercent.setText(currentSettings.performancePercent.toString())
+        binding.etFixedBonus.setText(currentSettings.fixedBonus.toString())
         binding.etMonthlyWorkDays.setText(currentSettings.monthlyWorkDays.toString())
         binding.etDailyWorkHours.setText(currentSettings.dailyWorkHours.toString())
 
@@ -841,10 +875,11 @@ class SettingsActivity : AppCompatActivity() {
 
             val baseSalary = binding.etBaseSalary.text?.toString()?.toDoubleOrNull() ?: 5000.0
             val performancePercent = binding.etPerformancePercent.text?.toString()?.toDoubleOrNull() ?: 0.0
+            val fixedBonus = binding.etFixedBonus.text?.toString()?.toDoubleOrNull() ?: 0.0
             val monthlyWorkDays = binding.etMonthlyWorkDays.text?.toString()?.toDoubleOrNull() ?: 21.75
             val dailyWorkHours = binding.etDailyWorkHours.text?.toString()?.toDoubleOrNull() ?: 8.0
 
-            if (!validateInput(baseSalary, monthlyWorkDays, dailyWorkHours)) {
+            if (!validateInput(baseSalary, fixedBonus, monthlyWorkDays, dailyWorkHours)) {
                 return
             }
 
@@ -879,6 +914,7 @@ class SettingsActivity : AppCompatActivity() {
                 overtimeRateHoliday = currentRates.overtimeRateHoliday,
                 baseSalary = baseSalary,
                 performancePercent = performancePercent,
+                fixedBonus = fixedBonus,
                 monthlyWorkDays = monthlyWorkDays,
                 dailyWorkHours = dailyWorkHours,
                 // 五险一金与个税
@@ -889,7 +925,7 @@ class SettingsActivity : AppCompatActivity() {
                 unemploymentRate = unemploymentRate,
                 housingFundRate = housingFundRate,
                 specialDeduction = specialDeduction,
-                salaryConfigVersion = 1,
+                salaryConfigVersion = 2,
                 // 加密设置
                 exportEncryptionEnabled = binding.switchExportEncryption.isChecked,
                 exportPassword = binding.etExportPassword.text?.toString() ?: "",
@@ -908,11 +944,11 @@ class SettingsActivity : AppCompatActivity() {
                 prevOn = prevSyncEncryptionOn,
                 nowOn = settings.syncEncryptionEnabled
             ) {
-                Toast.makeText(this, "设置已保存", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.settings_saved), Toast.LENGTH_SHORT).show()
                 finish()
             }
         } catch (e: Exception) {
-            Toast.makeText(this, "保存失败：${e.message}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.settings_save_failed_fmt, e.message.orEmpty()), Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -921,12 +957,12 @@ class SettingsActivity : AppCompatActivity() {
         
         // 检查网络连接
         if (!NetworkUtils.isNetworkAvailable(this)) {
-            Toast.makeText(this, "请先检查网络连接", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.settings_no_network), Toast.LENGTH_SHORT).show()
             return
         }
         
         binding.btnTestConnection.isEnabled = false
-        binding.btnTestConnection.text = "测试中..."
+        binding.btnTestConnection.text = getString(R.string.settings_testing)
         
         lifecycleScope.launch {
             val success = withContext(Dispatchers.IO) {
@@ -941,10 +977,10 @@ class SettingsActivity : AppCompatActivity() {
             }
             
             binding.btnTestConnection.isEnabled = true
-            binding.btnTestConnection.text = "测试连接"
+            binding.btnTestConnection.text = getString(R.string.settings_test_connection)
             
             if (success) {
-                Toast.makeText(this@SettingsActivity, "连接成功！", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@SettingsActivity, getString(R.string.settings_connect_success), Toast.LENGTH_SHORT).show()
             } else {
                 showWebDAVHelpDialog(config)
             }
@@ -970,9 +1006,11 @@ class SettingsActivity : AppCompatActivity() {
             BiometricManager.showAuthenticationPrompt(
                 activity = this,
                 title = title,
-                subtitle = "请验证身份以继续",
+                subtitle = getString(R.string.biometric_continue_subtitle),
                 onSuccess = action,
-                onError = { msg -> Toast.makeText(this, "验证失败：$msg", Toast.LENGTH_SHORT).show() },
+                onError = { msg ->
+                    Toast.makeText(this, getString(R.string.biometric_auth_failed, msg), Toast.LENGTH_SHORT).show()
+                },
                 onCancel = { }
             )
         } else {
@@ -985,9 +1023,9 @@ class SettingsActivity : AppCompatActivity() {
         val builder = AlertDialog.Builder(this)
             .setTitle(title)
             .setMessage(message)
-            .setPositiveButton("关闭", null)
+            .setPositiveButton(R.string.common_close, null)
         if (copyable) {
-            builder.setNeutralButton("复制") { _, _ -> copyToClipboard(title, message) }
+            builder.setNeutralButton(R.string.settings_copy) { _, _ -> copyToClipboard(title, message) }
         }
         builder.show()
     }
@@ -998,15 +1036,13 @@ class SettingsActivity : AppCompatActivity() {
      */
     private fun showRecoveryCodeDialog(code: String, onAck: (() -> Unit)? = null) {
         AlertDialog.Builder(this)
-            .setTitle("你的同步恢复码")
-            .setMessage(
-                "恢复码是忘记同步密码后找回云端数据的唯一方式，请务必抄写或截图保存在安全的地方（不要存在被同步的网盘里）。\n\n" +
-                    "恢复码：\n$code\n\n" +
-                    "更换设备后，凭 WebDAV 配置 + 恢复码即可重置同步密码并恢复数据。"
-            )
+            .setTitle(R.string.settings_recovery_title)
+            .setMessage(getString(R.string.settings_recovery_message, code))
             .setCancelable(false)
-            .setPositiveButton("我已离线保存") { _, _ -> onAck?.invoke() }
-            .setNeutralButton("复制") { _, _ -> copyToClipboard("恢复码", code) }
+            .setPositiveButton(R.string.settings_recovery_saved) { _, _ -> onAck?.invoke() }
+            .setNeutralButton(R.string.settings_copy) { _, _ ->
+                copyToClipboard(getString(R.string.settings_recovery_label), code)
+            }
             .show()
     }
 
@@ -1015,32 +1051,30 @@ class SettingsActivity : AppCompatActivity() {
         val material = settingsManager.getSyncKeyMaterial()
         if (material == null) {
             AlertDialog.Builder(this)
-                .setTitle("恢复码")
-                .setMessage("尚未生成恢复码。请先开启同步加密并保存设置，系统会自动生成恢复码。")
-                .setPositiveButton("知道了", null)
+                .setTitle(R.string.settings_recovery_label)
+                .setMessage(R.string.settings_recovery_not_generated)
+                .setPositiveButton(R.string.settings_got_it, null)
                 .show()
             return
         }
 
         if (material.recoveryCode.isNotBlank()) {
             AlertDialog.Builder(this)
-                .setTitle("恢复码")
-                .setMessage("当前恢复码：\n${material.recoveryCode}\n\n请离线妥善保管。")
-                .setPositiveButton("关闭", null)
-                .setNeutralButton("复制") { _, _ -> copyToClipboard("恢复码", material.recoveryCode) }
-                .setNegativeButton("更换恢复码") { _, _ -> confirmRegenerateRecoveryCode() }
+                .setTitle(R.string.settings_recovery_label)
+                .setMessage(getString(R.string.settings_recovery_current, material.recoveryCode))
+                .setPositiveButton(R.string.common_close, null)
+                .setNeutralButton(R.string.settings_copy) { _, _ ->
+                    copyToClipboard(getString(R.string.settings_recovery_label), material.recoveryCode)
+                }
+                .setNegativeButton(R.string.settings_recovery_regenerate) { _, _ -> confirmRegenerateRecoveryCode() }
                 .show()
         } else {
             // 通过同步密码接入的新设备：本机不知道恢复码明文，但可用本地 DEK 重新签发一个
             AlertDialog.Builder(this)
-                .setTitle("本机未保存恢复码")
-                .setMessage(
-                    "这台设备是通过同步密码接入的，恢复码明文只保存在最初开启加密的设备上。\n\n" +
-                        "你可以用离线保存的恢复码继续使用；如果已无法找到，可以在本机重新生成一个——" +
-                        "重新生成后旧恢复码立即失效（下次同步后对云端生效），请重新离线保存。"
-                )
-                .setPositiveButton("重新生成") { _, _ -> confirmRegenerateRecoveryCode() }
-                .setNegativeButton("取消", null)
+                .setTitle(R.string.settings_recovery_local_missing_title)
+                .setMessage(R.string.settings_recovery_local_missing_message)
+                .setPositiveButton(R.string.settings_regenerate) { _, _ -> confirmRegenerateRecoveryCode() }
+                .setNegativeButton(R.string.cancel, null)
                 .show()
         }
     }
@@ -1048,9 +1082,9 @@ class SettingsActivity : AppCompatActivity() {
     private fun confirmRegenerateRecoveryCode() {
         val material = settingsManager.getSyncKeyMaterial() ?: return
         AlertDialog.Builder(this)
-            .setTitle("更换恢复码")
-            .setMessage("更换后旧恢复码立即失效，新恢复码需重新离线保存。确认更换？")
-            .setPositiveButton("确认更换") { _, _ ->
+            .setTitle(R.string.settings_recovery_regenerate)
+            .setMessage(R.string.settings_regenerate_confirm)
+            .setPositiveButton(R.string.settings_regenerate_confirm_button) { _, _ ->
                 try {
                     val dek = Base64.decode(material.dek, Base64.NO_WRAP)
                     val newCode = RecoveryCodeManager.generate()
@@ -1067,13 +1101,13 @@ class SettingsActivity : AppCompatActivity() {
                         settingsManager.setRecoveryCodePending(false)
                         updateSyncPasswordVisibility()
                     }
-                    Toast.makeText(this, "恢复码已更换，下次同步后对云端生效", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, getString(R.string.settings_recovery_changed), Toast.LENGTH_LONG).show()
                 } catch (e: Exception) {
                     AppLogger.e("更换恢复码失败", e)
-                    Toast.makeText(this, "更换失败：${e.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.settings_recovery_change_failed, e.message.orEmpty()), Toast.LENGTH_SHORT).show()
                 }
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton(R.string.cancel, null)
             .show()
     }
 
@@ -1083,62 +1117,64 @@ class SettingsActivity : AppCompatActivity() {
      */
     private fun startRecoveryWithCode() {
         if (settingsManager.getWebDAVConfig() == null) {
-            Toast.makeText(this, "请先填写并保存 WebDAV 服务器配置", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, getString(R.string.settings_webdav_config_missing), Toast.LENGTH_LONG).show()
             return
         }
 
         val codeInput = EditText(this).apply {
-            hint = "请输入离线保存的恢复码（如 7K2M-9XQF-4BT8-N6VD）"
+            hint = getString(R.string.settings_recovery_code_hint)
             inputType = InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
             setPadding(60, 30, 60, 10)
         }
         AlertDialog.Builder(this)
-            .setTitle("用恢复码找回")
-            .setMessage("将从云端读取备份验证恢复码，验证通过后可设置新的同步密码并恢复数据。")
+            .setTitle(R.string.settings_recover_short)
+            .setMessage(R.string.settings_recover_message)
             .setView(codeInput)
-            .setPositiveButton("下一步") { _, _ ->
+            .setPositiveButton(R.string.settings_next) { _, _ ->
                 val code = codeInput.text?.toString().orEmpty()
                 if (!RecoveryCodeManager.isValid(code)) {
-                    Toast.makeText(this, "恢复码格式不正确（应为 4 组 × 4 位字符）", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this, getString(R.string.settings_recovery_invalid), Toast.LENGTH_LONG).show()
                     return@setPositiveButton
                 }
                 askNewPasswordForRecovery(code)
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton(R.string.cancel, null)
             .show()
     }
 
     private fun askNewPasswordForRecovery(recoveryCode: String) {
         val container = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(60, 30, 60, 10) }
         val pwdInput = EditText(this).apply {
-            hint = "新同步密码"; inputType = InputType.TYPE_TEXT_VARIATION_PASSWORD
+            hint = getString(R.string.settings_new_sync_password_hint)
+            inputType = InputType.TYPE_TEXT_VARIATION_PASSWORD
         }
         val confirmInput = EditText(this).apply {
-            hint = "再次输入新密码"; inputType = InputType.TYPE_TEXT_VARIATION_PASSWORD
+            hint = getString(R.string.settings_confirm_password_hint)
+            inputType = InputType.TYPE_TEXT_VARIATION_PASSWORD
         }
         container.addView(pwdInput)
         container.addView(confirmInput)
 
         AlertDialog.Builder(this)
-            .setTitle("设置新的同步密码")
+            .setTitle(R.string.settings_set_new_sync_password)
             .setView(container)
-            .setPositiveButton("确认找回") { _, _ ->
+            .setPositiveButton(R.string.settings_confirm_recover) { _, _ ->
                 val pwd = pwdInput.text?.toString().orEmpty()
                 val confirm = confirmInput.text?.toString().orEmpty()
                 when {
-                    pwd.isBlank() -> Toast.makeText(this, "新密码不能为空", Toast.LENGTH_SHORT).show()
-                    pwd != confirm -> Toast.makeText(this, "两次输入的密码不一致", Toast.LENGTH_SHORT).show()
+                    pwd.isBlank() -> Toast.makeText(this, getString(R.string.settings_password_empty), Toast.LENGTH_SHORT).show()
+                    pwd != confirm -> Toast.makeText(this, getString(R.string.settings_password_mismatch_input), Toast.LENGTH_SHORT).show()
                     else -> runRecovery(recoveryCode, pwd)
                 }
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton(R.string.cancel, null)
             .show()
     }
 
     private fun runRecovery(recoveryCode: String, newPassword: String) {
         val progress = AlertDialog.Builder(this)
-            .setTitle("正在找回")
-            .setMessage("正在验证恢复码并同步云端数据，请稍候…")
+            .setTitle(R.string.settings_recovering_title)
+            .setMessage(R.string.settings_recovering_message)
             .setCancelable(false)
             .show()
 
@@ -1160,78 +1196,62 @@ class SettingsActivity : AppCompatActivity() {
             updateSyncPasswordVisibility()
 
             val msg = if (report.isSuccess) {
-                "密码已重置，云端数据已恢复（${report.toSummaryString()}）"
+                getString(R.string.settings_recovery_success, report.toSummaryString())
             } else {
-                "新同步密码已生效，但数据同步未完成：${report.result}，可稍后在首页手动同步"
+                getString(R.string.settings_recovery_sync_incomplete, report.result.toString())
             }
             AlertDialog.Builder(this@SettingsActivity)
-                .setTitle("找回完成")
+                .setTitle(R.string.settings_recovery_done_title)
                 .setMessage(msg)
-                .setPositiveButton("知道了", null)
+                .setPositiveButton(R.string.settings_got_it, null)
                 .show()
         }
     }
 
     private fun recoveryErrorText(result: SyncResult): String = when (result) {
-        SyncResult.ENCRYPTION_MISMATCH ->
-            "恢复码错误，或云端备份仍是旧版加密格式（需原设备先同步一次升级格式）"
-        SyncResult.NO_CONFIG -> "请先配置并保存 WebDAV 服务器信息"
-        SyncResult.NO_NETWORK -> "网络不可用，请检查连接后重试"
-        SyncResult.DOWNLOAD_FAILED -> "无法读取云端备份（HTTP ${WebDAVManager.lastResponseCode}）"
-        else -> "找回失败：$result"
+        SyncResult.ENCRYPTION_MISMATCH -> getString(R.string.settings_recovery_error_mismatch)
+        SyncResult.NO_CONFIG -> getString(R.string.settings_recovery_error_no_config)
+        SyncResult.NO_NETWORK -> getString(R.string.settings_recovery_error_no_network)
+        SyncResult.DOWNLOAD_FAILED ->
+            getString(R.string.settings_recovery_error_download, WebDAVManager.lastResponseCode)
+        else -> getString(R.string.settings_recovery_error_generic, result.toString())
     }
 
     private fun copyToClipboard(label: String, text: String) {
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         clipboard.setPrimaryClip(ClipData.newPlainText(label, text))
-        Toast.makeText(this, "$label 已复制", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, getString(R.string.settings_copied_fmt, label), Toast.LENGTH_SHORT).show()
     }
 
     private fun showWebDAVHelpDialog(config: WebDAVConfig) {
         val responseCodeInfo = if (WebDAVManager.lastResponseCode != 0) {
             val codeDesc = when (WebDAVManager.lastResponseCode) {
-                200 -> "成功"
-                201 -> "创建成功"
-                204 -> "无内容（成功）"
-                401 -> "认证失败，请检查用户名和密码"
-                403 -> "禁止访问"
-                404 -> "路径不存在"
-                405 -> "方法不允许"
-                429 -> "请求过于频繁，被服务端限流，请稍后重试"
-                500 -> "服务器内部错误"
-                503 -> "服务暂不可用（限流或过载），请稍后重试"
-                -1 -> "连接异常，请检查网络"
-                else -> "未知错误"
+                200 -> getString(R.string.webdav_status_200)
+                201 -> getString(R.string.webdav_status_201)
+                204 -> getString(R.string.webdav_status_204)
+                401 -> getString(R.string.webdav_status_401)
+                403 -> getString(R.string.webdav_status_403)
+                404 -> getString(R.string.webdav_status_404)
+                405 -> getString(R.string.webdav_status_405)
+                429 -> getString(R.string.webdav_status_429)
+                500 -> getString(R.string.webdav_status_500)
+                503 -> getString(R.string.webdav_status_503)
+                -1 -> getString(R.string.webdav_status_connection)
+                else -> getString(R.string.webdav_status_unknown)
             }
-            "服务器响应码: ${WebDAVManager.lastResponseCode}\n说明: $codeDesc\n\n"
+            getString(R.string.webdav_status_prefix, WebDAVManager.lastResponseCode, codeDesc)
         } else {
             ""
         }
 
         // 回显用户当前实际填写的地址，方便核对（不要展示与本账号无关的示例专属节点）
-        val currentServerUrl = config.serverUrl.ifBlank { "（未填写）" }
+        val currentServerUrl = config.serverUrl.ifBlank { getString(R.string.settings_not_filled) }
         val currentRemotePath = config.remotePath.ifBlank { "/" }
 
         AlertDialog.Builder(this)
-            .setTitle("连接失败")
-            .setMessage(
-                """
-                $responseCodeInfo
-                连接失败，请检查以下配置：
-
-                • 服务器地址：${currentServerUrl}
-                • 远程路径：${currentRemotePath}
-                • 用户名和密码：确保正确填写（部分服务需使用应用专用密码）
-                • 网络连接：确保设备可以访问外网
-
-                建议：
-                1. 先尝试把远程路径改为 "/"
-                2. 确认网盘已开启 WebDAV 功能
-                3. 401 时优先检查账号与密码（部分服务需使用应用专用密码，而非登录密码）
-                4. 尝试关闭 VPN 再测试
-                """.trimIndent()
-            )
-            .setPositiveButton("确定", null)
+            .setTitle(R.string.settings_connect_failed_title)
+            .setMessage(responseCodeInfo + getString(R.string.settings_webdav_help, currentServerUrl, currentRemotePath))
+            .setPositiveButton(R.string.common_ok, null)
             .show()
     }
     
@@ -1249,18 +1269,13 @@ class SettingsActivity : AppCompatActivity() {
 
         if (isFirstConfig && !syncEncryptionEffective) {
             AlertDialog.Builder(this)
-                .setTitle("云端备份未加密")
-                .setMessage(
-                    "即将保存 WebDAV 配置，但当前未开启有效的同步加密。\n\n" +
-                        "未加密时，考勤与工资数据会以明文上传到第三方 WebDAV 服务器" +
-                        "（仅靠 https 和账号密码保护）。\n\n" +
-                        "建议先开启上方的“同步加密”并设置密码，数据将经 AES-256 加密后再上传。"
-                )
-                .setPositiveButton("去开启加密") { _, _ ->
+                .setTitle(R.string.settings_cloud_unencrypted_title)
+                .setMessage(R.string.settings_cloud_unencrypted_message)
+                .setPositiveButton(R.string.settings_enable_encryption) { _, _ ->
                     binding.switchSyncEncryption.isChecked = true
                     binding.etSyncPassword.requestFocus()
                 }
-                .setNegativeButton("仍以明文保存") { _, _ -> doSaveWebDAVConfig(config) }
+                .setNegativeButton(R.string.settings_save_plaintext) { _, _ -> doSaveWebDAVConfig(config) }
                 .show()
         } else {
             doSaveWebDAVConfig(config)
@@ -1272,7 +1287,7 @@ class SettingsActivity : AppCompatActivity() {
         // 保存后恢复脱敏显示，后续仅聚焦修改时才显示明文
         webdavServerField.applySavedValue(config.serverUrl)
         webdavUsernameField.applySavedValue(config.username)
-        Toast.makeText(this, "WebDAV配置已保存", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, getString(R.string.settings_webdav_saved), Toast.LENGTH_SHORT).show()
     }
 
     private fun getCurrentWebDAVConfig(): WebDAVConfig? {
@@ -1282,7 +1297,7 @@ class SettingsActivity : AppCompatActivity() {
         val remotePath = binding.etWebDAVPath.text?.toString()?.trim() ?: "/"
         
         if (serverUrl.isNullOrEmpty() || username.isNullOrEmpty() || password.isNullOrEmpty()) {
-            Toast.makeText(this, "请填写完整的WebDAV配置信息", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.settings_webdav_incomplete), Toast.LENGTH_SHORT).show()
             return null
         }
         
@@ -1297,7 +1312,7 @@ class SettingsActivity : AppCompatActivity() {
         if (normalizedServerUrl.startsWith("http://")) {
             Toast.makeText(
                 this,
-                "应用已禁止明文 HTTP 流量，请使用 https:// 地址",
+                getString(R.string.settings_http_disabled),
                 Toast.LENGTH_LONG
             ).show()
         }
@@ -1323,16 +1338,16 @@ class SettingsActivity : AppCompatActivity() {
         specialDeduction: Double
     ): Boolean {
         if (socialInsuranceBase < 0 || housingFundBase < 0) {
-            Toast.makeText(this, "缴费基数不能为负数", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.settings_base_negative), Toast.LENGTH_SHORT).show()
             return false
         }
         val rates = listOf(pensionRate, medicalRate, unemploymentRate, housingFundRate)
         if (rates.any { it < 0 || it > 100 }) {
-            Toast.makeText(this, "个人缴纳比例应在0-100%之间", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.settings_ratio_invalid), Toast.LENGTH_SHORT).show()
             return false
         }
         if (specialDeduction < 0) {
-            Toast.makeText(this, "专项附加扣除不能为负数", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.settings_deduction_negative), Toast.LENGTH_SHORT).show()
             return false
         }
         return true
@@ -1340,19 +1355,24 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun validateInput(
         baseSalary: Double,
+        fixedBonus: Double,
         monthlyWorkDays: Double,
         dailyWorkHours: Double
     ): Boolean {
         if (baseSalary <= 0) {
-            Toast.makeText(this, "基本工资必须大于0", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.salary_invalid), Toast.LENGTH_SHORT).show()
+            return false
+        }
+        if (fixedBonus < 0) {
+            Toast.makeText(this, getString(R.string.settings_fixed_bonus_negative), Toast.LENGTH_SHORT).show()
             return false
         }
         if (monthlyWorkDays <= 0 || monthlyWorkDays > 31) {
-            Toast.makeText(this, "每月工作天数应在1-31之间", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.work_days_invalid), Toast.LENGTH_SHORT).show()
             return false
         }
         if (dailyWorkHours <= 0 || dailyWorkHours > 24) {
-            Toast.makeText(this, "每日工作时长应在0.1-24之间", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.work_hours_invalid), Toast.LENGTH_SHORT).show()
             return false
         }
         return true
@@ -1373,8 +1393,10 @@ class SettingsActivity : AppCompatActivity() {
 
         binding.btnCopyDeviceId.setOnClickListener {
             val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-            clipboard.setPrimaryClip(android.content.ClipData.newPlainText("设备ID", deviceId))
-            Toast.makeText(this, "设备 ID 已复制", Toast.LENGTH_SHORT).show()
+            clipboard.setPrimaryClip(
+                android.content.ClipData.newPlainText(getString(R.string.settings_device_id_label), deviceId)
+            )
+            Toast.makeText(this, getString(R.string.settings_device_id_copied), Toast.LENGTH_SHORT).show()
         }
 
         fun refreshStatus() {
@@ -1384,18 +1406,18 @@ class SettingsActivity : AppCompatActivity() {
                 is LocalLicenseState.Active -> {
                     val days = daysLeft ?: 0
                     val sourceLabel = when (state.source) {
-                        LicenseSource.SERVER -> "正式激活"
-                        LicenseSource.OFFLINE -> "离线激活"
+                        LicenseSource.SERVER -> getString(R.string.license_source_server)
+                        LicenseSource.OFFLINE -> getString(R.string.license_source_offline)
                     }
-                    if (days > 0) "$sourceLabel，剩余 $days 天"
-                    else "激活已过期（$sourceLabel）"
+                    if (days > 0) getString(R.string.license_active_days, sourceLabel, days)
+                    else getString(R.string.license_expired, sourceLabel)
                 }
                 is LocalLicenseState.FreeTrial -> {
                     val days = daysLeft ?: 0
-                    if (days > 0) "免费试用中，剩余 $days 天"
-                    else "免费试用已结束（可输入激活码继续使用）"
+                    if (days > 0) getString(R.string.license_trial_days, days)
+                    else getString(R.string.license_trial_ended)
                 }
-                LocalLicenseState.NO_LICENSE -> "未激活，输入激活码开始试用"
+                LocalLicenseState.NO_LICENSE -> getString(R.string.license_unactivated)
             }
             // 剩余 ≤3 天 / 已过期时用醒目的卡片底色
             val warnBg = when {
@@ -1419,26 +1441,26 @@ class SettingsActivity : AppCompatActivity() {
         binding.btnActivateTrial.setOnClickListener {
             val code = binding.etTrialCode.text?.toString()?.trim().orEmpty()
             if (code.isEmpty()) {
-                binding.tilTrialCode.error = "请输入激活码"
+                binding.tilTrialCode.error = getString(R.string.settings_enter_activation_code)
                 return@setOnClickListener
             }
             binding.tilTrialCode.error = null
             binding.btnActivateTrial.isEnabled = false
-            binding.btnActivateTrial.text = "激活中..."
+            binding.btnActivateTrial.text = getString(R.string.settings_activating)
             lifecycleScope.launch {
                 val result = licenseManager.redeemCode(code)
                 binding.btnActivateTrial.isEnabled = true
-                binding.btnActivateTrial.text = "激活 / 续期"
+                binding.btnActivateTrial.text = getString(R.string.settings_activate_button)
                 when (result) {
                     is RedeemResult.Success -> {
                         val days = result.response.remainingMs / (24L * 60L * 60L * 1000L)
                         val sourceLabel = when (result.source) {
-                            LicenseSource.SERVER -> "服务器验证"
-                            LicenseSource.OFFLINE -> "离线签名验证"
+                            LicenseSource.SERVER -> getString(R.string.license_source_server_verified)
+                            LicenseSource.OFFLINE -> getString(R.string.license_source_offline_verified)
                         }
                         Toast.makeText(
                             this@SettingsActivity,
-                            "🎉 激活成功（$sourceLabel）！剩余 ${days} 天",
+                            getString(R.string.settings_activation_success, sourceLabel, days),
                             Toast.LENGTH_LONG
                         ).show()
                         binding.etTrialCode.text?.clear()

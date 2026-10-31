@@ -2,6 +2,9 @@ package com.example.personalovertimerecord.utils
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.annotation.StringRes
+import com.example.personalovertimerecord.OvertimeApplication
+import com.example.personalovertimerecord.R
 import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.Dispatchers
@@ -72,7 +75,11 @@ object HolidayStore {
     private const val API_VERSION = 1
 
     /** 接口返回的节日 ID 未收录时的兜底名称 */
-    private const val API_FALLBACK_NAME = "节假日"
+    private val API_FALLBACK_NAME: String
+        get() = str(R.string.holiday_api_fallback_name)
+
+    private fun str(@StringRes id: Int, vararg args: Any): String =
+        OvertimeApplication.getInstance().getString(id, *args)
 
     private const val MAX_BYTES = 512 * 1024
     private val DATE_REGEX = Regex("""^\d{4}-\d{2}-\d{2}$""")
@@ -131,16 +138,16 @@ object HolidayStore {
     suspend fun refresh(context: Context, sourceUrl: String = SOURCE_URL): RefreshResult =
         withContext(Dispatchers.IO) {
             if (!NetworkUtils.isNetworkAvailable(context)) {
-                return@withContext RefreshResult.Failure("请先检查网络连接")
+                return@withContext RefreshResult.Failure(str(R.string.holiday_no_network))
             }
 
             // 主源失败（如 raw.githubusercontent.com 不可达或文件未发布）时依次尝试 CDN 镜像
             val sources = listOf(sourceUrl) + FALLBACK_URLS.filter { it != sourceUrl }
-            var lastError = "没有可用的数据源"
+            var lastError = str(R.string.holiday_no_source)
 
             for (source in sources) {
                 if (!source.startsWith("https://")) {
-                    lastError = "数据源必须使用 https"
+                    lastError = str(R.string.holiday_source_https)
                     continue
                 }
 
@@ -148,7 +155,7 @@ object HolidayStore {
                     fetch(source)
                 } catch (e: Exception) {
                     AppLogger.e(TAG, "Fetch holiday data failed: $source", e)
-                    lastError = "下载失败（${e.message ?: e.javaClass.simpleName}）"
+                    lastError = str(R.string.holiday_download_failed, e.message ?: e.javaClass.simpleName)
                     continue
                 }
 
@@ -156,12 +163,12 @@ object HolidayStore {
                     gson.fromJson(raw, HolidayDataSet::class.java)
                 } catch (e: Exception) {
                     AppLogger.e(TAG, "Parse holiday data failed: $source", e)
-                    lastError = "数据格式错误"
+                    lastError = str(R.string.holiday_bad_format)
                     continue
                 }
 
                 if (data == null || !apply(data)) {
-                    lastError = "数据校验失败，已保留原有数据"
+                    lastError = str(R.string.holiday_validation_failed)
                     continue
                 }
 
@@ -184,7 +191,13 @@ object HolidayStore {
             if (apiResult is RefreshResult.Success) {
                 return@withContext apiResult
             }
-            RefreshResult.Failure("$lastError；兜底接口：${(apiResult as RefreshResult.Failure).message}")
+            RefreshResult.Failure(
+                str(
+                    R.string.holiday_fallback_suffix,
+                    lastError,
+                    (apiResult as RefreshResult.Failure).message
+                )
+            )
         }
 
     /**
@@ -197,7 +210,7 @@ object HolidayStore {
         val years = listOf(currentYear, currentYear + 1)
         val holidaysByYear = LinkedHashMap<Int, MutableMap<String, String>>()
         val makeupByYear = LinkedHashMap<Int, MutableSet<String>>()
-        var lastError = "接口暂无可用的节假日数据"
+        var lastError = str(R.string.holiday_api_no_data)
 
         years.forEachIndexed { index, year ->
             if (index > 0) delay(API_REQUEST_INTERVAL_MS)
@@ -206,22 +219,22 @@ object HolidayStore {
                 fetch(apiUrl(year), API_READ_TIMEOUT_MS)
             } catch (e: Exception) {
                 AppLogger.e(TAG, "Fetch holiday data from api failed: year=$year", e)
-                lastError = "请求失败（${e.message ?: e.javaClass.simpleName}）"
+                lastError = str(R.string.holiday_api_request_failed, e.message ?: e.javaClass.simpleName)
                 return@forEachIndexed
             }
 
             val response = runCatching { gson.fromJson(raw, ApiResponse::class.java) }.getOrNull()
             if (response == null) {
                 AppLogger.e(TAG, "Parse api response failed: year=$year")
-                lastError = "返回数据格式错误"
+                lastError = str(R.string.holiday_api_bad_response)
                 return@forEachIndexed
             }
             if (response.code != 0) {
                 AppLogger.w(TAG, "Api returned error: year=$year, code=${response.code}, msg=${response.msg}")
                 lastError = if (response.code == API_CODE_RATE_LIMIT) {
-                    "请求过于频繁，请稍后再试"
+                    str(R.string.holiday_api_rate_limited)
                 } else {
-                    "返回错误（code=${response.code}）"
+                    str(R.string.holiday_api_error_code, response.code)
                 }
                 return@forEachIndexed
             }
@@ -255,7 +268,7 @@ object HolidayStore {
         )
 
         if (!apply(data)) {
-            return RefreshResult.Failure("接口数据校验失败，已保留原有数据")
+            return RefreshResult.Failure(str(R.string.holiday_api_validation_failed))
         }
 
         // 与仓库 JSON 共用缓存结构，下次启动 loadCached 可直接注入
@@ -286,12 +299,12 @@ object HolidayStore {
     /** 设置页展示用：内置/在线数据覆盖的年份与版本 */
     fun describe(): String {
         val years = HolidayManager.getEffectiveYears()
-        if (years.isEmpty()) return "暂无可用数据"
+        if (years.isEmpty()) return str(R.string.holiday_describe_no_data)
         val range = if (years.size >= 2) "${years.first()} - ${years.last()}" else "${years.first()}"
         return if (HolidayManager.hasRemoteData()) {
-            "覆盖年份：$range · 在线数据 v${HolidayManager.getRemoteVersion()}"
+            str(R.string.holiday_describe_range_remote, range, HolidayManager.getRemoteVersion())
         } else {
-            "覆盖年份：$range · 当前使用内置数据"
+            str(R.string.holiday_describe_range_builtin, range)
         }
     }
 
@@ -308,14 +321,14 @@ object HolidayStore {
             val code = connection.responseCode
             if (code !in 200..299) throw IllegalStateException("HTTP $code")
             val declared = connection.contentLengthLong
-            if (declared > MAX_BYTES) throw IllegalStateException("响应过大")
+            if (declared > MAX_BYTES) throw IllegalStateException(str(R.string.holiday_response_too_large))
             val output = ByteArrayOutputStream()
             val buffer = ByteArray(8 * 1024)
             connection.inputStream.use { input ->
                 while (true) {
                     val read = input.read(buffer)
                     if (read < 0) break
-                    if (output.size() + read > MAX_BYTES) throw IllegalStateException("响应过大")
+                    if (output.size() + read > MAX_BYTES) throw IllegalStateException(str(R.string.holiday_response_too_large))
                     output.write(buffer, 0, read)
                 }
             }

@@ -71,7 +71,7 @@
                     android:layout_height="18dp"
                     android:layout_marginStart="4dp"
                     android:src="@drawable/ic_arrow_right"
-                    android:contentDescription="展开详情"
+                    android:contentDescription="@string/item_expand_details"
                     app:tint="@color/text_hint" />
 
             </LinearLayout>
@@ -95,7 +95,7 @@
                         android:id="@+id/tvOvertimeLabel"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="加班"
+                        android:text="@string/common_overtime"
                         android:textSize="11sp"
                         android:textColor="@color/record_type_overtime" />
 
@@ -120,7 +120,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="加点"
+                        android:text="@string/common_extra_hours"
                         android:textSize="11sp"
                         android:textColor="@color/record_type_extra" />
 
@@ -146,7 +146,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="请假"
+                        android:text="@string/common_leave"
                         android:textSize="11sp"
                         android:textColor="@color/record_type_leave" />
 
@@ -172,7 +172,7 @@
                         android:id="@+id/tvPayLabel"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="加班费"
+                        android:text="@string/overtime_pay"
                         android:textSize="11sp"
                         android:textColor="@color/text_secondary" />
 

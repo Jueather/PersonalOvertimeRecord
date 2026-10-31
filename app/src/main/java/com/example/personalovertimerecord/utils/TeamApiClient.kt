@@ -1,5 +1,7 @@
 package com.example.personalovertimerecord.utils
 
+import com.example.personalovertimerecord.OvertimeApplication
+import com.example.personalovertimerecord.R
 import com.example.personalovertimerecord.data.model.TeamAdminUserDto
 import com.example.personalovertimerecord.data.model.TeamApiException
 import com.example.personalovertimerecord.data.model.TeamChangePasswordRequest
@@ -39,6 +41,9 @@ class TeamApiClient(
     }
 
     private val gson = Gson()
+
+    private fun str(id: Int, vararg args: Any): String =
+        OvertimeApplication.getInstance().getString(id, *args)
 
     private fun endpoint(path: String): String = baseUrl.trimEnd('/') + path
 
@@ -186,15 +191,15 @@ class TeamApiClient(
                 throw when {
                     code == 401 -> TeamApiException(
                         TeamApiException.Kind.UNAUTHORIZED,
-                        serverMessage ?: "登录已失效，请重新登录"
+                        serverMessage ?: str(R.string.team_api_unauthorized)
                     )
                     code in 400..499 -> TeamApiException(
                         TeamApiException.Kind.CLIENT,
-                        serverMessage ?: "请求失败（HTTP $code）"
+                        serverMessage ?: str(R.string.team_api_request_failed, code)
                     )
                     else -> TeamApiException(
                         TeamApiException.Kind.SERVER,
-                        serverMessage ?: "服务器错误（HTTP $code）"
+                        serverMessage ?: str(R.string.team_api_server_error, code)
                     )
                 }
             }
@@ -203,7 +208,7 @@ class TeamApiClient(
         } catch (e: IOException) {
             throw TeamApiException(
                 TeamApiException.Kind.NETWORK,
-                "无法连接服务器：${e.message ?: "网络异常"}",
+                str(R.string.team_api_connect_failed, e.message ?: str(R.string.team_api_network_error)),
                 e
             )
         } finally {

@@ -228,7 +228,7 @@ class MainActivity : AppCompatActivity() {
     private fun runStartupChecks() {
         statusCard.visibility = View.VISIBLE
         statusProgress.visibility = View.VISIBLE
-        tvStatus.text = "系统检查中..."
+        tvStatus.text = getString(R.string.main_system_checking)
         
         startupCheckJob = lifecycleScope.launch {
             val errors = mutableListOf<String>()
@@ -239,22 +239,22 @@ class MainActivity : AppCompatActivity() {
                 database.attendanceDao().getAllRecordsSync() // 使用正确的方法名
                 // 加密库降级为明文库时向用户明示，避免数据保护被静默关闭
                 AppDatabase.encryptionFallbackReason?.let { reason ->
-                    errors.add("数据库加密不可用（$reason），数据保护已降级")
+                    errors.add(getString(R.string.main_db_encryption_unavailable, reason))
                 }
 
                 // 检查2: 设置加载
                 val settings = settingsManager.getSettings()
                 if (settings.baseSalary <= 0) {
-                    errors.add("基本工资未设置")
+                    errors.add(getString(R.string.main_base_salary_unset))
                 }
             } catch (e: Exception) {
-                errors.add("检查失败: ${e.message}")
+                errors.add(getString(R.string.main_check_failed, e.message ?: ""))
             }
             
             // 显示检查结果
             statusProgress.visibility = View.GONE
             if (errors.isEmpty()) {
-                tvStatus.text = "系统就绪"
+                tvStatus.text = getString(R.string.main_system_ready)
                 statusCard.setCardBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.status_success_container))
                 tvStatus.setTextColor(ContextCompat.getColor(this@MainActivity, R.color.status_success_on_container))
                 handler.postDelayed({
@@ -332,16 +332,12 @@ class MainActivity : AppCompatActivity() {
      * 不提供“忽略并继续”，避免以明文/无加密方式运行导致隐私数据落盘。
      */
     private fun showDatabaseInitError(e: Exception) {
-        val reason = AppDatabase.encryptionFallbackReason ?: e.message ?: "未知错误"
+        val reason = AppDatabase.encryptionFallbackReason ?: e.message ?: getString(R.string.main_unknown_error)
         AlertDialog.Builder(this)
-            .setTitle("数据库初始化失败")
-            .setMessage(
-                "无法以加密方式打开考勤数据库（$reason）。\n\n" +
-                    "为避免记录以明文保存，应用将退出。请稍后重试；" +
-                    "若持续失败，请先在旧版本中导出备份，再重新安装应用。"
-            )
+            .setTitle(getString(R.string.main_db_init_failed_title))
+            .setMessage(getString(R.string.main_db_init_failed_message, reason))
             .setCancelable(false)
-            .setPositiveButton("退出") { _, _ -> finish() }
+            .setPositiveButton(getString(R.string.common_exit)) { _, _ -> finish() }
             .show()
     }
     
@@ -429,8 +425,9 @@ class MainActivity : AppCompatActivity() {
     }
     
     private fun updateMonthYearText() {
-        binding.tvMonthYear.text = "${currentYear}年${currentMonth + 1}月"
-        binding.tvRecordSectionTitle.text = "${currentYear}年${currentMonth + 1}月加班记录"
+        binding.tvMonthYear.text = getString(R.string.main_month_year, currentYear, currentMonth + 1)
+        binding.tvRecordSectionTitle.text =
+            getString(R.string.main_month_records_format, currentYear, currentMonth + 1)
         calendarView.setMonth(currentYear, currentMonth)
     }
     
@@ -446,8 +443,8 @@ class MainActivity : AppCompatActivity() {
     
     private fun updateCurrentDate() {
         val currentDate = Date()
-        binding.tvCurrentDate.text = DateUtils.formatToChineseDate(currentDate)
-        binding.tvCurrentWeekday.text = DateUtils.getChineseWeekday(currentDate)
+        binding.tvCurrentDate.text = Formatter.formatFullDate(currentDate)
+        binding.tvCurrentWeekday.text = Formatter.getWeekdayName(currentDate)
         lastKnownDate = todayKey()
     }
 
@@ -532,7 +529,11 @@ class MainActivity : AppCompatActivity() {
 
     /** 长按快捷菜单：编辑 / 删除 / 复制到其他日期 */
     private fun showRecordMenu(record: OvertimeRecord) {
-        val options = arrayOf("编辑记录", "删除记录", "复制到其他日期")
+        val options = arrayOf(
+            getString(R.string.record_menu_edit),
+            getString(R.string.record_delete_title),
+            getString(R.string.record_copy_to_date)
+        )
         AlertDialog.Builder(this)
             .setTitle(Formatter.formatDate(record.date))
             .setItems(options) { _, which ->
@@ -542,19 +543,19 @@ class MainActivity : AppCompatActivity() {
                     2 -> copyRecordToAnotherDate(record)
                 }
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton(getString(R.string.cancel), null)
             .show()
     }
 
     private fun confirmDeleteRecord(record: OvertimeRecord) {
         AlertDialog.Builder(this)
-            .setTitle("删除记录")
-            .setMessage("确定删除 ${Formatter.formatDate(record.date)} 的记录吗？删除会同步到其他设备。")
-            .setPositiveButton("删除") { _, _ ->
+            .setTitle(getString(R.string.record_delete_title))
+            .setMessage(getString(R.string.record_delete_message, Formatter.formatDate(record.date)))
+            .setPositiveButton(getString(R.string.delete)) { _, _ ->
                 viewModel.deleteAttendance(record)
                 updateCalendarData()
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton(getString(R.string.cancel), null)
             .show()
     }
 
@@ -569,16 +570,16 @@ class MainActivity : AppCompatActivity() {
             val newDate = DateUtils.formatDate(newYear, newMonth, newDay)
             when {
                 newDate > todayKey() -> Toast.makeText(
-                    this, "不能复制到未来日期", Toast.LENGTH_SHORT
+                    this, getString(R.string.record_copy_future), Toast.LENGTH_SHORT
                 ).show()
                 viewModel.allAttendance.value?.any { it.date == newDate } == true ->
-                    Toast.makeText(this, "该日期已有记录，请直接编辑", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.record_copy_exists), Toast.LENGTH_SHORT).show()
                 else -> {
                     viewModel.addAttendance(
                         record.copy(id = 0L, date = newDate, createdAt = System.currentTimeMillis())
                     )
                     updateCalendarData()
-                    Toast.makeText(this, "已复制到 ${Formatter.formatDate(newDate)}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, getString(R.string.record_copied, Formatter.formatDate(newDate)), Toast.LENGTH_SHORT).show()
                 }
             }
         }, year, month, day).show()
@@ -600,7 +601,9 @@ class MainActivity : AppCompatActivity() {
 
         binding.chipSort.setOnClickListener {
             sortByAmount = !sortByAmount
-            binding.chipSort.text = if (sortByAmount) "按金额" else "按日期"
+            binding.chipSort.text = getString(
+            if (sortByAmount) R.string.main_sort_by_amount else R.string.main_sort_by_date
+        )
             adapter.clearExpandedState()
             applyRecordFilter()
         }
@@ -681,7 +684,12 @@ class MainActivity : AppCompatActivity() {
         val firstOffset = (firstOfMonth.get(Calendar.DAY_OF_WEEK) + 5) % 7
         val weekNo = (day + firstOffset - 1) / 7 + 1
 
-        val label = "第 $weekNo 周 · ${monthDayFormat.format(weekStart.time)} – ${monthDayFormat.format(weekEnd.time)}"
+        val label = getString(
+            R.string.main_week_header,
+            weekNo,
+            monthDayFormat.format(weekStart.time),
+            monthDayFormat.format(weekEnd.time)
+        )
         return key to label
     }
     
@@ -712,14 +720,14 @@ class MainActivity : AppCompatActivity() {
     
     private fun showSyncDialog() {
         val options = arrayOf(
-            "智能双向同步（推荐）",
-            "仅上传到云端",
-            "仅从云端下载",
-            "完全覆盖同步"
+            getString(R.string.sync_menu_bidirectional),
+            getString(R.string.sync_menu_upload),
+            getString(R.string.sync_menu_download),
+            getString(R.string.sync_menu_overwrite)
         )
         
         AlertDialog.Builder(this)
-            .setTitle("WebDAV 同步")
+            .setTitle(getString(R.string.settings_webdav_title))
             .setItems(options) { _, which ->
                 val (direction, options) = when (which) {
                     0 -> SyncDirection.BIDIRECTIONAL to SyncPresets.SMART_SYNC
@@ -730,7 +738,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 performSync(direction, options)
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton(getString(R.string.cancel), null)
             .show()
     }
     
@@ -740,26 +748,28 @@ class MainActivity : AppCompatActivity() {
     ) {
         // 用顶部半透明调试面板替代模态进度框：不阻塞界面，实时展示同步各阶段
         syncDebugLines.clear()
-        appendSyncDebugLine("开始同步…")
+        appendSyncDebugLine(getString(R.string.sync_start))
 
         lifecycleScope.launch {
             val report = syncManager.performSync(direction, options)
 
             val baseMessage = when (report.result) {
-                SyncResult.SUCCESS -> "同步成功！"
-                SyncResult.NO_CONFIG -> "请先在设置中配置 WebDAV"
-                SyncResult.NO_NETWORK -> "网络不可用，请检查网络连接"
-                SyncResult.CONNECTION_FAILED -> "连接失败（服务器响应码 ${WebDAVManager.lastResponseCode}），请检查网络和配置"
-                SyncResult.UPLOAD_FAILED -> "上传失败"
-                SyncResult.DOWNLOAD_FAILED -> "下载失败（服务器响应码 ${WebDAVManager.lastResponseCode}）"
-                SyncResult.RESTORE_FAILED -> "恢复数据失败"
-                SyncResult.NO_CHANGES -> "没有需要同步的更改"
-                SyncResult.CONFLICT -> "存在数据冲突，请手动处理"
-                SyncResult.ENCRYPTION_MISMATCH -> "云端数据已加密且密码不匹配，可在「设置-云端同步加密」中检查密码，或用恢复码找回"
+                SyncResult.SUCCESS -> getString(R.string.sync_success)
+                SyncResult.NO_CONFIG -> getString(R.string.sync_no_config)
+                SyncResult.NO_NETWORK -> getString(R.string.sync_no_network)
+                SyncResult.CONNECTION_FAILED ->
+                    getString(R.string.sync_connection_failed, WebDAVManager.lastResponseCode)
+                SyncResult.UPLOAD_FAILED -> getString(R.string.sync_upload_failed)
+                SyncResult.DOWNLOAD_FAILED ->
+                    getString(R.string.sync_download_failed, WebDAVManager.lastResponseCode)
+                SyncResult.RESTORE_FAILED -> getString(R.string.sync_restore_failed)
+                SyncResult.NO_CHANGES -> getString(R.string.sync_no_changes)
+                SyncResult.CONFLICT -> getString(R.string.sync_conflict)
+                SyncResult.ENCRYPTION_MISMATCH -> getString(R.string.sync_encryption_mismatch)
             }
             // 成功时附带同步统计细节
             val message = if (report.isSuccess) {
-                "$baseMessage（${report.toSummaryString()}）"
+                getString(R.string.sync_result_detail, baseMessage, report.toSummaryString())
             } else {
                 baseMessage
             }
@@ -770,16 +780,13 @@ class MainActivity : AppCompatActivity() {
             // 旧加密数据首次迁移为信封格式时，新恢复码已生成，必须醒目提醒用户离线保存
             if (report.recoveryCodeGenerated) {
                 AlertDialog.Builder(this@MainActivity)
-                    .setTitle("请立即保存恢复码")
-                    .setMessage(
-                        "你的云端备份已升级为恢复码兜底加密。恢复码是忘记同步密码后找回数据的唯一方式，" +
-                            "请马上到「设置 → 云端同步加密 → 查看恢复码」抄写或截图离线保存。"
-                    )
+                    .setTitle(getString(R.string.sync_recovery_title))
+                    .setMessage(getString(R.string.sync_recovery_message))
                     .setCancelable(false)
-                    .setPositiveButton("去查看") { _, _ ->
+                    .setPositiveButton(getString(R.string.sync_recovery_view)) { _, _ ->
                         startActivity(android.content.Intent(this@MainActivity, SettingsActivity::class.java))
                     }
-                    .setNegativeButton("稍后", null)
+                    .setNegativeButton(getString(R.string.common_later), null)
                     .show()
             }
         }
@@ -873,9 +880,9 @@ class MainActivity : AppCompatActivity() {
             // 当月有记录但被筛选条件全部过滤掉时，提示"无匹配"而不是"暂无考勤记录"
             val filteredOut = monthRecords.isNotEmpty()
             binding.tvEmptyTitle.text =
-                if (filteredOut) "当前筛选无记录" else getString(R.string.no_attendance)
+                if (filteredOut) getString(R.string.main_filter_empty) else getString(R.string.no_attendance)
             binding.tvEmptyHint.text =
-                if (filteredOut) "试试切换到「全部」" else getString(R.string.no_attendance_hint)
+                if (filteredOut) getString(R.string.main_filter_empty_hint) else getString(R.string.no_attendance_hint)
             binding.recyclerView.visibility = View.GONE
             binding.emptyStateLayout.visibility = View.VISIBLE
         } else {
@@ -904,15 +911,18 @@ class MainActivity : AppCompatActivity() {
         }
 
         val performanceBonus = currentSettings.baseSalary * (currentSettings.performancePercent / 100.0)
-        val totalPay = currentSettings.baseSalary + performanceBonus + totalOvertimePay
+        val totalPay = currentSettings.baseSalary + performanceBonus + currentSettings.fixedBonus + totalOvertimePay
 
         binding.tvTotalOvertime.text = Formatter.formatHours(totalHours)
         binding.tvTotalPay.text = Formatter.formatMoney(totalPay)
 
         // 仅当月存在夜班记录时展示班次拆分，避免默认白班场景的噪音
         if (nightShiftHours > 0) {
-            binding.tvShiftBreakdown.text =
-                "白班 ${Formatter.formatHoursShort(dayShiftHours)} · 夜班 ${Formatter.formatHoursShort(nightShiftHours)}"
+            binding.tvShiftBreakdown.text = getString(
+                R.string.main_shift_breakdown,
+                Formatter.formatHoursShort(dayShiftHours),
+                Formatter.formatHoursShort(nightShiftHours)
+            )
             binding.tvShiftBreakdown.visibility = View.VISIBLE
         } else {
             binding.tvShiftBreakdown.visibility = View.GONE
@@ -957,12 +967,12 @@ class MainActivity : AppCompatActivity() {
             (state is LocalLicenseState.Active && daysLeft != null && daysLeft <= 0) ||
                 (state is LocalLicenseState.FreeTrial && daysLeft != null && daysLeft <= 0) -> {
                 AlertDialog.Builder(this)
-                    .setTitle("试用已结束")
-                    .setMessage("您的试用期已结束。输入激活码可以继续使用，未激活期间核心功能不受影响。")
-                    .setPositiveButton("输入激活码") { _, _ ->
+                    .setTitle(getString(R.string.trial_ended_title))
+                    .setMessage(getString(R.string.trial_ended_message))
+                    .setPositiveButton(getString(R.string.trial_enter_code)) { _, _ ->
                         startActivity(Intent(this, SettingsActivity::class.java))
                     }
-                    .setNegativeButton("继续使用", null)
+                    .setNegativeButton(getString(R.string.trial_continue), null)
                     .setCancelable(true)
                     .show()
             }
@@ -971,12 +981,12 @@ class MainActivity : AppCompatActivity() {
                 (state is LocalLicenseState.FreeTrial && daysLeft != null && daysLeft in 1..3) -> {
                 if (shouldRemindToday()) {
                     AlertDialog.Builder(this)
-                        .setTitle("试用即将结束")
-                        .setMessage("您的试用还剩 $daysLeft 天，请在过期前激活以获得完整功能体验。")
-                        .setPositiveButton("输入激活码") { _, _ ->
+                        .setTitle(getString(R.string.trial_soon_title))
+                        .setMessage(getString(R.string.trial_soon_message, daysLeft))
+                        .setPositiveButton(getString(R.string.trial_enter_code)) { _, _ ->
                             startActivity(Intent(this, SettingsActivity::class.java))
                         }
-                        .setNegativeButton("稍后再说", null)
+                        .setNegativeButton(getString(R.string.trial_later), null)
                         .setCancelable(true)
                         .show()
                 }

@@ -6,7 +6,9 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
 import android.provider.CalendarContract
+import androidx.annotation.StringRes
 import androidx.core.content.ContextCompat
+import com.example.personalovertimerecord.R
 import com.example.personalovertimerecord.data.LeaveType
 import com.example.personalovertimerecord.data.ShiftType
 import com.example.personalovertimerecord.data.db.AppDatabase
@@ -78,6 +80,8 @@ class CalendarSyncManager(private val context: Context) {
     private val dao = db.attendanceDao()
     private val linkDao = db.calendarLinkDao()
 
+    private fun str(@StringRes id: Int, vararg args: Any): String = context.getString(id, *args)
+
     fun hasPermission(): Boolean {
         val read = ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CALENDAR)
         val write = ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_CALENDAR)
@@ -86,24 +90,25 @@ class CalendarSyncManager(private val context: Context) {
 
     /** 设置页状态文案：权限 / 目标日历 / 上次同步结果 */
     fun describeStatus(): String {
-        if (!hasPermission()) return "未授权日历读写权限"
-        val calendar = findTargetCalendar() ?: return "未找到可写入的系统日历"
+        if (!hasPermission()) return str(R.string.calendar_status_no_permission)
+        val calendar = findTargetCalendar() ?: return str(R.string.calendar_status_no_calendar)
         val prefs = prefs()
         val lastSync = prefs.getLong(KEY_LAST_SYNC, 0L)
         val summary = prefs.getString(KEY_LAST_SUMMARY, null)
+        val targetLine = str(R.string.calendar_status_target_fmt, calendar.name)
         return if (lastSync > 0L && !summary.isNullOrBlank()) {
-            "目标日历：${calendar.name}\n上次同步：${formatTime(lastSync)} · $summary"
+            targetLine + "\n" + str(R.string.calendar_status_last_sync_fmt, formatTime(lastSync), summary)
         } else {
-            "目标日历：${calendar.name}\n尚未同步"
+            targetLine + "\n" + str(R.string.calendar_status_never_synced)
         }
     }
 
     suspend fun sync(): SyncReport = withContext(Dispatchers.IO) {
         if (!hasPermission()) {
-            return@withContext SyncReport(error = "请先授予日历读写权限")
+            return@withContext SyncReport(error = str(R.string.calendar_err_permission))
         }
         val target = findTargetCalendar()
-            ?: return@withContext SyncReport(error = "没有可写入的系统日历，请先在系统日历中登录账号")
+            ?: return@withContext SyncReport(error = str(R.string.calendar_err_no_calendar))
 
         try {
             val report = SyncGate.lock { performSync(target) }
@@ -116,7 +121,10 @@ class CalendarSyncManager(private val context: Context) {
             report
         } catch (e: Exception) {
             AppLogger.e(TAG, "Calendar sync failed", e)
-            SyncReport(error = "同步失败：${e.message ?: e.javaClass.simpleName}", calendarName = target.name)
+            SyncReport(
+                error = str(R.string.calendar_err_sync_fmt, e.message ?: e.javaClass.simpleName),
+                calendarName = target.name
+            )
         }
     }
 
@@ -325,7 +333,7 @@ class CalendarSyncManager(private val context: Context) {
             if (cursor.moveToFirst()) {
                 return TargetCalendar(
                     id = cursor.getLong(0),
-                    name = cursor.getString(1) ?: "系统日历"
+                    name = cursor.getString(1) ?: str(R.string.calendar_default_name)
                 )
             }
         }
@@ -583,11 +591,17 @@ class CalendarSyncManager(private val context: Context) {
 
     private fun saveLastSync(report: SyncReport) {
         val summary = buildString {
-            append("推送 ${report.pushed}")
-            append(" · 回写 ${report.pulled}")
-            if (report.deletedFromCalendar > 0) append(" · 日历删除 ${report.deletedFromCalendar}")
-            if (report.deletedFromApp > 0) append(" · 清理事件 ${report.deletedFromApp}")
-            if (report.skipped > 0) append(" · 跳过 ${report.skipped}")
+            append(str(R.string.calendar_summary_pushed, report.pushed))
+            append(" · ").append(str(R.string.calendar_summary_pulled, report.pulled))
+            if (report.deletedFromCalendar > 0) {
+                append(" · ").append(str(R.string.calendar_summary_deleted_calendar, report.deletedFromCalendar))
+            }
+            if (report.deletedFromApp > 0) {
+                append(" · ").append(str(R.string.calendar_summary_deleted_app, report.deletedFromApp))
+            }
+            if (report.skipped > 0) {
+                append(" · ").append(str(R.string.calendar_summary_skipped, report.skipped))
+            }
         }
         prefs().edit()
             .putLong(KEY_LAST_SYNC, System.currentTimeMillis())

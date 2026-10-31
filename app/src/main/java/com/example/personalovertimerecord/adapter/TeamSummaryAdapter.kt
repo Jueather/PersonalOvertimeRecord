@@ -85,8 +85,12 @@ class TeamSummaryAdapter(
             } else {
                 context.getString(R.string.team_role_member)
             }
-            val statusSuffix = if (user.isActive) "" else " · ${context.getString(R.string.team_set_active_disable)}"
-            tvMeta.text = "记录 ${user.recordCount} 条 · 创建于 ${dateFormat.format(Date(user.createdAt))}$statusSuffix"
+            val statusSuffix = if (user.isActive) "" else context.getString(R.string.team_status_disabled)
+            tvMeta.text = context.getString(
+                R.string.team_member_meta,
+                user.recordCount,
+                dateFormat.format(Date(user.createdAt)) + statusSuffix
+            )
 
             btnResetPassword.setOnClickListener { onResetPassword(user) }
             btnToggle.text = if (user.isActive) {

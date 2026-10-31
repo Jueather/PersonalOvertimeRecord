@@ -57,14 +57,16 @@ object BiometricManager {
      */
     fun showAuthenticationPrompt(
         activity: FragmentActivity,
-        title: String = "身份验证",
-        subtitle: String = "请使用指纹或面容解锁",
+        title: String? = null,
+        subtitle: String? = null,
         description: String = "",
         onSuccess: () -> Unit,
         onError: (String) -> Unit,
         onCancel: () -> Unit
     ) {
         val executor = ActivityCompat.getMainExecutor(activity)
+        val resolvedTitle = title ?: activity.getString(com.example.personalovertimerecord.R.string.biometric_title)
+        val resolvedSubtitle = subtitle ?: activity.getString(com.example.personalovertimerecord.R.string.biometric_subtitle)
         
         val biometricPrompt = androidx.biometric.BiometricPrompt(activity, executor, 
             object : androidx.biometric.BiometricPrompt.AuthenticationCallback() {
@@ -91,8 +93,8 @@ object BiometricManager {
             })
         
         val promptInfoBuilder = androidx.biometric.BiometricPrompt.PromptInfo.Builder()
-            .setTitle(title)
-            .setSubtitle(subtitle)
+            .setTitle(resolvedTitle)
+            .setSubtitle(resolvedSubtitle)
             .setDescription(description)
             .setAllowedAuthenticators(
                 androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG or 

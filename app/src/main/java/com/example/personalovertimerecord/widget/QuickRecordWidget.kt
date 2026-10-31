@@ -48,9 +48,12 @@ class QuickRecordWidget : AppWidgetProvider() {
             val summary = QuickEntrySummaryLoader.load(context)
             val views = RemoteViews(context.packageName, R.layout.widget_quick_record)
 
-            views.setTextViewText(R.id.tvWidgetMonth, "${summary.month}月")
+            views.setTextViewText(R.id.tvWidgetMonth, context.getString(R.string.widget_month_fmt, summary.month))
             views.setTextViewText(R.id.tvWidgetHours, Formatter.formatHoursShort(summary.totalHours))
-            views.setTextViewText(R.id.tvWidgetPay, "实发 " + Formatter.formatMoney(summary.netSalary))
+            views.setTextViewText(
+                R.id.tvWidgetPay,
+                context.getString(R.string.widget_net_salary_fmt, Formatter.formatMoney(summary.netSalary))
+            )
 
             views.setOnClickPendingIntent(
                 R.id.btnWidgetOvertime,

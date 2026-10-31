@@ -1,6 +1,9 @@
 package com.example.personalovertimerecord.utils
 
 import android.content.Context
+import androidx.annotation.StringRes
+import com.example.personalovertimerecord.OvertimeApplication
+import com.example.personalovertimerecord.R
 import com.example.personalovertimerecord.data.db.AttendanceEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -14,6 +17,9 @@ import java.io.InputStreamReader
  * 支持引号包裹字段内的换行（字段内换行的备注不再断行错位）。
  */
 object CsvImporter {
+
+    private fun str(@StringRes id: Int, vararg args: Any): String =
+        OvertimeApplication.getInstance().getString(id, *args)
 
     data class ImportResult(
         val success: Boolean,
@@ -68,10 +74,7 @@ object CsvImporter {
 
                             else -> {
                                 aborted = true
-                                errors.add(
-                                    "无法识别的文件：首行不是有效表头（需包含“日期/date”列），" +
-                                        "也不是日期开头的数据行。请使用标准 CSV 导出文件或按帮助文案构造。"
-                                )
+                                errors.add(str(R.string.csv_import_unrecognized_file))
                             }
                         }
                     }
@@ -87,7 +90,7 @@ object CsvImporter {
                         entities.add(AttendanceEntity.fromRecord(record))
                     } else {
                         failedCount++
-                        errors.add("第${recordIndex}条：日期缺失或格式无法识别，已跳过")
+                        errors.add(str(R.string.csv_import_row_error, recordIndex))
                     }
                 }
 
@@ -112,17 +115,20 @@ object CsvImporter {
                     importedCount = toInsert.size
                     val skippedCount = entities.size - toInsert.size
                     if (skippedCount > 0) {
-                        errors.add("跳过 $skippedCount 条已存在的重复日期记录")
+                        errors.add(str(R.string.csv_import_skipped_existing, skippedCount))
                     }
                 }
             }
 
             val success = !aborted && failedCount == 0
             val message = when {
-                aborted -> "导入中止：${errors.firstOrNull() ?: "文件格式无法识别"}"
-                success -> "成功导入 $importedCount 条记录"
-                importedCount > 0 -> "成功导入 $importedCount 条记录，失败 $failedCount 条"
-                else -> "导入失败，没有成功导入任何记录"
+                aborted -> str(
+                    R.string.csv_import_aborted_fmt,
+                    errors.firstOrNull() ?: str(R.string.csv_import_unrecognized)
+                )
+                success -> str(R.string.csv_import_success, importedCount)
+                importedCount > 0 -> str(R.string.csv_import_partial, importedCount, failedCount)
+                else -> str(R.string.csv_import_failed_all)
             }
 
             return ImportResult(
@@ -135,8 +141,8 @@ object CsvImporter {
         } catch (e: Exception) {
             return ImportResult(
                 success = false,
-                message = "导入失败：${e.message}",
-                errors = listOf(e.message ?: "未知错误")
+                message = str(R.string.csv_import_failed_fmt, e.message ?: ""),
+                errors = listOf(e.message ?: str(R.string.csv_import_unknown_error))
             )
         }
     }
@@ -163,24 +169,6 @@ object CsvImporter {
      * 获取支持的CSV格式说明
      */
     fun getSupportedFormatDescription(): String {
-        return """支持的CSV格式：
-- 编码：UTF-8；分隔符：逗号(,)
-- 首行表头（推荐，列序不限，多余列自动忽略）：
-  $CSV_HEADER
-- 请假记录请填写：请假(是/否), 请假类型(年假/病假/…), 请假天数
-- 加班类型/加班费为展示列，导入时忽略（加班费按薪资设置实时计算）
-- 兼容旧版导出表头，如“加班时长(小时)”“加班费(元)”
-- 兼容无表头文件（按列序：日期,上班时间,下班时间,加班时长,额外时长,备注）
-
-示例：
-日期,上班时间,下班时间,加班时长,加班类型,加班费,额外时长,请假,请假类型,请假天数,备注
-2024-01-01,09:00,18:00,1.5,平时,28.74,0.0,否,无,0.0,元旦加班
-2024-01-02,无,无,0.0,平时,0.00,0.0,是,年假,8.0,休年假
-
-支持的日期格式：
-- yyyy-MM-dd (推荐)
-- yyyy/MM/dd
-- yyyy年MM月dd日
-- yyyyMMdd"""
+        return str(R.string.csv_import_format_desc, CSV_HEADER)
     }
 }

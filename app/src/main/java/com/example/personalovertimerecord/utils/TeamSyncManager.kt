@@ -1,6 +1,7 @@
 package com.example.personalovertimerecord.utils
 
 import android.content.Context
+import com.example.personalovertimerecord.R
 import com.example.personalovertimerecord.data.OvertimeSettings
 import com.example.personalovertimerecord.data.SettingsManager
 import com.example.personalovertimerecord.data.db.AppDatabase
@@ -90,7 +91,7 @@ class TeamSyncManager(
                 TeamSyncReport(TeamSyncResult.FAILED, message = TeamErrors.message(e))
             } catch (e: Exception) {
                 AppLogger.e("团队同步异常", e)
-                TeamSyncReport(TeamSyncResult.FAILED, message = e.message ?: "未知错误")
+                TeamSyncReport(TeamSyncResult.FAILED, message = e.message ?: context.getString(R.string.team_sync_unknown_error))
             }
         }
     }

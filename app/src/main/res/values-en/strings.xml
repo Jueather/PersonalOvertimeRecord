@@ -1,0 +1,956 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Twilight</string>
+
+    <!-- Common Messages -->
+    <string name="settings_saved">Settings saved</string>
+    <string name="save_failed">Failed to save</string>
+    <string name="load_failed">Failed to load data. Please try again later.</string>
+    <string name="add_failed">Failed to add record. Please try again later.</string>
+    <string name="update_failed">Failed to update record. Please try again later.</string>
+    <string name="delete_failed">Failed to delete record. Please try again later.</string>
+    <string name="get_failed">Failed to fetch records. Please try again later.</string>
+
+    <!-- Input Validation -->
+    <string name="input_required">Enter overtime or extra hours</string>
+    <string name="input_error">Invalid input</string>
+    <string name="overtime_negative">Overtime hours cannot be negative</string>
+    <string name="extra_negative">Extra hours cannot be negative</string>
+    <string name="overtime_exceed">Daily overtime hours cannot exceed 24</string>
+    <string name="extra_exceed">Daily extra hours cannot exceed 24</string>
+    <string name="overtime_invalid">Enter valid overtime or extra hours</string>
+
+    <!-- Settings Validation -->
+    <string name="salary_invalid">Base salary must be greater than 0</string>
+    <string name="work_days_invalid">Monthly workdays must be between 1 and 31</string>
+    <string name="work_hours_invalid">Daily work hours must be between 0.1 and 24</string>
+    <string name="rate_invalid">Overtime rate cannot be less than 1</string>
+
+    <!-- Settings Labels -->
+    <string name="shift_selection">Shift</string>
+    <string name="day_shift">Day shift 8h (8:00-12:00, 13:00-17:00)</string>
+    <string name="custom_shift">Custom shift</string>
+    <string name="work_start_time">Start time</string>
+    <string name="work_end_time">End time</string>
+    <string name="overtime_rate_settings">Overtime pay multipliers</string>
+    <string name="normal_overtime">Weekday overtime</string>
+    <string name="weekend_overtime">Weekend overtime</string>
+    <string name="holiday_overtime">Public holiday overtime</string>
+    <string name="salary_settings">Salary settings</string>
+    <string name="base_salary">Base salary (CNY)</string>
+    <string name="performance_percent">Performance percentage (%)</string>
+    <string name="monthly_work_days">Monthly workdays</string>
+    <string name="daily_work_hours">Daily work hours</string>
+    <string name="save_settings">Save settings</string>
+    <string name="settings_title">Overtime settings</string>
+
+    <!-- Dialog Labels -->
+    <string name="add_overtime">Add overtime record</string>
+    <string name="edit_overtime">Edit overtime record</string>
+    <string name="edit_attendance">Edit attendance record</string>
+    <string name="overtime_hours_hint">Overtime hours (h)</string>
+    <string name="extra_hours_hint">Extra hours (h) - after work on weekdays</string>
+    <string name="extra_hours_hint_desc">(Leave blank to skip; overtime and extra hours are calculated separately)</string>
+    <string name="note_hint">Note (optional)</string>
+    <string name="delete">Delete</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+
+    <!-- Reports -->
+    <string name="monthly_overview">Monthly overview</string>
+    <string name="salary_overview">Salary overview</string>
+    <string name="total_days">Total days</string>
+    <string name="total_hours">Total hours</string>
+    <string name="total_pay">Total amount</string>
+    <string name="base_salary_label">Base salary</string>
+    <string name="performance_bonus">Performance bonus</string>
+    <string name="overtime_pay">Overtime pay</string>
+    <string name="total_salary">Gross salary</string>
+    <string name="monthly_overtime_chart">Monthly overtime hours</string>
+    <string name="overtime_distribution">Overtime distribution</string>
+    <string name="monthly_overtime_trend">Monthly overtime trend</string>
+
+    <!-- Chart Labels -->
+    <string name="workday">Weekday</string>
+    <string name="weekend">Weekend</string>
+    <string name="holiday">Holiday</string>
+
+    <!-- Empty State -->
+    <string name="no_attendance">No attendance records</string>
+    <string name="no_attendance_hint">Tap a date on the calendar to add an overtime record</string>
+
+    <!-- Common -->
+    <string name="settings">Settings</string>
+    <string name="report">Reports</string>
+    <string name="cloud_sync">Cloud sync</string>
+
+    <!-- Team Sync -->
+    <string name="team_sync">Team sync</string>
+    <string name="team_server_url">Server URL (https://…)</string>
+    <string name="team_username">Username</string>
+    <string name="team_password">Password</string>
+    <string name="hold_to_view_password">Hold to view password</string>
+    <string name="team_new_password">New password (at least 6 characters)</string>
+    <string name="team_old_password">Current password</string>
+    <string name="team_login">Log in</string>
+    <string name="team_login_success">Logged in</string>
+    <string name="team_logout">Log out</string>
+    <string name="team_sync_now">Sync now</string>
+    <string name="team_change_password">Change password</string>
+    <string name="team_password_changed">Password changed</string>
+    <string name="team_logged_in_as">Logged in: %1$s (%2$s)</string>
+    <string name="team_role_admin">Admin</string>
+    <string name="team_role_member">Member</string>
+    <string name="team_last_sync">Last sync: %1$s</string>
+    <string name="team_sync_success">Sync complete: %1$d in cloud / %2$d local, %3$d merged</string>
+    <string name="team_sync_no_changes">Up to date; no changes</string>
+    <string name="team_sync_failed">Sync failed: %1$s</string>
+    <string name="team_sync_unknown_error">Unknown error</string>
+    <string name="team_login_failed">Login failed: %1$s</string>
+    <string name="team_error_network">Cannot connect to the server. Check your network and server URL.</string>
+    <string name="team_error_unauthorized">Session expired. Please log in again.</string>
+    <string name="team_error_server">Server error. Please try again later.</string>
+    <string name="team_admin_summary">All-member overtime summary</string>
+    <string name="team_member_no_summary">Only admins can view the all-member summary</string>
+    <string name="team_not_logged_in">Not logged in to a team server</string>
+    <string name="team_summary_title">All-member overtime summary</string>
+    <string name="team_create_user">Create member account</string>
+    <string name="team_create_user_username">Username</string>
+    <string name="team_create_user_display">Display name (optional)</string>
+    <string name="team_create_user_done">Created %1$s. Initial password: %2$s (shown once; please tell the user)</string>
+    <string name="team_reset_password">Reset password</string>
+    <string name="team_reset_password_done">New password: %1$s (shown once; please tell the user)</string>
+    <string name="team_set_active_enable">Enable</string>
+    <string name="team_set_active_disable">Disable</string>
+    <string name="team_cannot_disable_self">You cannot disable your own account</string>
+    <string name="team_refresh">Refresh</string>
+    <string name="team_summary_empty">No data</string>
+    <string name="team_summary_month">Month</string>
+    <string name="team_summary_member">Member</string>
+    <string name="team_summary_overtime">Overtime hours</string>
+    <string name="team_summary_leave">Leave hours</string>
+    <string name="team_summary_records">Records</string>
+    <string name="team_summary_leave_count">Leave count</string>
+    <string name="team_summary_filter_hint">Month range (e.g. 202601 - 202612, optional)</string>
+    <string name="team_summary_from">From month</string>
+    <string name="team_summary_to">To month</string>
+    <string name="team_summary_apply">Search</string>
+    <string name="team_summary_row_detail">Overtime %1$.1f h · Leave %2$.1f h · %3$d records · %4$d leaves</string>
+
+    <!-- Widget -->
+    <string name="widget_quick_record_description">Quickly record overtime/extra hours and view monthly hours and net salary</string>
+
+    <!-- Main screen -->
+    <string name="common_close">Close</string>
+    <string name="common_prev_month">Previous month</string>
+    <string name="common_next_month">Next month</string>
+    <string name="common_data_management">Data management</string>
+    <string name="common_report_title">Statistics report</string>
+    <string name="common_overtime">Overtime</string>
+    <string name="common_extra_hours">Extra hours</string>
+    <string name="common_leave">Leave</string>
+    <string name="common_night_shift">Night shift</string>
+    <string name="common_overtime_wage">Overtime pay</string>
+    <string name="common_zero_hours">0 hrs</string>
+    <string name="common_date_placeholder">2024-01-01</string>
+    <string name="common_month_placeholder">Jan 2024</string>
+    <string name="common_weekday_placeholder">Tuesday</string>
+    <string name="main_month_stats">This month</string>
+    <string name="main_month_salary">Monthly salary</string>
+    <string name="main_month_records">Overtime records this month</string>
+    <string name="main_records_hint">Tap a card to expand · long-press for more</string>
+    <string name="main_filter_all">All</string>
+    <string name="main_sort_by_date">By date</string>
+    <string name="main_system_checking">Checking system...</string>
+    <string name="main_sync_debug_placeholder">Checking sync config…\nTesting server connection…</string>
+
+    <!-- Reports -->
+    <string name="report_export">Export report</string>
+    <string name="report_overtime_days">Overtime days</string>
+    <string name="report_zero_days">0 days</string>
+    <string name="report_salary_breakdown">💰 Salary breakdown</string>
+    <string name="report_base_salary">Base salary</string>
+    <string name="report_performance">Performance</string>
+    <string name="report_fixed_bonus">Fixed bonus</string>
+    <string name="report_gross_total">Gross total</string>
+    <string name="report_insurance">Insurance &amp; housing fund (personal)</string>
+    <string name="report_tax">Income tax</string>
+    <string name="report_net_salary">Net salary</string>
+    <string name="report_payslip_title">🧾 Payslip details</string>
+    <string name="report_tax_note">Income tax uses cumulative withholding; threshold is CNY 5,000/month</string>
+    <string name="report_social_insurance_base">Social insurance base</string>
+    <string name="report_housing_fund_base">Housing fund base</string>
+    <string name="report_pension_insurance">Pension insurance</string>
+    <string name="report_medical_insurance">Medical insurance</string>
+    <string name="report_unemployment_insurance">Unemployment insurance</string>
+    <string name="report_housing_fund">Housing fund</string>
+    <string name="report_special_deduction">Monthly special deduction</string>
+    <string name="report_current_taxable">Taxable income this month</string>
+    <string name="report_cumulative_taxable">Cumulative taxable income</string>
+    <string name="report_hours_chart_title">📊 Monthly overtime / extra hours</string>
+    <string name="report_distribution_title">📈 Overtime type distribution this month</string>
+    <string name="report_trend_title">💹 Monthly overtime pay trend</string>
+
+    <!-- Settings -->
+    <string name="settings_activation_title">🎫 Activation</string>
+    <string name="settings_unactivated">Not activated</string>
+    <string name="settings_activation_code_hint">Enter activation code</string>
+    <string name="settings_activation_code_format_hint">Format: XXXXXXXXXXXXX-XXXXXXXXXXXXX (27 characters)</string>
+    <string name="settings_activate_button">Activate / Renew</string>
+    <string name="settings_server_offline">⚠️ Server not configured or offline</string>
+    <string name="settings_device_id_desc">Send the device ID below to the developer to get an offline activation code:</string>
+    <string name="settings_device_id">Device ID</string>
+    <string name="settings_copy">Copy</string>
+    <string name="settings_biometric_title">🔒 Biometric protection</string>
+    <string name="settings_biometric_verify_on_start">Verify identity at launch</string>
+    <string name="settings_biometric_unsupported">This device does not support biometrics</string>
+    <string name="settings_auto_sync">Auto sync</string>
+    <string name="settings_sync_interval">Sync interval</string>
+    <string name="settings_sync_wifi_only">Sync on Wi-Fi only</string>
+    <string name="settings_last_sync_never">Last sync: never</string>
+    <string name="settings_sync_now">Sync now</string>
+    <string name="settings_webdav_title">WebDAV sync</string>
+    <string name="settings_webdav_server_hint">Server address</string>
+    <string name="settings_webdav_username_hint">Username</string>
+    <string name="settings_webdav_password_hint">Password</string>
+    <string name="settings_webdav_path_hint">Remote path</string>
+    <string name="settings_test_connection">Test connection</string>
+    <string name="settings_save_config">Save configuration</string>
+    <string name="settings_appearance_title">Appearance</string>
+    <string name="settings_theme_system">Follow system</string>
+    <string name="settings_theme_light">Light mode</string>
+    <string name="settings_theme_dark">Dark mode</string>
+    <string name="settings_fixed_bonus_hint">Fixed bonus (CNY/month)</string>
+    <string name="settings_insurance_title">Insurance &amp; income tax</string>
+    <string name="settings_salary_note">Enter 0 for the contribution base to use the base salary; income tax uses cumulative withholding with a CNY 5,000/month threshold</string>
+    <string name="settings_social_insurance_base_hint">Social insurance base (CNY)</string>
+    <string name="settings_housing_fund_base_hint">Housing fund base (CNY)</string>
+    <string name="settings_pension_ratio_hint">Pension personal rate (%)</string>
+    <string name="settings_medical_ratio_hint">Medical personal rate (%)</string>
+    <string name="settings_unemployment_ratio_hint">Unemployment personal rate (%)</string>
+    <string name="settings_housing_fund_ratio_hint">Housing fund personal rate (%)</string>
+    <string name="settings_special_deduction_hint">Monthly special deductions (CNY)</string>
+    <string name="settings_quick_entry_title">Quick entry notification</string>
+    <string name="settings_quick_entry_desc">Keep “Overtime +1h / Extra +1h” shortcuts in the notification bar; can be turned off anytime</string>
+    <string name="settings_encryption_title">Data encryption</string>
+    <string name="settings_export_encrypt">Encrypt exported files</string>
+    <string name="settings_export_password_hint">Export password</string>
+    <string name="settings_sync_encrypt">Encrypt cloud sync</string>
+    <string name="settings_sync_password_hint">Sync password</string>
+    <string name="settings_recovery_reminder">A recovery code has been generated for your cloud data (the only way to recover a forgotten password). Tap “View recovery code” and write it down offline now.</string>
+    <string name="settings_view_sync_password">View sync password</string>
+    <string name="settings_view_recovery_code">View recovery code</string>
+    <string name="settings_forgot_password">Forgot sync password? Recover with a recovery code</string>
+    <string name="settings_encryption_note">• Export encryption: encrypt exported PDF/CSV files\n• Sync encryption: encrypt data uploaded to the cloud</string>
+    <string name="settings_team_login">Log in / Re-login</string>
+    <string name="settings_holiday_title">Holiday data</string>
+    <string name="settings_holiday_coverage_loading">Covered years: loading…</string>
+    <string name="settings_check_holiday_update">Check holiday updates</string>
+    <string name="settings_holiday_update_desc">Fetch the latest holidays and make-up workdays; built-in data is used when offline or verification fails.</string>
+    <string name="settings_calendar_title">Calendar sync</string>
+    <string name="settings_calendar_not_synced">Not synced</string>
+    <string name="settings_calendar_sync_now">Sync calendar now</string>
+    <string name="settings_calendar_sync_desc">Records are written to the main system calendar as all-day events (titles like “[Overtime] 2h”, “[Leave] Annual leave 1 day”); editing a title/date or deleting an event in the calendar writes back to the app. Calendar read/write permission is required.</string>
+    <string name="settings_update_title">App updates</string>
+    <string name="settings_current_version">Current version: v%1$s</string>
+    <string name="settings_check_update">Check for updates</string>
+    <string name="settings_changelog">Changelog</string>
+
+    <!-- Data manager -->
+    <string name="data_title">Data management</string>
+    <string name="data_backup_title">Data backup &amp; restore</string>
+    <string name="data_backup_desc">Export data to a JSON file on this device, or restore data from a file.</string>
+    <string name="data_export_desc">Export all data (including settings and records) as a JSON file</string>
+    <string name="data_export">Export data</string>
+    <string name="data_import">Import data</string>
+    <string name="data_import_desc">Restore data from a JSON file (overwrites all current data)</string>
+    <string name="data_csv_batch_import_title">CSV batch import</string>
+    <string name="data_csv_import_desc">Batch import overtime records from a CSV file (existing data is kept)</string>
+    <string name="data_csv_import_button">CSV import</string>
+    <string name="data_stats_title">Data statistics</string>
+    <string name="data_record_count">Overtime records: 0</string>
+    <string name="data_last_export_never">Last export: never</string>
+    <string name="data_changelog_title">Changelog</string>
+    <string name="data_changelog_empty">No changes yet</string>
+
+    <!-- Add overtime dialog -->
+    <string name="dialog_shift_title">🌙 Shift</string>
+    <string name="dialog_shift_day">Day shift</string>
+    <string name="dialog_leave_title">📋 Leave</string>
+    <string name="dialog_leave_type_hint">Leave type</string>
+    <string name="dialog_leave_days_hint">Leave days</string>
+    <string name="dialog_leave_days_note">Select leave days (1 day = 8 hrs)</string>
+    <string name="dialog_rate_hint">Wage multiplier (auto by day type)</string>
+    <string name="dialog_rate_default">Default: weekday 1.5 / weekend 2.0 / holiday 3.0</string>
+
+    <!-- Attendance item -->
+    <string name="item_expand_details">Expand details</string>
+
+    <!-- Change log item -->
+    <string name="changelog_item_badge">Edit</string>
+    <string name="changelog_item_example">Overtime: 2h → 3h</string>
+
+    <!-- Widget -->
+    <string name="widget_month_placeholder">Oct</string>
+    <string name="widget_net_salary">Net ¥0.00</string>
+    <string name="widget_quick_overtime">Overtime+1h</string>
+    <string name="widget_quick_extra">Extra+1h</string>
+    <string name="widget_submit">Record</string>
+
+    <!-- Main runtime strings -->
+    <string name="main_system_ready">System ready</string>
+    <string name="main_db_encryption_unavailable">Database encryption unavailable (%1$s); data protection is degraded</string>
+    <string name="main_base_salary_unset">Base salary not set</string>
+    <string name="main_check_failed">Check failed: %1$s</string>
+    <string name="main_unknown_error">Unknown error</string>
+    <string name="main_db_init_failed_title">Database initialization failed</string>
+    <string name="main_db_init_failed_message">Unable to open the attendance database in encrypted mode (%1$s).\n\nTo avoid storing records in plaintext, the app will exit. Please try again later; if it keeps failing, export a backup in the old version and reinstall the app.</string>
+    <string name="common_exit">Exit</string>
+    <string name="main_month_year">%1$d-%2$d</string>
+    <string name="main_month_records_format">Overtime records · %1$d-%2$d</string>
+    <string name="record_menu_edit">Edit record</string>
+    <string name="record_copy_to_date">Copy to another date</string>
+    <string name="main_sort_by_amount">By amount</string>
+    <string name="record_delete_title">Delete record</string>
+    <string name="record_delete_message">Delete the record for %1$s? The deletion will sync to other devices.</string>
+    <string name="record_copy_future">Cannot copy to a future date</string>
+    <string name="record_copy_exists">A record already exists on that date; edit it instead</string>
+    <string name="record_copied">Copied to %1$s</string>
+    <string name="main_shift_breakdown">Day %1$s · Night %2$s</string>
+    <string name="main_week_header">Week %1$d · %2$s – %3$s</string>
+    <string name="main_filter_empty">No records match this filter</string>
+    <string name="main_filter_empty_hint">Try switching to “All”</string>
+    <string name="sync_menu_bidirectional">Smart two-way sync (recommended)</string>
+    <string name="sync_menu_upload">Upload to cloud only</string>
+    <string name="sync_menu_download">Download from cloud only</string>
+    <string name="sync_menu_overwrite">Full overwrite sync</string>
+    <string name="sync_start">Starting sync…</string>
+    <string name="sync_success">Sync complete!</string>
+    <string name="sync_no_config">Configure WebDAV in Settings first</string>
+    <string name="sync_no_network">Network unavailable. Check your connection.</string>
+    <string name="sync_connection_failed">Connection failed (server code %1$d). Check your network and configuration.</string>
+    <string name="sync_upload_failed">Upload failed</string>
+    <string name="sync_download_failed">Download failed (server code %1$d)</string>
+    <string name="sync_restore_failed">Failed to restore data</string>
+    <string name="sync_no_changes">No changes to sync</string>
+    <string name="sync_conflict">Data conflict detected. Please resolve it manually.</string>
+    <string name="sync_encryption_mismatch">Cloud data is encrypted but the password does not match. Check the password in Settings → Cloud sync encryption, or recover with a recovery code.</string>
+    <string name="sync_result_detail">%1$s (%2$s)</string>
+    <string name="sync_recovery_title">Save your recovery code now</string>
+    <string name="sync_recovery_message">Your cloud backup has been upgraded to recovery-code fallback encryption. The recovery code is the only way to restore data if you forget the sync password. Go to Settings → Cloud sync encryption → View recovery code and copy or screenshot it for offline storage now.</string>
+    <string name="sync_recovery_view">View now</string>
+    <string name="common_later">Later</string>
+    <string name="trial_ended_title">Trial ended</string>
+    <string name="trial_ended_message">Your trial has ended. Enter an activation code to continue; core features remain available while unactivated.</string>
+    <string name="trial_enter_code">Enter activation code</string>
+    <string name="trial_continue">Continue using</string>
+    <string name="trial_soon_title">Trial ending soon</string>
+    <string name="trial_soon_message">Your trial has %1$d days left. Activate before it expires for the full experience.</string>
+    <string name="trial_later">Remind me later</string>
+
+    <!-- Report runtime strings -->
+    <string name="report_export_pdf">Export as PDF</string>
+    <string name="report_export_csv">Export as CSV</string>
+    <string name="report_export_payslip">Export payslip PDF</string>
+    <string name="report_exporting">Exporting...</string>
+    <string name="report_payslip_export_success">Payslip exported</string>
+    <string name="report_pdf_export_success">PDF exported</string>
+    <string name="report_csv_export_success">CSV exported</string>
+    <string name="report_export_failed">Export failed: %1$s</string>
+    <string name="report_share_file">Share file</string>
+    <string name="report_share_failed">Unable to share file</string>
+    <string name="report_days_count">%1$d days</string>
+    <string name="report_month_axis">%02d</string>
+    <string name="report_attendance_report_name">Attendance report %1$d-%2$d</string>
+    <string name="report_hours_legend">Monthly overtime / extra hours</string>
+
+    <!-- Data manager runtime strings -->
+    <string name="data_export_success">Data exported!</string>
+    <string name="data_export_failed">Export failed: %1$s</string>
+    <string name="data_import_failed">Import failed: %1$s</string>
+    <string name="data_import_confirm_msg">Select the JSON file to import (full backup)</string>
+    <string name="data_choose_file">Choose file</string>
+    <string name="data_file_unreadable">Unable to read file</string>
+    <string name="data_error_details">\n\nError details:</string>
+    <string name="data_import_success_title">Import successful</string>
+    <string name="data_import_complete_title">Import complete</string>
+    <string name="common_ok">OK</string>
+    <string name="data_restore_confirm_title">Confirm restore</string>
+    <string name="data_restore_confirm_msg">File created: %1$s\nContains %2$d records\n\nRestoring will overwrite all current data. Continue?</string>
+    <string name="data_restore">Restore</string>
+    <string name="data_restore_success">Data restored!</string>
+    <string name="data_restore_failed">Restore failed: %1$s</string>
+    <string name="data_record_count_fmt">Overtime records: %1$d</string>
+    <string name="data_last_export_fmt">Last export: %1$s</string>
+
+    <!-- Add/edit record dialog -->
+    <string name="dialog_default_option">Default</string>
+    <string name="dialog_field_overtime">Overtime hours</string>
+    <string name="dialog_field_extra">Extra hours</string>
+    <string name="dialog_field_rate">Wage multiplier</string>
+    <string name="dialog_select_hours">Select overtime or extra hours</string>
+    <string name="dialog_overtime_limit">Daily overtime cannot exceed 11 hours</string>
+    <string name="dialog_extra_limit">Daily extra hours cannot exceed 11 hours</string>
+    <string name="dialog_leave_limit">Only %1$d days remain this month; leave cannot exceed %2$d days</string>
+
+    <!-- Common date / duration / type strings -->
+    <string name="common_weekday_mon">Monday</string>
+    <string name="common_weekday_tue">Tuesday</string>
+    <string name="common_weekday_wed">Wednesday</string>
+    <string name="common_weekday_thu">Thursday</string>
+    <string name="common_weekday_fri">Friday</string>
+    <string name="common_weekday_sat">Saturday</string>
+    <string name="common_weekday_sun">Sunday</string>
+    <string name="common_date_format">%1$s/%2$s %3$s</string>
+    <string name="common_full_date">%1$d-%2$02d-%3$02d</string>
+    <string name="common_day_workday">Workday</string>
+    <string name="common_day_weekend">Weekend</string>
+    <string name="common_day_holiday">Public holiday</string>
+    <string name="common_leave_default">Leave</string>
+    <string name="common_day_shift">Day shift</string>
+    <string name="leave_type_annual">Annual leave</string>
+    <string name="leave_type_sick">Sick leave</string>
+    <string name="leave_type_personal">Personal leave</string>
+    <string name="leave_type_marriage">Marriage leave</string>
+    <string name="leave_type_maternity">Maternity leave</string>
+    <string name="leave_type_paternity">Paternity leave</string>
+    <string name="leave_type_funeral">Bereavement leave</string>
+    <string name="leave_type_work_injury">Work injury leave</string>
+    <string name="leave_type_unpaid">Unpaid leave</string>
+    <string name="leave_type_other">Other</string>
+    <string name="common_leave_days">%1$s %2$d days</string>
+    <string name="common_leave_hours">%1$s %2$d hours</string>
+
+    <!-- Attendance item runtime strings -->
+    <string name="item_work_duration">Work hours</string>
+    <string name="item_overtime_pay">Overtime pay</string>
+    <string name="item_detail_shift">Shift: %1$s</string>
+    <string name="item_detail_type"> · Type: %1$s</string>
+    <string name="item_detail_custom"> · Custom %1$s</string>
+    <string name="item_detail_created">Entered %1$s</string>
+    <string name="item_vs_average_up">+%1$d%% vs monthly avg</string>
+    <string name="item_vs_average_down">%1$d%% vs monthly avg</string>
+    <string name="item_leave_calc_detail">%1$s %2$s, excluded from overtime pay</string>
+    <string name="item_calc_all">Overtime + extra %1$s × %2$s × ¥%3$s/h = %4$s</string>
+    <string name="item_calc_overtime">Overtime %1$s × %2$s × ¥%3$s/h = %4$s</string>
+    <string name="item_calc_extra">Extra hours %1$s × %2$s × ¥%3$s/h = %4$s</string>
+    <string name="item_none_overtime">No overtime hours</string>
+    <string name="item_days_fmt">%1$d days</string>
+    <string name="item_hours_fmt">%1$d hours</string>
+
+    <!-- Change log and quick entry -->
+    <string name="changelog_type_insert">Added</string>
+    <string name="changelog_type_update">Updated</string>
+    <string name="changelog_type_delete">Deleted</string>
+    <string name="changelog_type_clear">Cleared</string>
+    <string name="changelog_all_records">All records</string>
+    <string name="widget_month_fmt">Month %1$d</string>
+    <string name="widget_net_salary_fmt">Net %1$s</string>
+    <string name="notify_quick_title">Quick entry</string>
+    <string name="notify_quick_content">Overtime in month %1$d: %2$s · Net %3$s</string>
+    <string name="notify_action_open">Open entry</string>
+    <string name="notify_channel_desc">Persistent quick entry for overtime and extra hours in the notification bar</string>
+
+    <!-- Software update dialogs -->
+    <string name="update_current_version">Current version: v%1$s</string>
+    <string name="update_latest_version">Latest version: v%1$s</string>
+    <string name="update_force_notice">⚠️ This update is mandatory. You must update to continue.</string>
+    <string name="update_changelog_section">\nWhat\'s new:\n%1$s</string>
+    <string name="update_found_title">New version available</string>
+    <string name="update_now">Update now</string>
+    <string name="update_check_title">Check for updates</string>
+    <string name="update_up_to_date">You are on the latest version v%1$s</string>
+    <string name="update_check_failed_title">Update check failed</string>
+    <string name="update_permission_title">Install permission required</string>
+    <string name="update_permission_message">Updating requires permission to install apps from unknown sources. Enable this permission for the app in system settings, then try again.</string>
+    <string name="update_go_settings">Open settings</string>
+    <string name="update_debug_migration_title">Debug build → Release build</string>
+    <string name="update_debug_migration_message">The installed build is a debug build (debug signature), and Android does not allow updating across different signatures.\n\nUninstall the current debug build first (app data will be erased), then install release v%1$s.</string>
+    <string name="update_uninstall_debug">Uninstall debug build</string>
+    <string name="update_open_releases">Open release download page</string>
+    <string name="update_uninstall_failed">Unable to open the system uninstaller. Please uninstall manually in system settings.</string>
+    <string name="update_open_browser_failed">Unable to open a browser. Please visit the latest Release page manually.</string>
+    <string name="update_download_failed">Download failed. Check your network and try again.</string>
+    <string name="update_install_failed">Failed to start the installer. Please try again.</string>
+    <string name="update_signature_mismatch">The update package signature does not match this app, so installation was cancelled. Verify the update comes from an official channel and try again.</string>
+    <string name="update_signature_unreadable">Unable to verify the update package signature. The package may be corrupted; please download it again.</string>
+    <string name="update_preparing">Preparing download...</string>
+    <string name="update_downloading_title">Downloading update</string>
+    <string name="update_download_progress">Downloaded %1$s / %2$s (%3$d%%)</string>
+    <string name="update_download_progress_size">Downloaded %1$s</string>
+
+    <!-- Biometric screen -->
+    <string name="biometric_title">Verify identity</string>
+    <string name="biometric_subtitle">Verify your identity to access overtime records</string>
+    <string name="biometric_description">Biometric protection is enabled</string>
+    <string name="biometric_auth_failed">Verification failed: %1$s</string>
+
+    <!-- Team summary extras -->
+    <string name="team_summary_members_fmt">Members (%1$d)</string>
+    <string name="team_summary_title_empty">All-member summary (no data)</string>
+    <string name="team_summary_title_by_month">All-member summary (by month)</string>
+    <string name="team_reset_password_confirm">Reset the password for %1$s (%2$s)? The old password will stop working immediately.</string>
+    <string name="team_toggle_active_confirm">Confirm to %1$s %2$s (%3$s)? A disabled member cannot log in.</string>
+    <string name="team_create_user_password_hint">Initial password (leave blank to auto-generate)</string>
+    <string name="team_create_user_confirm">Create</string>
+    <string name="team_username_length">Username must be 3-32 characters</string>
+    <string name="team_member_meta">%1$d records · Created %2$s</string>
+    <string name="team_status_disabled"> · Disabled</string>
+    <string name="team_set_active_done_on">%1$s enabled</string>
+    <string name="team_set_active_done_off">%1$s disabled</string>
+
+    <!-- Calendar widget -->
+    <string-array name="common_weekday_short">
+        <item>S</item>
+        <item>M</item>
+        <item>T</item>
+        <item>W</item>
+        <item>T</item>
+        <item>F</item>
+        <item>S</item>
+    </string-array>
+    <string name="calendar_extra_text">+%1$sh</string>
+    <string name="calendar_cell_both">%1$s %2$s</string>
+
+    <!-- Settings runtime extras -->
+    <string name="calendar_no_permission">Calendar permission not granted; unable to sync the calendar</string>
+    <string name="common_syncing">Syncing...</string>
+    <string name="common_sync_failed">Sync failed</string>
+    <string name="team_logout_confirm">Team sync will stop after logout (local data is unaffected). Log out?</string>
+    <string name="team_new_password_short">New password must be at least 6 characters</string>
+    <string name="settings_no_network">Check your network connection first</string>
+    <string name="settings_checking">Checking...</string>
+    <string name="settings_holiday_update_success">Holiday data updated to v%1$s (covers %2$s - %3$s)</string>
+    <string name="settings_holiday_update_failed">Update failed: %1$s\nCurrent data will continue to be used.</string>
+    <string name="settings_calendar_permission_title">Calendar permission</string>
+    <string name="settings_calendar_permission_message">Calendar sync needs permission to read and write the system calendar:\n• Write overtime/leave records as all-day events\n• Write calendar edits, rescheduling, and deletions back to the app</string>
+    <string name="settings_go_authorize">Grant permission</string>
+    <string name="settings_calendar_sync_done">Calendar sync complete: %1$d pushed, %2$d pulled back</string>
+    <string name="settings_calendar_deleted_from_calendar">, %1$d deleted from calendar</string>
+    <string name="settings_calendar_deleted_from_app">, %1$d events cleaned up</string>
+    <string name="settings_calendar_skipped">, %1$d skipped</string>
+    <string name="settings_changelog_empty">No logs yet</string>
+    <string name="settings_change_log_title">Change log</string>
+    <string name="settings_update_fetch_failed">Unable to get update information. Check your network and try again.\n\nFor a freshly released version, GitHub may need a few minutes to generate the update manifest.</string>
+    <string name="settings_biometric_ready">Ready (fingerprint/face unlock supported)</string>
+    <string name="settings_biometric_enabled">Biometric protection enabled</string>
+    <string name="settings_biometric_disabled">Biometric protection disabled</string>
+    <string name="settings_auto_sync_enabled">Auto sync enabled</string>
+    <string name="settings_auto_sync_disabled">Auto sync disabled</string>
+    <string name="settings_theme_changed">Theme switched to %1$s</string>
+    <string name="settings_export_encrypt_enabled">Export encryption enabled</string>
+    <string name="settings_export_encrypt_disabled">Export encryption disabled</string>
+    <string name="settings_sync_encrypt_enabled">Sync encryption enabled</string>
+    <string name="settings_sync_encrypt_disabled">Sync encryption disabled</string>
+    <string name="settings_sync_encrypt_need_password">Set a sync encryption password; a blank password means no encryption</string>
+    <string name="settings_sync_password_title">Sync password</string>
+    <string name="settings_not_set">(not set)</string>
+    <string name="settings_last_sync_fmt">Last sync: %1$s</string>
+    <string name="settings_sync_encrypt_off_notice">Sync encryption disabled: future uploads are unencrypted, but existing cloud files remain encrypted</string>
+    <string name="settings_check_cloud_title">Checking cloud backup</string>
+    <string name="settings_check_cloud_message">Checking whether an encrypted backup already exists in the cloud. Please wait…</string>
+    <string name="settings_adopted_title">Joined the existing encrypted backup</string>
+    <string name="settings_adopted_message">An encrypted backup using this password already exists in the cloud, so it was joined directly:\n\n• The original recovery code remains valid; no need to save a new one.\n• The recovery code is not stored in plaintext on this device. If the original is lost, you can reissue one below after biometric verification.</string>
+    <string name="settings_got_it">Got it</string>
+    <string name="settings_password_mismatch_title">Sync password mismatch</string>
+    <string name="settings_password_mismatch_message">An encrypted backup already exists in the cloud, but the password entered cannot decrypt it.\n\nEnter the same sync password as the original device and save again. If you have forgotten it, use the recovery code to recover.</string>
+    <string name="settings_reenter">Re-enter</string>
+    <string name="settings_recover_short">Recover with code</string>
+    <string name="settings_cloud_unavailable">Unable to check the cloud backup right now. It will be verified automatically on the next online sync.</string>
+    <string name="settings_testing">Testing...</string>
+    <string name="settings_connect_success">Connected!</string>
+    <string name="biometric_continue_subtitle">Verify your identity to continue</string>
+    <string name="settings_recovery_title">Your sync recovery code</string>
+    <string name="settings_recovery_message">The recovery code is the only way to recover cloud data if you forget the sync password. Write it down or take a screenshot and keep it somewhere safe (do not store it in a synced cloud drive).\n\nRecovery code:\n%1$s\n\nOn a new device, the WebDAV configuration plus the recovery code let you reset the sync password and restore the data.</string>
+    <string name="settings_recovery_saved">I saved it offline</string>
+    <string name="settings_recovery_label">Recovery code</string>
+    <string name="settings_recovery_not_generated">No recovery code has been generated yet. Enable sync encryption and save settings first; the app will generate one automatically.</string>
+    <string name="settings_recovery_current">Current recovery code:\n%1$s\n\nKeep it safe offline.</string>
+    <string name="settings_recovery_regenerate">Change recovery code</string>
+    <string name="settings_recovery_local_missing_title">No recovery code saved on this device</string>
+    <string name="settings_recovery_local_missing_message">This device joined via the sync password, so the plaintext recovery code exists only on the device that first enabled encryption.\n\nYou can keep using the offline recovery code. If it can no longer be found, you can generate a new one on this device — the old code will stop working immediately (effective in the cloud after the next sync), so save the new one offline.</string>
+    <string name="settings_regenerate">Regenerate</string>
+    <string name="settings_regenerate_confirm">After changing, the old recovery code stops working immediately and the new one must be saved offline. Change it?</string>
+    <string name="settings_regenerate_confirm_button">Change</string>
+    <string name="settings_save_failed_fmt">Failed to save: %1$s</string>
+    <string name="settings_recovery_changed">Recovery code changed; effective in the cloud after the next sync</string>
+    <string name="settings_recovery_change_failed">Failed to change: %1$s</string>
+    <string name="settings_webdav_config_missing">Fill in and save the WebDAV server configuration first</string>
+    <string name="settings_recovery_code_hint">Enter the offline recovery code (e.g. 7K2M-9XQF-4BT8-N6VD)</string>
+    <string name="settings_recover_message">The recovery code will be verified against the cloud backup. After it passes, you can set a new sync password and restore the data.</string>
+    <string name="settings_next">Next</string>
+    <string name="settings_recovery_invalid">Invalid recovery code format (4 groups of 4 characters)</string>
+    <string name="settings_new_sync_password_hint">New sync password</string>
+    <string name="settings_confirm_password_hint">Re-enter new password</string>
+    <string name="settings_set_new_sync_password">Set a new sync password</string>
+    <string name="settings_confirm_recover">Recover</string>
+    <string name="settings_password_empty">New password cannot be empty</string>
+    <string name="settings_password_mismatch_input">The passwords do not match</string>
+    <string name="settings_recovering_title">Recovering</string>
+    <string name="settings_recovering_message">Verifying the recovery code and syncing cloud data. Please wait…</string>
+    <string name="settings_recovery_success">Password reset and cloud data restored (%1$s)</string>
+    <string name="settings_recovery_sync_incomplete">The new sync password is active, but data sync did not finish: %1$s. You can sync manually from the home screen later.</string>
+    <string name="settings_recovery_done_title">Recovery complete</string>
+    <string name="settings_recovery_error_mismatch">The recovery code is wrong, or the cloud backup still uses the old encryption format (the original device must sync once to upgrade it)</string>
+    <string name="settings_recovery_error_no_config">Configure and save the WebDAV server information first</string>
+    <string name="settings_recovery_error_no_network">Network unavailable. Check your connection and try again.</string>
+    <string name="settings_recovery_error_download">Unable to read the cloud backup (HTTP %1$d)</string>
+    <string name="settings_recovery_error_generic">Recovery failed: %1$s</string>
+    <string name="settings_copied_fmt">%1$s copied</string>
+    <string name="webdav_status_200">OK</string>
+    <string name="webdav_status_201">Created</string>
+    <string name="webdav_status_204">No content (success)</string>
+    <string name="webdav_status_401">Authentication failed; check your username and password</string>
+    <string name="webdav_status_403">Forbidden</string>
+    <string name="webdav_status_404">Path not found</string>
+    <string name="webdav_status_405">Method not allowed</string>
+    <string name="webdav_status_429">Too many requests (rate limited by the server); try again later</string>
+    <string name="webdav_status_500">Internal server error</string>
+    <string name="webdav_status_503">Service unavailable (rate limited or overloaded); try again later</string>
+    <string name="webdav_status_connection">Connection error; check your network</string>
+    <string name="webdav_status_unknown">Unknown error</string>
+    <string name="webdav_status_prefix">Server response code: %1$d\nDetail: %2$s\n\n</string>
+    <string name="settings_not_filled">(not filled)</string>
+    <string name="settings_connect_failed_title">Connection failed</string>
+    <string name="settings_webdav_help">Connection failed. Check the following settings:\n\n• Server URL: %1$s\n• Remote path: %2$s\n• Username and password: make sure they are correct (some services require an app-specific password)\n• Network: make sure the device can reach the internet\n\nSuggestions:\n1. Try changing the remote path to "/"\n2. Confirm WebDAV is enabled on the cloud drive\n3. On 401, check the account and password first (some services require an app-specific password, not the login password)\n4. Try disabling VPN and testing again</string>
+    <string name="settings_cloud_unencrypted_title">Cloud backup is not encrypted</string>
+    <string name="settings_cloud_unencrypted_message">The WebDAV configuration is about to be saved, but sync encryption is not currently effective.\n\nWithout encryption, attendance and salary data are uploaded in plaintext to a third-party WebDAV server (protected only by https and account credentials).\n\nEnable “Sync encryption” above and set a password first; data will be encrypted with AES-256 before upload.</string>
+    <string name="settings_enable_encryption">Enable encryption</string>
+    <string name="settings_save_plaintext">Save as plaintext</string>
+    <string name="settings_webdav_saved">WebDAV configuration saved</string>
+    <string name="settings_webdav_incomplete">Fill in the complete WebDAV configuration</string>
+    <string name="settings_http_disabled">Plain HTTP traffic is blocked by the app; use an https:// URL</string>
+    <string name="settings_base_negative">Contribution base cannot be negative</string>
+    <string name="settings_ratio_invalid">Personal contribution ratio must be between 0 and 100%</string>
+    <string name="settings_deduction_negative">Special additional deduction cannot be negative</string>
+    <string name="settings_fixed_bonus_negative">Fixed bonus cannot be negative</string>
+    <string name="settings_device_id_label">Device ID</string>
+    <string name="settings_device_id_copied">Device ID copied</string>
+    <string name="license_source_server">Activated online</string>
+    <string name="license_source_offline">Activated offline</string>
+    <string name="license_active_days">%1$s, %2$d days left</string>
+    <string name="license_expired">Activation expired (%1$s)</string>
+    <string name="license_trial_days">Free trial, %1$d days left</string>
+    <string name="license_trial_ended">Free trial ended (enter an activation code to continue)</string>
+    <string name="license_unactivated">Not activated; enter an activation code to start the trial</string>
+    <string name="settings_enter_activation_code">Enter an activation code</string>
+    <string name="settings_activating">Activating...</string>
+    <string name="license_source_server_verified">Server verification</string>
+    <string name="license_source_offline_verified">Offline signature verification</string>
+    <string name="settings_activation_success">🎉 Activated (%1$s)! %2$d days left</string>
+
+    <!-- Data validation -->
+    <string name="validate_date_required">Date cannot be empty</string>
+    <string name="validate_date_format">Invalid date format; use YYYY-MM-DD</string>
+    <string name="validate_year_invalid">Invalid year</string>
+    <string name="validate_month_invalid">Invalid month</string>
+    <string name="validate_day_invalid">Invalid day</string>
+    <string name="validate_month_range">Month must be between 1 and 12</string>
+    <string name="validate_day_range">Day must be between 1 and 31</string>
+    <string name="validate_date_days_in_month">%2$d/%1$d has only %3$d days</string>
+    <string name="validate_date_future">Date cannot be in the future</string>
+    <string name="validate_time_required">Time cannot be empty</string>
+    <string name="validate_time_format">Invalid time format; use HH:mm or HH:mm:ss</string>
+    <string name="validate_hour_invalid">Invalid hour</string>
+    <string name="validate_minute_invalid">Invalid minute</string>
+    <string name="validate_hour_range">Hour must be between 0 and 23</string>
+    <string name="validate_minute_range">Minute must be between 0 and 59</string>
+    <string name="validate_overtime_required">Overtime hours cannot be empty</string>
+    <string name="validate_overtime_negative">Overtime hours cannot be negative</string>
+    <string name="validate_overtime_exceed">Overtime hours cannot exceed 24</string>
+    <string name="validate_overtime_precision">Overtime hours allow at most 2 decimal places</string>
+    <string name="validate_shift_required">Shift hours cannot be empty</string>
+    <string name="validate_shift_negative">Shift hours cannot be negative</string>
+    <string name="validate_shift_exceed">Shift hours cannot exceed 24</string>
+    <string name="validate_work_time_order">Start time must be earlier than end time</string>
+    <string name="validate_server_required">Server URL cannot be empty</string>
+    <string name="validate_server_scheme">Server URL must start with http:// or https://</string>
+    <string name="validate_username_required">Username cannot be empty</string>
+    <string name="validate_work_hours_prefix">Standard work hours: %1$s</string>
+    <string name="validate_hourly_rate_negative">Hourly rate cannot be negative</string>
+    <string name="validate_overtime_rate_negative">Overtime rate cannot be negative</string>
+    <string name="validate_date_prefix">Date: %1$s</string>
+    <string name="validate_overtime_prefix">Overtime: %1$s</string>
+    <string name="validate_field_required">%1$s cannot be empty</string>
+    <string name="validate_field_min_length">%1$s must be at least %2$d characters</string>
+    <string name="validate_field_max_length">%1$s must be at most %2$d characters</string>
+    <string name="validate_field_min">%1$s cannot be less than %2$s</string>
+    <string name="validate_field_max">%1$s cannot be greater than %2$s</string>
+    <string name="validate_default_field">field</string>
+    <string name="validate_default_number">value</string>
+
+    <!-- PDF export -->
+    <string name="pdf_title_default">Attendance report</string>
+    <string name="pdf_file_name_fmt">Attendance_report_%1$s.pdf</string>
+    <string name="pdf_payslip_file_name_fmt">Payslip_%1$s.pdf</string>
+    <string name="pdf_payslip_title">Payslip %1$d-%2$d</string>
+    <string name="pdf_info_generated_at">Generated: %1$s</string>
+    <string name="pdf_datetime_pattern">yyyy-MM-dd HH:mm:ss</string>
+    <string name="pdf_col_date">Date</string>
+    <string name="pdf_col_check_in">In</string>
+    <string name="pdf_col_check_out">Out</string>
+    <string name="pdf_col_overtime">Overtime</string>
+    <string name="pdf_col_day_type">Type</string>
+    <string name="pdf_col_pay">Pay</string>
+    <string name="pdf_hours_cell">%1$.1fh</string>
+    <string name="pdf_summary_title">Summary</string>
+    <string name="pdf_summary_total_hours">Total overtime: %1$.1f h</string>
+    <string name="pdf_summary_total_pay">Total overtime pay: ¥%1$.2f</string>
+    <string name="pdf_summary_normal">Weekday overtime: %1$d days</string>
+    <string name="pdf_summary_weekend">Weekend overtime: %1$d days</string>
+    <string name="pdf_summary_holiday">Public holidays: %1$d days</string>
+    <string name="pdf_footer">Twilight</string>
+    <string name="pdf_payslip_income">Earnings</string>
+    <string name="pdf_payslip_pension_base">Pension insurance (base %1$s)</string>
+    <string name="pdf_payslip_fund_base">Housing fund (base %1$s)</string>
+    <string name="pdf_payslip_total">Total</string>
+    <string name="pdf_tax_section">Individual income tax (cumulative withholding)</string>
+    <string name="pdf_tax_monthly">Tax withheld this month</string>
+    <string name="pdf_net_formula">Gross - insurance - tax</string>
+
+    <!-- CSV export -->
+    <string name="csv_file_name_fmt">Attendance_%1$s.csv</string>
+    <string name="csv_month_summary_file_name_fmt">Attendance_summary_%1$d-%2$d_%3$s.csv</string>
+    <string name="csv_month_summary_title">Attendance summary %1$d-%2$d</string>
+    <string name="csv_basic_settings">Basic settings</string>
+    <string name="csv_work_start">Start time</string>
+    <string name="csv_work_end">End time</string>
+    <string name="csv_normal_rate">Weekday overtime rate</string>
+    <string name="csv_weekend_rate">Weekend overtime rate</string>
+    <string name="csv_holiday_rate">Holiday overtime rate</string>
+    <string name="csv_base_salary">Base salary</string>
+    <string name="csv_fixed_bonus">Fixed bonus</string>
+    <string name="csv_monthly_days">Monthly workdays</string>
+    <string name="csv_daily_hours">Daily work hours</string>
+    <string name="csv_detail_title">Attendance details</string>
+    <string name="csv_detail_header">Date,Weekday,Start time,End time,Overtime,Type,Overtime pay,Note</string>
+    <string name="csv_summary_title">Summary</string>
+    <string name="csv_total_hours">Total overtime</string>
+    <string name="csv_total_pay">Total overtime pay</string>
+    <string name="csv_normal_days">Weekday overtime days</string>
+    <string name="csv_weekend_days">Weekend overtime days</string>
+    <string name="csv_holiday_days">Holiday overtime days</string>
+    <string name="csv_normal_combined">Weekday overtime</string>
+    <string name="csv_weekend_combined">Weekend overtime</string>
+    <string name="csv_holiday_combined">Holiday overtime</string>
+    <string name="csv_valid_workdays">Effective workdays</string>
+    <string name="csv_generated_at">Generated</string>
+    <string name="csv_unit_hours">h</string>
+    <string name="csv_unit_yuan">CNY</string>
+    <string name="csv_unit_days">days</string>
+
+    <!-- Salary report text -->
+    <string name="salary_report_title">📊 Salary report %1$d-%2$d</string>
+    <string name="salary_report_base">💰 Base salary: %1$s</string>
+    <string name="salary_report_performance">🎯 Performance bonus: %1$s</string>
+    <string name="salary_report_fixed_bonus">🎁 Fixed bonus: %1$s</string>
+    <string name="salary_report_overtime_title">📈 Overtime pay details:</string>
+    <string name="salary_report_workday_overtime">Weekday overtime: %1$s × %2$s = %3$s</string>
+    <string name="salary_report_weekend_overtime">Weekend overtime: %1$s × %2$s = %3$s</string>
+    <string name="salary_report_holiday_overtime">Public holiday: %1$s × %2$s = %3$s</string>
+    <string name="salary_report_extra_overtime">Extra hours pay: %1$s × %2$s = %3$s</string>
+    <string name="salary_report_stat_title">⏱️ Overtime stats:</string>
+    <string name="salary_report_workday_days">Weekday overtime: %1$d days (%2$s)</string>
+    <string name="salary_report_weekend_days">Weekend overtime: %1$d days (%2$s)</string>
+    <string name="salary_report_holiday_days">Public holiday: %1$d days (%2$s)</string>
+    <string name="salary_report_insurance_title">🏦 Insurance &amp; housing fund (personal):</string>
+    <string name="salary_report_pension">Pension: %1$s</string>
+    <string name="salary_report_medical">Medical: %1$s</string>
+    <string name="salary_report_unemployment">Unemployment: %1$s</string>
+    <string name="salary_report_housing_fund">Housing fund: %1$s</string>
+    <string name="salary_report_insurance_total">Total: %1$s</string>
+    <string name="salary_report_tax_title">🧾 Income tax (cumulative withholding):</string>
+    <string name="salary_report_monthly_taxable">Taxable income this month: %1$s</string>
+    <string name="salary_report_cumulative_taxable">Cumulative taxable income: %1$s</string>
+    <string name="salary_report_monthly_tax">Tax withheld this month: %1$s</string>
+    <string name="salary_report_total_title">📋 Totals:</string>
+    <string name="salary_report_total_overtime">Total overtime: %1$s</string>
+    <string name="salary_report_total_extra">Total extra hours: %1$s</string>
+    <string name="salary_report_total_overtime_pay">Total overtime pay: %1$s</string>
+    <string name="salary_report_gross">💵 Gross salary: %1$s</string>
+    <string name="salary_report_net">💰 Net salary: %1$s</string>
+
+    <!-- Sync progress -->
+    <string name="sync_progress_waiting_lock">Waiting for sync lock…</string>
+    <string name="sync_progress_check_config">Checking sync configuration…</string>
+    <string name="sync_progress_check_network">Checking network connection…</string>
+    <string name="sync_progress_test_connection">Testing server connection…</string>
+    <string name="sync_progress_read_cloud">Reading cloud state…</string>
+    <string name="sync_progress_compare">Comparing local and cloud differences…</string>
+    <string name="sync_progress_upload_fmt">Uploading backup (%1$d records)…</string>
+    <string name="sync_progress_download">Downloading cloud backup…</string>
+    <string name="sync_progress_verify">Verifying backup integrity…</string>
+    <string name="sync_progress_restore">Restoring data locally…</string>
+    <string name="sync_progress_check_updated">Checking cloud update time…</string>
+    <string name="sync_progress_no_cloud_data">No cloud data; uploading</string>
+    <string name="sync_progress_first_download">First sync; downloading</string>
+    <string name="sync_progress_cloud_unchanged">Cloud unchanged; uploading</string>
+    <string name="sync_progress_cloud_updated">Cloud updated; merging</string>
+    <string name="sync_progress_download_cloud">Downloading cloud data…</string>
+    <string name="sync_progress_merge_fmt">Merging records (local %1$d / cloud %2$d)…</string>
+    <string name="sync_progress_upload_merged_fmt">Uploading merged result (%1$d records)…</string>
+    <string name="sync_progress_write_local">Writing to local database…</string>
+
+    <!-- Auto sync -->
+    <string name="auto_sync_interval_15">15 min</string>
+    <string name="auto_sync_interval_30">30 min</string>
+    <string name="auto_sync_interval_60">1 hour</string>
+    <string name="auto_sync_interval_120">2 hours</string>
+    <string name="auto_sync_interval_360">6 hours</string>
+    <string name="auto_sync_interval_720">12 hours</string>
+    <string name="auto_sync_interval_1440">24 hours</string>
+    <string name="auto_sync_channel_name">Auto sync</string>
+    <string name="auto_sync_channel_desc">Shows auto sync failure alerts</string>
+    <string name="auto_sync_not_initialized">AutoSyncManager is not initialized; call init(context) first</string>
+    <string name="auto_sync_never">Never synced</string>
+    <string name="auto_sync_just_now">Just now</string>
+    <string name="auto_sync_minutes_ago">%1$d min ago</string>
+    <string name="auto_sync_hours_ago">%1$d h ago</string>
+    <string name="auto_sync_days_ago">%1$d days ago</string>
+    <string name="auto_sync_no_config">WebDAV not configured</string>
+    <string name="auto_sync_wifi_only">Sync over Wi-Fi only</string>
+    <string name="auto_sync_success">Sync succeeded</string>
+    <string name="auto_sync_no_changes">No changes to sync</string>
+    <string name="auto_sync_no_network">Network unavailable; check your connection</string>
+    <string name="auto_sync_connection_failed">Connection failed (server response code %1$d); check your network and settings</string>
+    <string name="auto_sync_upload_failed">Upload failed</string>
+    <string name="auto_sync_download_failed">Download failed (server response code %1$d)</string>
+    <string name="auto_sync_restore_failed">Failed to restore data</string>
+    <string name="auto_sync_conflict">Data conflict; please resolve manually</string>
+    <string name="auto_sync_encryption_mismatch">Cloud data is encrypted and the password does not match. Check the password in settings or recover with your recovery code</string>
+    <string name="auto_sync_summary_fmt">%1$s (%2$s)</string>
+    <string name="auto_sync_exception">Sync exception</string>
+    <string name="auto_sync_notification_title">Data sync</string>
+    <string name="auto_sync_notification_failed">Auto sync failed; check your network and try again</string>
+    <string name="auto_sync_recovery_title">Save your sync recovery code</string>
+    <string name="auto_sync_recovery_message">The cloud backup has been upgraded to recovery-code encryption. If you forget your password, you need this recovery code. Save it offline immediately</string>
+
+    <!-- Calendar sync -->
+    <string name="calendar_status_no_permission">Calendar read/write permission not granted</string>
+    <string name="calendar_status_no_calendar">No writable system calendar found</string>
+    <string name="calendar_status_target_fmt">Target calendar: %1$s</string>
+    <string name="calendar_status_last_sync_fmt">Last sync: %1$s · %2$s</string>
+    <string name="calendar_status_never_synced">Not synced yet</string>
+    <string name="calendar_err_permission">Please grant calendar read/write permission first</string>
+    <string name="calendar_err_no_calendar">No writable system calendar; sign in to an account in the system calendar first</string>
+    <string name="calendar_err_sync_fmt">Sync failed: %1$s</string>
+    <string name="calendar_default_name">System calendar</string>
+    <string name="calendar_summary_pushed">Pushed %1$d</string>
+    <string name="calendar_summary_pulled">Pulled %1$d</string>
+    <string name="calendar_summary_deleted_calendar">Deleted in calendar %1$d</string>
+    <string name="calendar_summary_deleted_app">Cleaned events %1$d</string>
+    <string name="calendar_summary_skipped">Skipped %1$d</string>
+
+    <!-- Backup validation / import errors -->
+    <string name="data_export_field_overtime">Overtime hours</string>
+    <string name="data_export_field_extra">Extra hours</string>
+    <string name="data_export_invalid_number">%1$s is not a valid number</string>
+    <string name="data_export_hour_out_of_range">%1$s out of range (must be -1 or 0–24 hours): %2$s</string>
+    <string name="data_export_leave_hours_out_of_range">Leave hours out of range (0–744 hours): %1$s</string>
+    <string name="data_export_custom_rate_out_of_range">Custom rate out of range (1.0–4.0): %1$s</string>
+    <string name="data_export_leave_type_unknown">Unrecognized leave type: %1$s</string>
+    <string name="data_export_check_in_prefix">Check-in time: %1$s</string>
+    <string name="data_export_check_out_prefix">Check-out time: %1$s</string>
+    <string name="data_import_backup_file">Backup file</string>
+    <string name="data_import_encrypted_need_password">The backup file is encrypted; set the export encryption password in Settings and try again</string>
+    <string name="data_import_decrypt_failed">Failed to decrypt the backup: wrong password or corrupted file</string>
+    <string name="data_import_invalid_format">Invalid backup file format</string>
+    <string name="data_import_checksum_failed">Backup verification failed (checksum mismatch); the file may be corrupted or tampered with, so restore was aborted</string>
+    <string name="data_import_cannot_open">Unable to open the file</string>
+    <string name="data_import_missing_date">The backup contains records with a missing date; restore was aborted to protect existing data</string>
+    <string name="data_import_duplicate_date">The backup contains a duplicate date: %1$s; restore was aborted to protect existing data</string>
+    <string name="data_import_invalid_records">The backup contains %1$d invalid records (first: %2$s); restore was aborted to protect existing data</string>
+    <string name="data_import_read_limit">%1$s exceeds the size limit (%2$d MB); reading aborted</string>
+
+    <!-- Sync summary -->
+    <string name="sync_summary_added">%1$d added</string>
+    <string name="sync_summary_updated">%1$d updated</string>
+    <string name="sync_summary_deleted">%1$d deleted</string>
+    <string name="sync_summary_skipped">%1$d skipped</string>
+    <string name="sync_summary_invalid">%1$d invalid skipped</string>
+    <string name="sync_summary_separator">, </string>
+
+    <!-- Holiday data -->
+    <string name="holiday_no_network">Check your network connection first</string>
+    <string name="holiday_no_source">No data source available</string>
+    <string name="holiday_source_https">Data sources must use HTTPS</string>
+    <string name="holiday_download_failed">Download failed (%1$s)</string>
+    <string name="holiday_bad_format">Invalid data format</string>
+    <string name="holiday_validation_failed">Data validation failed; existing data was kept</string>
+    <string name="holiday_fallback_suffix">%1$s; fallback API: %2$s</string>
+    <string name="holiday_api_no_data">No holiday data available from the API yet</string>
+    <string name="holiday_api_request_failed">Request failed (%1$s)</string>
+    <string name="holiday_api_bad_response">Invalid response format</string>
+    <string name="holiday_api_rate_limited">Too many requests; try again later</string>
+    <string name="holiday_api_error_code">Error returned (code=%1$d)</string>
+    <string name="holiday_api_validation_failed">API data validation failed; existing data was kept</string>
+    <string name="holiday_response_too_large">Response too large</string>
+    <string name="holiday_describe_no_data">No data available</string>
+    <string name="holiday_describe_range_remote">Years covered: %1$s · online data v%2$d</string>
+    <string name="holiday_describe_range_builtin">Years covered: %1$s · using built-in data</string>
+    <string name="holiday_api_fallback_name">Holiday</string>
+
+    <!-- CSV import -->
+    <string name="csv_import_unrecognized_file">Unrecognized file: the first line is neither a valid header (must contain a 日期/date column) nor a data row starting with a date. Use a standard CSV export file or follow the help text.</string>
+    <string name="csv_import_row_error">Row %1$d: date missing or unrecognizable; skipped</string>
+    <string name="csv_import_skipped_existing">Skipped %1$d records with duplicate existing dates</string>
+    <string name="csv_import_aborted_fmt">Import aborted: %1$s</string>
+    <string name="csv_import_unrecognized">Unrecognized file format</string>
+    <string name="csv_import_success">Imported %1$d records successfully</string>
+    <string name="csv_import_partial">Imported %1$d records successfully; %2$d failed</string>
+    <string name="csv_import_failed_all">Import failed; no records were imported</string>
+    <string name="csv_import_failed_fmt">Import failed: %1$s</string>
+    <string name="csv_import_unknown_error">Unknown error</string>
+    <string name="csv_import_format_desc">Supported CSV format:\n- Encoding: UTF-8; delimiter: comma (,)\n- Header row (recommended; column order is flexible, extra columns are ignored):\n  %1$s\n- For leave records, fill in: 请假(是/否), 请假类型(年假/病假/…), 请假天数\n- 加班类型/加班费 are display-only columns and are ignored on import (overtime pay is calculated from your salary settings)\n- Legacy export headers are supported, e.g. 加班时长(小时), 加班费(元)\n- Headerless files are supported (column order: 日期,上班时间,下班时间,加班时长,额外时长,备注)\n\nExample (Chinese column names are required for import):\n日期,上班时间,下班时间,加班时长,加班类型,加班费,额外时长,请假,请假类型,请假天数,备注\n2024-01-01,09:00,18:00,1.5,平时,28.74,0.0,否,无,0.0,元旦加班\n2024-01-02,无,无,0.0,平时,0.00,0.0,是,年假,8.0,休年假\n\nSupported date formats:\n- yyyy-MM-dd (recommended)\n- yyyy/MM/dd\n- yyyy年MM月dd日\n- yyyyMMdd</string>
+
+    <!-- Change log: repository summaries -->
+    <string name="changelog_repo_clear_all">Cleared all %1$d records</string>
+    <string name="changelog_repo_leave_prefix">Leave: %1$s</string>
+    <string name="changelog_repo_overtime_hours">Overtime %1$sh</string>
+    <string name="changelog_repo_extra_hours">Extra %1$sh</string>
+    <string name="changelog_repo_check_in">Check-in %1$s</string>
+    <string name="changelog_repo_check_out">Check-out %1$s</string>
+    <string name="changelog_repo_rate">Rate %1$sx</string>
+    <string name="changelog_repo_night_shift">Night shift</string>
+    <string name="changelog_repo_note">Note “%1$s”</string>
+    <string name="changelog_repo_empty">(Empty record)</string>
+    <string name="changelog_repo_join_sep">, </string>
+    <string name="changelog_repo_diff">%1$s: %2$s → %3$s</string>
+    <string name="changelog_repo_diff_sep">; </string>
+    <string name="changelog_repo_field_leave">Leave</string>
+    <string name="changelog_repo_field_overtime">Overtime</string>
+    <string name="changelog_repo_field_extra">Extra</string>
+    <string name="changelog_repo_field_check_in">Check-in</string>
+    <string name="changelog_repo_field_check_out">Check-out</string>
+    <string name="changelog_repo_field_rate">Rate</string>
+    <string name="changelog_repo_field_shift">Shift</string>
+    <string name="changelog_repo_field_note">Note</string>
+    <string name="changelog_repo_none_leave">No leave</string>
+    <string name="changelog_repo_unfilled">Not set</string>
+    <string name="changelog_repo_none">None</string>
+    <string name="changelog_repo_default">Default</string>
+    <string name="changelog_repo_note_value">“%1$s”</string>
+    <string name="changelog_repo_hours_value">%1$sh</string>
+    <string name="changelog_repo_rate_value">%1$sx</string>
+    <string name="changelog_repo_leave_value">%1$s %2$s day(s)</string>
+    <string name="changelog_repo_leave_fallback">Leave</string>
+
+    <!-- Sync summary -->
+    <string name="sync_summary_result">result=%1$s</string>
+    <string name="sync_summary_direction">direction=%1$s</string>
+    <string name="sync_summary_local">local=%1$d</string>
+    <string name="sync_summary_cloud">cloud=%1$d</string>
+    <string name="sync_summary_uploaded">uploaded=%1$d</string>
+    <string name="sync_summary_downloaded">downloaded=%1$d</string>
+    <string name="sync_summary_merged">merged=%1$d</string>
+    <string name="sync_summary_invalid_count">invalid skipped=%1$d</string>
+    <string name="sync_summary_sep">, </string>
+
+    <!-- Team sync network errors -->
+    <string name="team_api_unauthorized">Your session has expired. Please log in again.</string>
+    <string name="team_api_request_failed">Request failed (HTTP %1$d)</string>
+    <string name="team_api_server_error">Server error (HTTP %1$d)</string>
+    <string name="team_api_connect_failed">Cannot connect to the server: %1$s</string>
+    <string name="team_api_network_error">Network error</string>
+    <string name="webdav_download_too_large">The cloud backup exceeds the size limit (%1$d MB); download aborted</string>
+</resources>

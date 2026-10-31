@@ -18,7 +18,7 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="@color/colorPrimary"
-            app:title="加班设置"
+            app:title="@string/settings_title"
             app:titleTextColor="@color/white" />
 
     </com.google.android.material.appbar.AppBarLayout>
@@ -55,7 +55,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="🎫 软件激活"
+                        android:text="@string/settings_activation_title"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#333333"
@@ -65,7 +65,7 @@
                         android:id="@+id/tvTrialStatus"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="未激活"
+                        android:text="@string/settings_unactivated"
                         android:textSize="13sp"
                         android:textColor="#666666"
                         android:layout_marginBottom="12dp" />
@@ -74,7 +74,7 @@
                         android:id="@+id/tilTrialCode"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="输入激活码"
+                        android:hint="@string/settings_activation_code_hint"
                         android:layout_marginBottom="8dp"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
@@ -84,14 +84,14 @@
                             android:layout_height="wrap_content"
                             android:inputType="text"
                             android:maxLength="32"
-                            android:hint="形如 XXXXXXXXXXXXX-XXXXXXXXXXXXX（27 位）" />
+                            android:hint="@string/settings_activation_code_format_hint" />
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnActivateTrial"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="激活 / 续期"
+                        android:text="@string/settings_activate_button"
                         android:textSize="14sp"
                         app:cornerRadius="8dp" />
 
@@ -107,7 +107,7 @@
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="⚠️ 服务器未配置或离线"
+                            android:text="@string/settings_server_offline"
                             android:textSize="12sp"
                             android:textColor="#E65100"
                             android:layout_marginBottom="2dp" />
@@ -115,7 +115,7 @@
                         <TextView
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="请将下方设备 ID 发给开发者获取离线激活码："
+                            android:text="@string/settings_device_id_desc"
                             android:textSize="11sp"
                             android:textColor="#757575"
                             android:layout_marginBottom="4dp" />
@@ -131,7 +131,7 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="设备 ID"
+                                android:text="@string/settings_device_id"
                                 android:textSize="12sp"
                                 android:textColor="#424242"
                                 android:fontFamily="monospace" />
@@ -141,7 +141,7 @@
                                 style="@style/Widget.MaterialComponents.Button.TextButton"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="复制"
+                                android:text="@string/settings_copy"
                                 android:textSize="12sp" />
                         </LinearLayout>
                     </LinearLayout>
@@ -168,7 +168,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="🔒 生物识别保护"
+                        android:text="@string/settings_biometric_title"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#333333"
@@ -185,7 +185,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="启动时验证身份"
+                            android:text="@string/settings_biometric_verify_on_start"
                             android:textColor="#666666" />
 
                         <com.google.android.material.switchmaterial.SwitchMaterial
@@ -199,7 +199,7 @@
                         android:id="@+id/tvBiometricStatus"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="设备不支持生物识别"
+                        android:text="@string/settings_biometric_unsupported"
                         android:textSize="12sp"
                         android:textColor="#999999"
                         android:layout_marginTop="8dp" />
@@ -232,7 +232,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="自动同步"
+                            android:text="@string/settings_auto_sync"
                             android:textSize="16sp"
                             android:textStyle="bold"
                             android:textColor="#333333" />
@@ -264,7 +264,7 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="同步间隔"
+                                android:text="@string/settings_sync_interval"
                                 android:textColor="#666666" />
 
                             <Spinner
@@ -286,7 +286,7 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="仅在WiFi下同步"
+                                android:text="@string/settings_sync_wifi_only"
                                 android:textColor="#666666" />
 
                             <com.google.android.material.switchmaterial.SwitchMaterial
@@ -301,7 +301,7 @@
                             android:id="@+id/tvLastSyncTime"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="上次同步：从未同步"
+                            android:text="@string/settings_last_sync_never"
                             android:textColor="#999999"
                             android:textSize="12sp"
                             android:layout_marginTop="8dp" />
@@ -310,7 +310,7 @@
                             android:id="@+id/btnSyncNow"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="立即同步"
+                            android:text="@string/settings_sync_now"
                             android:layout_marginTop="12dp"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             app:cornerRadius="8dp" />
@@ -338,7 +338,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="WebDAV 同步"
+                        android:text="@string/settings_webdav_title"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#333333"
@@ -347,7 +347,7 @@
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="服务器地址"
+                        android:hint="@string/settings_webdav_server_hint"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                         android:layout_marginBottom="8dp">
 
@@ -369,7 +369,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:layout_marginEnd="8dp"
-                            android:hint="用户名"
+                            android:hint="@string/settings_webdav_username_hint"
                             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
                             <com.google.android.material.textfield.TextInputEditText
@@ -385,7 +385,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:layout_marginStart="8dp"
-                            android:hint="密码"
+                            android:hint="@string/settings_webdav_password_hint"
                             app:endIconMode="custom"
                             app:endIconDrawable="@drawable/ic_visibility"
                             app:endIconContentDescription="@string/hold_to_view_password"
@@ -403,7 +403,7 @@
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="远程路径"
+                        android:hint="@string/settings_webdav_path_hint"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                         android:layout_marginTop="8dp">
 
@@ -427,7 +427,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:layout_marginEnd="8dp"
-                            android:text="测试连接"
+                            android:text="@string/settings_test_connection"
                             android:textSize="14sp"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             app:cornerRadius="8dp" />
@@ -438,7 +438,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:layout_marginStart="8dp"
-                            android:text="保存配置"
+                            android:text="@string/settings_save_config"
                             android:textSize="14sp"
                             app:cornerRadius="8dp" />
 
@@ -465,7 +465,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="外观设置"
+                        android:text="@string/settings_appearance_title"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#333333"
@@ -480,7 +480,7 @@
                             android:id="@+id/themeSystem"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="跟随系统"
+                            android:text="@string/settings_theme_system"
                             android:paddingVertical="8dp"
                             android:textSize="14sp" />
 
@@ -488,7 +488,7 @@
                             android:id="@+id/themeLight"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="浅色模式"
+                            android:text="@string/settings_theme_light"
                             android:paddingVertical="8dp"
                             android:textSize="14sp" />
 
@@ -496,7 +496,7 @@
                             android:id="@+id/themeDark"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="深色模式"
+                            android:text="@string/settings_theme_dark"
                             android:paddingVertical="8dp"
                             android:textSize="14sp" />
                     </RadioGroup>
@@ -522,7 +522,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="班次选择"
+                        android:text="@string/shift_selection"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#333333"
@@ -537,7 +537,7 @@
                             android:id="@+id/shiftNormal"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="白班8小时 (8:00-12:00, 13:00-17:00)"
+                            android:text="@string/day_shift"
                             android:paddingVertical="8dp"
                             android:textSize="14sp" />
 
@@ -545,7 +545,7 @@
                             android:id="@+id/shiftCustom"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:text="自定义班次"
+                            android:text="@string/custom_shift"
                             android:paddingVertical="8dp"
                             android:textSize="14sp" />
                     </RadioGroup>
@@ -569,7 +569,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
                                 android:layout_marginEnd="8dp"
-                                android:hint="上班时间"
+                                android:hint="@string/work_start_time"
                                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
                                 <com.google.android.material.textfield.TextInputEditText
@@ -584,7 +584,7 @@
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
                                 android:layout_marginStart="8dp"
-                                android:hint="下班时间"
+                                android:hint="@string/work_end_time"
                                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
                                 <com.google.android.material.textfield.TextInputEditText
@@ -619,7 +619,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="工资设置"
+                        android:text="@string/salary_settings"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#333333"
@@ -628,7 +628,7 @@
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="底薪（元）"
+                        android:hint="@string/base_salary"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
                         <com.google.android.material.textfield.TextInputEditText
@@ -642,11 +642,25 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:hint="绩效百分比（%）"
+                        android:hint="@string/performance_percent"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/etPerformancePercent"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:inputType="numberDecimal" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:hint="@string/settings_fixed_bonus_hint"
+                        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etFixedBonus"
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:inputType="numberDecimal" />
@@ -664,7 +678,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:layout_marginEnd="8dp"
-                            android:hint="月工作日数"
+                            android:hint="@string/monthly_work_days"
                             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
                             <com.google.android.material.textfield.TextInputEditText
@@ -679,7 +693,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:layout_marginStart="8dp"
-                            android:hint="每日工作小时数"
+                            android:hint="@string/daily_work_hours"
                             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
                             <com.google.android.material.textfield.TextInputEditText
@@ -713,7 +727,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="五险一金与个税"
+                        android:text="@string/settings_insurance_title"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#333333"
@@ -722,7 +736,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="缴费基数填 0 时按底薪计算；个税按累计预扣法、起征点 5000 元/月"
+                        android:text="@string/settings_salary_note"
                         android:textSize="11sp"
                         android:textColor="#9E9E9E"
                         android:layout_marginBottom="12dp" />
@@ -737,7 +751,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:layout_marginEnd="8dp"
-                            android:hint="社保缴费基数（元）"
+                            android:hint="@string/settings_social_insurance_base_hint"
                             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
                             <com.google.android.material.textfield.TextInputEditText
@@ -752,7 +766,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:layout_marginStart="8dp"
-                            android:hint="公积金缴费基数（元）"
+                            android:hint="@string/settings_housing_fund_base_hint"
                             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
                             <com.google.android.material.textfield.TextInputEditText
@@ -775,7 +789,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:layout_marginEnd="8dp"
-                            android:hint="养老个人比例（%）"
+                            android:hint="@string/settings_pension_ratio_hint"
                             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
                             <com.google.android.material.textfield.TextInputEditText
@@ -790,7 +804,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:layout_marginStart="8dp"
-                            android:hint="医疗个人比例（%）"
+                            android:hint="@string/settings_medical_ratio_hint"
                             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
                             <com.google.android.material.textfield.TextInputEditText
@@ -813,7 +827,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:layout_marginEnd="8dp"
-                            android:hint="失业个人比例（%）"
+                            android:hint="@string/settings_unemployment_ratio_hint"
                             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
                             <com.google.android.material.textfield.TextInputEditText
@@ -828,7 +842,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:layout_marginStart="8dp"
-                            android:hint="公积金个人比例（%）"
+                            android:hint="@string/settings_housing_fund_ratio_hint"
                             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
                             <com.google.android.material.textfield.TextInputEditText
@@ -844,7 +858,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:hint="每月专项附加扣除合计（元）"
+                        android:hint="@string/settings_special_deduction_hint"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
                         <com.google.android.material.textfield.TextInputEditText
@@ -883,7 +897,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="快捷登记通知"
+                            android:text="@string/settings_quick_entry_title"
                             android:textSize="15sp"
                             android:textStyle="bold"
                             android:textColor="#333333" />
@@ -891,7 +905,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="在通知栏常驻「加班+1h / 加点+1h」快捷操作，可随时关闭"
+                            android:text="@string/settings_quick_entry_desc"
                             android:textSize="11sp"
                             android:textColor="#9E9E9E"
                             android:layout_marginTop="2dp" />
@@ -925,7 +939,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="数据加密"
+                        android:text="@string/settings_encryption_title"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#333333"
@@ -943,7 +957,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="导出文件加密"
+                            android:text="@string/settings_export_encrypt"
                             android:textColor="#666666" />
 
                         <com.google.android.material.switchmaterial.SwitchMaterial
@@ -963,7 +977,7 @@
                         <com.google.android.material.textfield.TextInputLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:hint="导出密码"
+                            android:hint="@string/settings_export_password_hint"
                             android:layout_marginBottom="8dp"
                             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
@@ -988,7 +1002,7 @@
                             android:layout_width="0dp"
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
-                            android:text="云端同步加密"
+                            android:text="@string/settings_sync_encrypt"
                             android:textColor="#666666" />
 
                         <com.google.android.material.switchmaterial.SwitchMaterial
@@ -1009,7 +1023,7 @@
                         <com.google.android.material.textfield.TextInputLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
-                            android:hint="同步密码"
+                            android:hint="@string/settings_sync_password_hint"
                             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
                             <com.google.android.material.textfield.TextInputEditText
@@ -1026,7 +1040,7 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="8dp"
                             android:padding="10dp"
-                            android:text="已为云端数据生成恢复码（忘记密码时的唯一找回方式），请立即点击“查看恢复码”并离线抄写保存"
+                            android:text="@string/settings_recovery_reminder"
                             android:textColor="#B71C1C"
                             android:textSize="12sp"
                             android:background="#FDECEA"
@@ -1044,7 +1058,7 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="查看同步密码"
+                                android:text="@string/settings_view_sync_password"
                                 android:textSize="12sp" />
 
                             <com.google.android.material.button.MaterialButton
@@ -1053,7 +1067,7 @@
                                 android:layout_width="0dp"
                                 android:layout_height="wrap_content"
                                 android:layout_weight="1"
-                                android:text="查看恢复码"
+                                android:text="@string/settings_view_recovery_code"
                                 android:textSize="12sp" />
                         </LinearLayout>
 
@@ -1063,7 +1077,7 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_gravity="start"
-                            android:text="忘记同步密码？用恢复码找回"
+                            android:text="@string/settings_forgot_password"
                             android:textSize="12sp" />
 
                     </LinearLayout>
@@ -1072,7 +1086,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="• 导出加密：加密导出的PDF/CSV文件\n• 同步加密：加密上传到云端的数据"
+                        android:text="@string/settings_encryption_note"
                         android:textColor="#999999"
                         android:textSize="12sp"
                         android:layout_marginTop="8dp" />
@@ -1100,7 +1114,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="团队同步"
+                        android:text="@string/team_sync"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#333333"
@@ -1110,7 +1124,7 @@
                         android:id="@+id/tvTeamStatus"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="未登录团队服务器"
+                        android:text="@string/team_not_logged_in"
                         android:textSize="13sp"
                         android:textColor="#666666"
                         android:layout_marginBottom="12dp" />
@@ -1127,7 +1141,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:layout_marginEnd="8dp"
-                            android:text="立即同步"
+                            android:text="@string/settings_sync_now"
                             android:textSize="14sp"
                             app:cornerRadius="8dp" />
 
@@ -1137,7 +1151,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:layout_marginStart="8dp"
-                            android:text="修改密码"
+                            android:text="@string/team_change_password"
                             android:textSize="14sp"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             app:cornerRadius="8dp" />
@@ -1156,7 +1170,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:layout_marginEnd="8dp"
-                            android:text="登录 / 重新登录"
+                            android:text="@string/settings_team_login"
                             android:textSize="14sp"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             app:cornerRadius="8dp" />
@@ -1167,7 +1181,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:layout_marginStart="8dp"
-                            android:text="退出登录"
+                            android:text="@string/team_logout"
                             android:textSize="14sp"
                             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                             app:cornerRadius="8dp" />
@@ -1178,7 +1192,7 @@
                         android:id="@+id/btnTeamAdminSummary"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="全员加班汇总"
+                        android:text="@string/team_admin_summary"
                         android:textSize="14sp"
                         android:visibility="gone"
                         app:cornerRadius="8dp" />
@@ -1205,7 +1219,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="节假日数据"
+                        android:text="@string/settings_holiday_title"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#333333"
@@ -1215,7 +1229,7 @@
                         android:id="@+id/tvHolidayDataInfo"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="覆盖年份：加载中…"
+                        android:text="@string/settings_holiday_coverage_loading"
                         android:textColor="#999999"
                         android:textSize="12sp"
                         android:layout_marginBottom="12dp" />
@@ -1224,14 +1238,14 @@
                         android:id="@+id/btnHolidayUpdate"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="检查节假日更新"
+                        android:text="@string/settings_check_holiday_update"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                         app:cornerRadius="8dp" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="从仓库拉取最新节假日与调休补班日；离线或校验失败时继续使用内置数据。"
+                        android:text="@string/settings_holiday_update_desc"
                         android:textColor="#999999"
                         android:textSize="11sp"
                         android:layout_marginTop="8dp" />
@@ -1258,7 +1272,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="日历同步"
+                        android:text="@string/settings_calendar_title"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#333333"
@@ -1268,7 +1282,7 @@
                         android:id="@+id/tvCalendarSyncStatus"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="未同步"
+                        android:text="@string/settings_calendar_not_synced"
                         android:textColor="#999999"
                         android:textSize="12sp"
                         android:layout_marginBottom="12dp" />
@@ -1277,14 +1291,14 @@
                         android:id="@+id/btnCalendarSync"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="立即同步日历"
+                        android:text="@string/settings_calendar_sync_now"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                         app:cornerRadius="8dp" />
 
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="记录会写入系统主日历的全天日程（标题如「[加班] 2h」「[请假] 年假 1天」）；在日历里修改标题日期或删除事件会回写应用。需授予日历读写权限。"
+                        android:text="@string/settings_calendar_sync_desc"
                         android:textColor="#999999"
                         android:textSize="11sp"
                         android:layout_marginTop="8dp" />
@@ -1311,7 +1325,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="软件更新"
+                        android:text="@string/settings_update_title"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#333333"
@@ -1321,7 +1335,7 @@
                         android:id="@+id/tvCurrentVersion"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="当前版本：v0.0.0"
+                        android:text="@string/settings_current_version"
                         android:textColor="#999999"
                         android:textSize="12sp"
                         android:layout_marginBottom="12dp" />
@@ -1330,7 +1344,7 @@
                         android:id="@+id/btnCheckUpdate"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="检查更新"
+                        android:text="@string/settings_check_update"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                         app:cornerRadius="8dp" />
 
@@ -1338,7 +1352,7 @@
                         android:id="@+id/btnChangelog"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="修改日志"
+                        android:text="@string/settings_changelog"
                         style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                         app:cornerRadius="8dp" />
 
@@ -1362,7 +1376,7 @@
             android:id="@+id/btnSave"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:text="保存设置"
+            android:text="@string/save_settings"
             android:textSize="16sp"
             app:cornerRadius="12dp" />
 

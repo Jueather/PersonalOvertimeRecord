@@ -1,10 +1,18 @@
 package com.example.personalovertimerecord.utils
 
+import androidx.annotation.StringRes
+import com.example.personalovertimerecord.OvertimeApplication
+import com.example.personalovertimerecord.R
+
 /**
  * 数据验证工具类
  * 提供各种数据验证功能，确保数据完整性
  */
 object DataValidator {
+
+    /** 校验失败文案统一走资源，随系统语言切换 */
+    private fun str(@StringRes id: Int, vararg args: Any): String =
+        OvertimeApplication.getInstance().getString(id, *args)
 
     // 日期格式正则表达式
     private val DATE_PATTERN = Regex("^\\d{4}-\\d{2}-\\d{2}$")
@@ -35,24 +43,24 @@ object DataValidator {
      */
     fun validateDate(date: String?, allowFuture: Boolean = false): ValidationResult {
         if (date.isNullOrBlank()) {
-            return ValidationResult.Invalid(listOf("日期不能为空"))
+            return ValidationResult.Invalid(listOf(str(R.string.validate_date_required)))
         }
         
         if (!DATE_PATTERN.matches(date)) {
-            return ValidationResult.Invalid(listOf("日期格式错误，请使用 YYYY-MM-DD 格式"))
+            return ValidationResult.Invalid(listOf(str(R.string.validate_date_format)))
         }
         
         val parts = date.split("-")
-        val year = parts[0].toIntOrNull() ?: return ValidationResult.Invalid(listOf("年份无效"))
-        val month = parts[1].toIntOrNull() ?: return ValidationResult.Invalid(listOf("月份无效"))
-        val day = parts[2].toIntOrNull() ?: return ValidationResult.Invalid(listOf("日期无效"))
+        val year = parts[0].toIntOrNull() ?: return ValidationResult.Invalid(listOf(str(R.string.validate_year_invalid)))
+        val month = parts[1].toIntOrNull() ?: return ValidationResult.Invalid(listOf(str(R.string.validate_month_invalid)))
+        val day = parts[2].toIntOrNull() ?: return ValidationResult.Invalid(listOf(str(R.string.validate_day_invalid)))
         
         if (month < 1 || month > 12) {
-            return ValidationResult.Invalid(listOf("月份必须在 1-12 之间"))
+            return ValidationResult.Invalid(listOf(str(R.string.validate_month_range)))
         }
         
         if (day < 1 || day > 31) {
-            return ValidationResult.Invalid(listOf("日期必须在 1-31 之间"))
+            return ValidationResult.Invalid(listOf(str(R.string.validate_day_range)))
         }
         
         // 检查每个月的最大天数
@@ -64,14 +72,16 @@ object DataValidator {
         }
         
         if (day > maxDay) {
-            return ValidationResult.Invalid(listOf("${year}年${month}月只有${maxDay}天"))
+            return ValidationResult.Invalid(
+                listOf(str(R.string.validate_date_days_in_month, year, month, maxDay))
+            )
         }
         
         // 检查是否在未来（允许今天）；恢复/同步路径允许未来日期
         if (!allowFuture) {
             val today = java.time.LocalDate.now().toString()
             if (date > today) {
-                return ValidationResult.Invalid(listOf("日期不能是未来日期"))
+                return ValidationResult.Invalid(listOf(str(R.string.validate_date_future)))
             }
         }
         
@@ -83,23 +93,23 @@ object DataValidator {
      */
     fun validateTime(time: String?): ValidationResult {
         if (time.isNullOrBlank()) {
-            return ValidationResult.Invalid(listOf("时间不能为空"))
+            return ValidationResult.Invalid(listOf(str(R.string.validate_time_required)))
         }
         
         if (!TIME_PATTERN.matches(time)) {
-            return ValidationResult.Invalid(listOf("时间格式错误，请使用 HH:mm 或 HH:mm:ss 格式"))
+            return ValidationResult.Invalid(listOf(str(R.string.validate_time_format)))
         }
         
         val parts = time.split(":")
-        val hour = parts[0].toIntOrNull() ?: return ValidationResult.Invalid(listOf("小时无效"))
-        val minute = parts[1].toIntOrNull() ?: return ValidationResult.Invalid(listOf("分钟无效"))
+        val hour = parts[0].toIntOrNull() ?: return ValidationResult.Invalid(listOf(str(R.string.validate_hour_invalid)))
+        val minute = parts[1].toIntOrNull() ?: return ValidationResult.Invalid(listOf(str(R.string.validate_minute_invalid)))
         
         if (hour < 0 || hour > 23) {
-            return ValidationResult.Invalid(listOf("小时必须在 0-23 之间"))
+            return ValidationResult.Invalid(listOf(str(R.string.validate_hour_range)))
         }
         
         if (minute < 0 || minute > 59) {
-            return ValidationResult.Invalid(listOf("分钟必须在 0-59 之间"))
+            return ValidationResult.Invalid(listOf(str(R.string.validate_minute_range)))
         }
         
         return ValidationResult.Valid
@@ -110,20 +120,20 @@ object DataValidator {
      */
     fun validateOvertimeHours(hours: Double?): ValidationResult {
         if (hours == null) {
-            return ValidationResult.Invalid(listOf("加班时长不能为空"))
+            return ValidationResult.Invalid(listOf(str(R.string.validate_overtime_required)))
         }
         
         if (hours < MIN_OVERTIME_HOURS) {
-            return ValidationResult.Invalid(listOf("加班时长不能为负数"))
+            return ValidationResult.Invalid(listOf(str(R.string.validate_overtime_negative)))
         }
         
         if (hours > MAX_OVERTIME_HOURS) {
-            return ValidationResult.Invalid(listOf("加班时长不能超过 24 小时"))
+            return ValidationResult.Invalid(listOf(str(R.string.validate_overtime_exceed)))
         }
         
         // 精度检查（最多2位小数）
         if (hours != hours.toLong().toDouble() && hours.toString().split(".")[1].length > 2) {
-            return ValidationResult.Invalid(listOf("加班时长最多保留2位小数"))
+            return ValidationResult.Invalid(listOf(str(R.string.validate_overtime_precision)))
         }
         
         return ValidationResult.Valid
@@ -134,15 +144,15 @@ object DataValidator {
      */
     fun validateShiftHours(hours: Double?): ValidationResult {
         if (hours == null) {
-            return ValidationResult.Invalid(listOf("班次时长不能为空"))
+            return ValidationResult.Invalid(listOf(str(R.string.validate_shift_required)))
         }
         
         if (hours < MIN_SHIFT_HOURS) {
-            return ValidationResult.Invalid(listOf("班次时长不能为负数"))
+            return ValidationResult.Invalid(listOf(str(R.string.validate_shift_negative)))
         }
         
         if (hours > MAX_SHIFT_HOURS) {
-            return ValidationResult.Invalid(listOf("班次时长不能超过 24 小时"))
+            return ValidationResult.Invalid(listOf(str(R.string.validate_shift_exceed)))
         }
         
         return ValidationResult.Valid
@@ -164,7 +174,7 @@ object DataValidator {
         
         if (checkIn != null && checkOut != null) {
             if (checkIn >= checkOut) {
-                return ValidationResult.Invalid(listOf("上班时间必须早于下班时间"))
+                return ValidationResult.Invalid(listOf(str(R.string.validate_work_time_order)))
             }
         }
         
@@ -182,13 +192,13 @@ object DataValidator {
         val errors = mutableListOf<String>()
         
         if (serverUrl.isNullOrBlank()) {
-            errors.add("服务器地址不能为空")
+            errors.add(str(R.string.validate_server_required))
         } else if (!serverUrl.startsWith("http://") && !serverUrl.startsWith("https://")) {
-            errors.add("服务器地址必须以 http:// 或 https:// 开头")
+            errors.add(str(R.string.validate_server_scheme))
         }
         
         if (username.isNullOrBlank()) {
-            errors.add("用户名不能为空")
+            errors.add(str(R.string.validate_username_required))
         }
         
         // 密码可以为空（匿名访问）
@@ -212,15 +222,17 @@ object DataValidator {
         
         val workHoursResult = validateShiftHours(workHours)
         if (!workHoursResult.isValid) {
-            errors.add("标准工时: ${workHoursResult.errors.joinToString()}")
+            errors.add(
+                str(R.string.validate_work_hours_prefix, workHoursResult.errors.joinToString())
+            )
         }
         
         if (hourlyRate != null && hourlyRate < 0) {
-            errors.add("小时工资率不能为负数")
+            errors.add(str(R.string.validate_hourly_rate_negative))
         }
         
         if (overtimeRate != null && overtimeRate < 0) {
-            errors.add("加班费率不能为负数")
+            errors.add(str(R.string.validate_overtime_rate_negative))
         }
         
         return if (errors.isEmpty()) {
@@ -243,7 +255,7 @@ object DataValidator {
         
         val dateResult = validateDate(date)
         if (!dateResult.isValid) {
-            errors.addAll(dateResult.errors.map { "日期: $it" })
+            errors.addAll(dateResult.errors.map { str(R.string.validate_date_prefix, it) })
         }
         
         if (checkIn != null || checkOut != null) {
@@ -256,7 +268,7 @@ object DataValidator {
         if (overtimeHours != null) {
             val overtimeResult = validateOvertimeHours(overtimeHours)
             if (!overtimeResult.isValid) {
-                errors.addAll(overtimeResult.errors.map { "加班时长: $it" })
+                errors.addAll(overtimeResult.errors.map { str(R.string.validate_overtime_prefix, it) })
             }
         }
         
@@ -274,18 +286,23 @@ object DataValidator {
         value: String?,
         minLength: Int = 0,
         maxLength: Int = Int.MAX_VALUE,
-        fieldName: String = "字段"
+        fieldName: String? = null
     ): ValidationResult {
+        val name = fieldName ?: str(R.string.validate_default_field)
         if (value == null) {
-            return ValidationResult.Invalid(listOf("$fieldName 不能为空"))
+            return ValidationResult.Invalid(listOf(str(R.string.validate_field_required, name)))
         }
         
         if (value.length < minLength) {
-            return ValidationResult.Invalid(listOf("$fieldName 长度不能少于 $minLength 个字符"))
+            return ValidationResult.Invalid(
+                listOf(str(R.string.validate_field_min_length, name, minLength))
+            )
         }
         
         if (value.length > maxLength) {
-            return ValidationResult.Invalid(listOf("$fieldName 长度不能超过 $maxLength 个字符"))
+            return ValidationResult.Invalid(
+                listOf(str(R.string.validate_field_max_length, name, maxLength))
+            )
         }
         
         return ValidationResult.Valid
@@ -298,18 +315,19 @@ object DataValidator {
         value: Double?,
         min: Double = Double.MIN_VALUE,
         max: Double = Double.MAX_VALUE,
-        fieldName: String = "数值"
+        fieldName: String? = null
     ): ValidationResult {
+        val name = fieldName ?: str(R.string.validate_default_number)
         if (value == null) {
-            return ValidationResult.Invalid(listOf("$fieldName 不能为空"))
+            return ValidationResult.Invalid(listOf(str(R.string.validate_field_required, name)))
         }
         
         if (value < min) {
-            return ValidationResult.Invalid(listOf("$fieldName 不能小于 $min"))
+            return ValidationResult.Invalid(listOf(str(R.string.validate_field_min, name, min)))
         }
         
         if (value > max) {
-            return ValidationResult.Invalid(listOf("$fieldName 不能大于 $max"))
+            return ValidationResult.Invalid(listOf(str(R.string.validate_field_max, name, max)))
         }
         
         return ValidationResult.Valid

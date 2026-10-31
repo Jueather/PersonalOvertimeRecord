@@ -3,7 +3,10 @@ package com.example.personalovertimerecord.utils
 import android.content.Context
 import android.net.Uri
 import android.os.Build
+import androidx.annotation.StringRes
 import androidx.room.withTransaction
+import com.example.personalovertimerecord.OvertimeApplication
+import com.example.personalovertimerecord.R
 import com.example.personalovertimerecord.data.OvertimeSettings
 import com.example.personalovertimerecord.data.LeaveType
 import com.example.personalovertimerecord.data.SettingsManager
@@ -163,6 +166,9 @@ internal fun AttendanceEntity.toBackup(): AttendanceEntityBackup {
  *
  * @return 错误描述列表；空列表表示记录合法
  */
+private fun str(@StringRes id: Int, vararg args: Any): String =
+    OvertimeApplication.getInstance().getString(id, *args)
+
 internal fun validateBackupRecord(r: AttendanceEntityBackup): List<String> {
     val errors = mutableListOf<String>()
 
@@ -172,36 +178,36 @@ internal fun validateBackupRecord(r: AttendanceEntityBackup): List<String> {
     // 时长：-1 哨兵（未手工设置，由打卡计算）或 [0, 24]
     fun validateHourField(value: Double, name: String) {
         if (value.isNaN()) {
-            errors.add("$name 不是有效数字")
+            errors.add(str(R.string.data_export_invalid_number, name))
         } else if (value != -1.0 && (value < 0.0 || value > 24.0)) {
-            errors.add("$name 超出范围（须为 -1 或 0~24 小时）：$value")
+            errors.add(str(R.string.data_export_hour_out_of_range, name, value))
         }
     }
-    validateHourField(r.manualOvertimeHours, "加班时长")
-    validateHourField(r.manualExtraHours, "加点时长")
+    validateHourField(r.manualOvertimeHours, str(R.string.data_export_field_overtime))
+    validateHourField(r.manualExtraHours, str(R.string.data_export_field_extra))
 
     // 请假时长：0 ~ 744（31 天 × 24 小时）
     if (r.leaveHours.isNaN() || r.leaveHours < 0.0 || r.leaveHours > 744.0) {
-        errors.add("请假时长超出范围（0~744 小时）：${r.leaveHours}")
+        errors.add(str(R.string.data_export_leave_hours_out_of_range, r.leaveHours))
     }
 
     // 自定义倍率：null（未自定义）或 [1.0, 4.0]
     val rate = r.customRate
     if (rate != null && (rate.isNaN() || rate < 1.0 || rate > 4.0)) {
-        errors.add("自定义倍率超出范围（1.0~4.0）：$rate")
+        errors.add(str(R.string.data_export_custom_rate_out_of_range, rate))
     }
 
     // 请假类型：非空时必须可解析为已知枚举
     if (r.leaveType != null && LeaveType.fromString(r.leaveType) == null) {
-        errors.add("请假类型无法识别：${r.leaveType}")
+        errors.add(str(R.string.data_export_leave_type_unknown, r.leaveType))
     }
 
     // 打卡时间格式（非空时校验）
     r.checkInTime?.let { time ->
-        errors.addAll(DataValidator.validateTime(time).errors.map { "上班时间: $it" })
+        errors.addAll(DataValidator.validateTime(time).errors.map { str(R.string.data_export_check_in_prefix, it) })
     }
     r.checkOutTime?.let { time ->
-        errors.addAll(DataValidator.validateTime(time).errors.map { "下班时间: $it" })
+        errors.addAll(DataValidator.validateTime(time).errors.map { str(R.string.data_export_check_out_prefix, it) })
     }
 
     return errors
@@ -281,13 +287,13 @@ class DataExporter(
             try {
                 context.contentResolver.openInputStream(uri)?.use { inputStream ->
                     // 限制大小读取，避免超大/恶意备份文件整体读入内存导致 OOM
-                    val raw = inputStream.readCappedUtf8(MAX_IMPORT_FILE_BYTES, "备份文件")
+                    val raw = inputStream.readCappedUtf8(MAX_IMPORT_FILE_BYTES, str(R.string.data_import_backup_file))
                     val json = if (raw.startsWith(ENC_PREFIX) || raw.startsWith(ENC_PREFIX_LEGACY)) {
                         // 加密备份：使用设置的导出加密密码解密（EncryptionUtils 自动识别 GCM/CBC 格式）
                         val settings = SettingsManager(context).getSettings()
                         val password = settings.exportPassword
                         if (password.isBlank()) {
-                            throw Exception("备份文件已加密，请在设置中配置导出加密密码后重试")
+                            throw Exception(str(R.string.data_import_encrypted_need_password))
                         }
                         try {
                             val encryptedPart = when {
@@ -297,7 +303,7 @@ class DataExporter(
                             }
                             EncryptionUtils.decryptString(encryptedPart, password)
                         } catch (e: Exception) {
-                            throw Exception("备份解密失败：密码错误或文件已损坏")
+                            throw Exception(str(R.string.data_import_decrypt_failed))
                         }
                     } else {
                         raw
@@ -306,7 +312,7 @@ class DataExporter(
                     val type = object : TypeToken<BackupData>() {}.type
                     val backupData: BackupData? = gson.fromJson(json, type)
                     if (backupData == null) {
-                        throw Exception("备份文件格式无效")
+                        throw Exception(str(R.string.data_import_invalid_format))
                     }
                     // Gson 反序列化可能产生 null 字段，补齐安全默认值防止 NPE
                     val safeBackup = backupData.sanitized()
@@ -314,13 +320,13 @@ class DataExporter(
                     // v3 完整性校验：若备份携带 checksum，比对考勤记录摘要，
                     // 校验失败说明文件损坏/被篡改，拒绝恢复以保护现有数据
                     if (!safeBackup.verifyChecksum(gson)) {
-                        throw Exception("备份文件校验失败（checksum 不匹配），文件可能已损坏或被篡改，已中止恢复")
+                        throw Exception(str(R.string.data_import_checksum_failed))
                     }
 
                     withContext(Dispatchers.Main) {
                         onSuccess(safeBackup)
                     }
-                } ?: throw Exception("无法打开文件")
+                } ?: throw Exception(str(R.string.data_import_cannot_open))
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     onError(e)
@@ -365,10 +371,10 @@ class DataExporter(
         var firstError: String? = null
         for (record in records) {
             if (record.date.isNullOrBlank()) {
-                throw IllegalArgumentException("备份包含缺失日期的记录，已中止恢复以保护现有数据")
+                throw IllegalArgumentException(str(R.string.data_import_missing_date))
             }
             if (!seenDates.add(record.date)) {
-                throw IllegalArgumentException("备份包含重复日期：${record.date}，已中止恢复以保护现有数据")
+                throw IllegalArgumentException(str(R.string.data_import_duplicate_date, record.date))
             }
             val errors = validateBackupRecord(record)
             if (errors.isNotEmpty()) {
@@ -378,7 +384,7 @@ class DataExporter(
         }
         if (invalidCount > 0) {
             throw IllegalArgumentException(
-                "备份包含 $invalidCount 条非法记录（首条：$firstError），已中止恢复以保护现有数据"
+                str(R.string.data_import_invalid_records, invalidCount, firstError ?: "")
             )
         }
     }
@@ -606,7 +612,7 @@ private fun java.io.InputStream.readCappedUtf8(maxBytes: Long, what: String): St
         total += read
         if (total > maxBytes) {
             throw IllegalArgumentException(
-                "$what 超过大小上限（${maxBytes / (1024 * 1024)} MB），已中止读取"
+                str(R.string.data_import_read_limit, what, maxBytes / (1024 * 1024))
             )
         }
         out.write(buffer, 0, read)
@@ -629,11 +635,11 @@ data class SyncSummary(
 ) {
     fun toDisplayString(): String {
         val parts = mutableListOf<String>()
-        if (added > 0) parts.add("新增 $added 条")
-        if (updated > 0) parts.add("更新 $updated 条")
-        if (deleted > 0) parts.add("删除 $deleted 条")
-        if (skipped > 0) parts.add("跳过 $skipped 条")
-        if (invalid > 0) parts.add("非法跳过 $invalid 条")
-        return parts.joinToString("，")
+        if (added > 0) parts.add(str(R.string.sync_summary_added, added))
+        if (updated > 0) parts.add(str(R.string.sync_summary_updated, updated))
+        if (deleted > 0) parts.add(str(R.string.sync_summary_deleted, deleted))
+        if (skipped > 0) parts.add(str(R.string.sync_summary_skipped, skipped))
+        if (invalid > 0) parts.add(str(R.string.sync_summary_invalid, invalid))
+        return parts.joinToString(str(R.string.sync_summary_separator))
     }
 }

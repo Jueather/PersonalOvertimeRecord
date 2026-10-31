@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Personal Overtime Record</string>
+    <string name="app_name">暮光</string>
     
     <!-- Common Messages -->
     <string name="settings_saved">设置已保存</string>
@@ -104,6 +104,7 @@
     <string name="team_sync_success">同步完成，云端 %1$d 条 / 本地 %2$d 条，合并 %3$d 条</string>
     <string name="team_sync_no_changes">已是最新，无变更</string>
     <string name="team_sync_failed">同步失败：%1$s</string>
+    <string name="team_sync_unknown_error">未知错误</string>
     <string name="team_login_failed">登录失败：%1$s</string>
     <string name="team_error_network">无法连接服务器，请检查网络与服务器地址</string>
     <string name="team_error_unauthorized">登录已失效，请重新登录</string>
@@ -120,7 +121,6 @@
     <string name="team_reset_password_done">新密码：%1$s（仅显示一次，请告知本人）</string>
     <string name="team_set_active_enable">启用</string>
     <string name="team_set_active_disable">停用</string>
-    <string name="team_set_active_done">%1$s已%2$s</string>
     <string name="team_cannot_disable_self">不能停用自己的账号</string>
     <string name="team_refresh">刷新</string>
     <string name="team_summary_empty">暂无数据</string>
@@ -138,4 +138,818 @@
 
     <!-- 桌面小部件 -->
     <string name="widget_quick_record_description">快捷登记加班/加点，查看当月工时与实发工资</string>
+
+    <!-- 首页 -->
+    <string name="common_close">关闭</string>
+    <string name="common_prev_month">上个月</string>
+    <string name="common_next_month">下个月</string>
+    <string name="common_data_management">数据管理</string>
+    <string name="common_report_title">统计报表</string>
+    <string name="common_overtime">加班</string>
+    <string name="common_extra_hours">加点</string>
+    <string name="common_leave">请假</string>
+    <string name="common_night_shift">夜班</string>
+    <string name="common_overtime_wage">加班工资</string>
+    <string name="common_zero_hours">0小时</string>
+    <string name="common_date_placeholder">2024年01月01日</string>
+    <string name="common_month_placeholder">2024年1月</string>
+    <string name="common_weekday_placeholder">星期二</string>
+    <string name="main_month_stats">本月统计</string>
+    <string name="main_month_salary">本月工资</string>
+    <string name="main_month_records">当月加班记录</string>
+    <string name="main_records_hint">点击卡片展开 · 长按更多</string>
+    <string name="main_filter_all">全部</string>
+    <string name="main_sort_by_date">按日期</string>
+    <string name="main_system_checking">系统检查中...</string>
+    <string name="main_sync_debug_placeholder">检查同步配置…\n测试服务器连接…</string>
+
+    <!-- 报表页 -->
+    <string name="report_export">导出报告</string>
+    <string name="report_overtime_days">加班天数</string>
+    <string name="report_zero_days">0 天</string>
+    <string name="report_salary_breakdown">💰 工资构成</string>
+    <string name="report_base_salary">底薪</string>
+    <string name="report_performance">绩效</string>
+    <string name="report_fixed_bonus">固定奖金</string>
+    <string name="report_gross_total">应发合计</string>
+    <string name="report_insurance">五险一金（个人）</string>
+    <string name="report_tax">个人所得税</string>
+    <string name="report_net_salary">实发工资</string>
+    <string name="report_payslip_title">🧾 工资条明细</string>
+    <string name="report_tax_note">个税按累计预扣法计算，起征点 5000 元/月</string>
+    <string name="report_social_insurance_base">社保缴费基数</string>
+    <string name="report_housing_fund_base">公积金缴费基数</string>
+    <string name="report_pension_insurance">养老保险</string>
+    <string name="report_medical_insurance">医疗保险</string>
+    <string name="report_unemployment_insurance">失业保险</string>
+    <string name="report_housing_fund">住房公积金</string>
+    <string name="report_special_deduction">每月专项附加扣除</string>
+    <string name="report_current_taxable">本月应纳税所得额</string>
+    <string name="report_cumulative_taxable">累计应纳税所得额</string>
+    <string name="report_hours_chart_title">📊 月度加班/加点时长</string>
+    <string name="report_distribution_title">📈 当月加班类型分布</string>
+    <string name="report_trend_title">💹 月度加班工资趋势</string>
+
+    <!-- 设置页 -->
+    <string name="settings_activation_title">🎫 软件激活</string>
+    <string name="settings_unactivated">未激活</string>
+    <string name="settings_activation_code_hint">输入激活码</string>
+    <string name="settings_activation_code_format_hint">形如 XXXXXXXXXXXXX-XXXXXXXXXXXXX（27 位）</string>
+    <string name="settings_activate_button">激活 / 续期</string>
+    <string name="settings_server_offline">⚠️ 服务器未配置或离线</string>
+    <string name="settings_device_id_desc">请将下方设备 ID 发给开发者获取离线激活码：</string>
+    <string name="settings_device_id">设备 ID</string>
+    <string name="settings_copy">复制</string>
+    <string name="settings_biometric_title">🔒 生物识别保护</string>
+    <string name="settings_biometric_verify_on_start">启动时验证身份</string>
+    <string name="settings_biometric_unsupported">设备不支持生物识别</string>
+    <string name="settings_auto_sync">自动同步</string>
+    <string name="settings_sync_interval">同步间隔</string>
+    <string name="settings_sync_wifi_only">仅在WiFi下同步</string>
+    <string name="settings_last_sync_never">上次同步：从未同步</string>
+    <string name="settings_sync_now">立即同步</string>
+    <string name="settings_webdav_title">WebDAV 同步</string>
+    <string name="settings_webdav_server_hint">服务器地址</string>
+    <string name="settings_webdav_username_hint">用户名</string>
+    <string name="settings_webdav_password_hint">密码</string>
+    <string name="settings_webdav_path_hint">远程路径</string>
+    <string name="settings_test_connection">测试连接</string>
+    <string name="settings_save_config">保存配置</string>
+    <string name="settings_appearance_title">外观设置</string>
+    <string name="settings_theme_system">跟随系统</string>
+    <string name="settings_theme_light">浅色模式</string>
+    <string name="settings_theme_dark">深色模式</string>
+    <string name="settings_fixed_bonus_hint">固定奖金（元/月）</string>
+    <string name="settings_insurance_title">五险一金与个税</string>
+    <string name="settings_salary_note">缴费基数填 0 时按底薪计算；个税按累计预扣法、起征点 5000 元/月</string>
+    <string name="settings_social_insurance_base_hint">社保缴费基数（元）</string>
+    <string name="settings_housing_fund_base_hint">公积金缴费基数（元）</string>
+    <string name="settings_pension_ratio_hint">养老个人比例（%）</string>
+    <string name="settings_medical_ratio_hint">医疗个人比例（%）</string>
+    <string name="settings_unemployment_ratio_hint">失业个人比例（%）</string>
+    <string name="settings_housing_fund_ratio_hint">公积金个人比例（%）</string>
+    <string name="settings_special_deduction_hint">每月专项附加扣除合计（元）</string>
+    <string name="settings_quick_entry_title">快捷登记通知</string>
+    <string name="settings_quick_entry_desc">在通知栏常驻「加班+1h / 加点+1h」快捷操作，可随时关闭</string>
+    <string name="settings_encryption_title">数据加密</string>
+    <string name="settings_export_encrypt">导出文件加密</string>
+    <string name="settings_export_password_hint">导出密码</string>
+    <string name="settings_sync_encrypt">云端同步加密</string>
+    <string name="settings_sync_password_hint">同步密码</string>
+    <string name="settings_recovery_reminder">已为云端数据生成恢复码（忘记密码时的唯一找回方式），请立即点击“查看恢复码”并离线抄写保存</string>
+    <string name="settings_view_sync_password">查看同步密码</string>
+    <string name="settings_view_recovery_code">查看恢复码</string>
+    <string name="settings_forgot_password">忘记同步密码？用恢复码找回</string>
+    <string name="settings_encryption_note">• 导出加密：加密导出的PDF/CSV文件\n• 同步加密：加密上传到云端的数据</string>
+    <string name="settings_team_login">登录 / 重新登录</string>
+    <string name="settings_holiday_title">节假日数据</string>
+    <string name="settings_holiday_coverage_loading">覆盖年份：加载中…</string>
+    <string name="settings_check_holiday_update">检查节假日更新</string>
+    <string name="settings_holiday_update_desc">从仓库拉取最新节假日与调休补班日；离线或校验失败时继续使用内置数据。</string>
+    <string name="settings_calendar_title">日历同步</string>
+    <string name="settings_calendar_not_synced">未同步</string>
+    <string name="settings_calendar_sync_now">立即同步日历</string>
+    <string name="settings_calendar_sync_desc">记录会写入系统主日历的全天日程（标题如「[加班] 2h」「[请假] 年假 1天」）；在日历里修改标题日期或删除事件会回写应用。需授予日历读写权限。</string>
+    <string name="settings_update_title">软件更新</string>
+    <string name="settings_current_version">当前版本：v%1$s</string>
+    <string name="settings_check_update">检查更新</string>
+    <string name="settings_changelog">更新日志</string>
+
+    <!-- 数据管理页 -->
+    <string name="data_title">数据管理</string>
+    <string name="data_backup_title">数据备份与恢复</string>
+    <string name="data_backup_desc">将数据导出为 JSON 文件保存到设备，或从文件中恢复数据。</string>
+    <string name="data_export_desc">将所有数据（包括设置和记录）导出为 JSON 文件</string>
+    <string name="data_export">导出数据</string>
+    <string name="data_import">导入数据</string>
+    <string name="data_import_desc">从 JSON 文件恢复数据（会覆盖当前所有数据）</string>
+    <string name="data_csv_batch_import_title">CSV 批量导入</string>
+    <string name="data_csv_import_desc">从 CSV 文件批量导入加班记录（不会覆盖现有数据）</string>
+    <string name="data_csv_import_button">CSV 导入</string>
+    <string name="data_stats_title">数据统计</string>
+    <string name="data_record_count">加班记录数：0</string>
+    <string name="data_last_export_never">最后导出：未导出过</string>
+    <string name="data_changelog_title">修改日志</string>
+    <string name="data_changelog_empty">暂无修改记录</string>
+
+    <!-- 添加加班对话框 -->
+    <string name="dialog_shift_title">🌙 班次</string>
+    <string name="dialog_shift_day">白班</string>
+    <string name="dialog_leave_title">📋 请假</string>
+    <string name="dialog_leave_type_hint">请假类型</string>
+    <string name="dialog_leave_days_hint">请假天数</string>
+    <string name="dialog_leave_days_note">选择请假天数（1天=8小时）</string>
+    <string name="dialog_rate_hint">工资倍率（默认按日期类型自动计算）</string>
+    <string name="dialog_rate_default">默认：平时1.5 / 周末2.0 / 法定节假日3.0</string>
+
+    <!-- 考勤条目 -->
+    <string name="item_expand_details">展开详情</string>
+
+    <!-- 修改日志条目 -->
+    <string name="changelog_item_badge">修改</string>
+    <string name="changelog_item_example">加班：2h → 3h</string>
+
+    <!-- 桌面小部件文案 -->
+    <string name="widget_month_placeholder">10月</string>
+    <string name="widget_net_salary">实发 ¥0.00</string>
+    <string name="widget_quick_overtime">加班+1h</string>
+    <string name="widget_quick_extra">加点+1h</string>
+    <string name="widget_submit">登记</string>
+
+    <!-- 首页运行时文案 -->
+    <string name="main_system_ready">系统就绪</string>
+    <string name="main_db_encryption_unavailable">数据库加密不可用（%1$s），数据保护已降级</string>
+    <string name="main_base_salary_unset">基本工资未设置</string>
+    <string name="main_check_failed">检查失败: %1$s</string>
+    <string name="main_unknown_error">未知错误</string>
+    <string name="main_db_init_failed_title">数据库初始化失败</string>
+    <string name="main_db_init_failed_message">无法以加密方式打开考勤数据库（%1$s）。\n\n为避免记录以明文保存，应用将退出。请稍后重试；若持续失败，请先在旧版本中导出备份，再重新安装应用。</string>
+    <string name="common_exit">退出</string>
+    <string name="main_month_year">%1$d年%2$d月</string>
+    <string name="main_month_records_format">%1$d年%2$d月加班记录</string>
+    <string name="record_menu_edit">编辑记录</string>
+    <string name="record_copy_to_date">复制到其他日期</string>
+    <string name="main_sort_by_amount">按金额</string>
+    <string name="record_delete_title">删除记录</string>
+    <string name="record_delete_message">确定删除 %1$s 的记录吗？删除会同步到其他设备。</string>
+    <string name="record_copy_future">不能复制到未来日期</string>
+    <string name="record_copy_exists">该日期已有记录，请直接编辑</string>
+    <string name="record_copied">已复制到 %1$s</string>
+    <string name="main_shift_breakdown">白班 %1$s · 夜班 %2$s</string>
+    <string name="main_week_header">第 %1$d 周 · %2$s – %3$s</string>
+    <string name="main_filter_empty">当前筛选无记录</string>
+    <string name="main_filter_empty_hint">试试切换到「全部」</string>
+    <string name="sync_menu_bidirectional">智能双向同步（推荐）</string>
+    <string name="sync_menu_upload">仅上传到云端</string>
+    <string name="sync_menu_download">仅从云端下载</string>
+    <string name="sync_menu_overwrite">完全覆盖同步</string>
+    <string name="sync_start">开始同步…</string>
+    <string name="sync_success">同步成功！</string>
+    <string name="sync_no_config">请先在设置中配置 WebDAV</string>
+    <string name="sync_no_network">网络不可用，请检查网络连接</string>
+    <string name="sync_connection_failed">连接失败（服务器响应码 %1$d），请检查网络和配置</string>
+    <string name="sync_upload_failed">上传失败</string>
+    <string name="sync_download_failed">下载失败（服务器响应码 %1$d）</string>
+    <string name="sync_restore_failed">恢复数据失败</string>
+    <string name="sync_no_changes">没有需要同步的更改</string>
+    <string name="sync_conflict">存在数据冲突，请手动处理</string>
+    <string name="sync_encryption_mismatch">云端数据已加密且密码不匹配，可在「设置-云端同步加密」中检查密码，或用恢复码找回</string>
+    <string name="sync_result_detail">%1$s（%2$s）</string>
+    <string name="sync_recovery_title">请立即保存恢复码</string>
+    <string name="sync_recovery_message">你的云端备份已升级为恢复码兜底加密。恢复码是忘记同步密码后找回数据的唯一方式，请马上到「设置 → 云端同步加密 → 查看恢复码」抄写或截图离线保存。</string>
+    <string name="sync_recovery_view">去查看</string>
+    <string name="common_later">稍后</string>
+    <string name="trial_ended_title">试用已结束</string>
+    <string name="trial_ended_message">您的试用期已结束。输入激活码可以继续使用，未激活期间核心功能不受影响。</string>
+    <string name="trial_enter_code">输入激活码</string>
+    <string name="trial_continue">继续使用</string>
+    <string name="trial_soon_title">试用即将结束</string>
+    <string name="trial_soon_message">您的试用还剩 %1$d 天，请在过期前激活以获得完整功能体验。</string>
+    <string name="trial_later">稍后再说</string>
+
+    <!-- 报表页运行时文案 -->
+    <string name="report_export_pdf">导出为 PDF</string>
+    <string name="report_export_csv">导出为 CSV</string>
+    <string name="report_export_payslip">导出工资条 PDF</string>
+    <string name="report_exporting">导出中...</string>
+    <string name="report_payslip_export_success">工资条导出成功</string>
+    <string name="report_pdf_export_success">PDF导出成功</string>
+    <string name="report_csv_export_success">CSV导出成功</string>
+    <string name="report_export_failed">导出失败: %1$s</string>
+    <string name="report_share_file">分享文件</string>
+    <string name="report_share_failed">无法分享文件</string>
+    <string name="report_days_count">%1$d 天</string>
+    <string name="report_month_axis">%02d月</string>
+    <string name="report_attendance_report_name">%1$d年%2$d月考勤报告</string>
+    <string name="report_hours_legend">月度加班/加点时长</string>
+
+    <!-- 数据管理页运行时文案 -->
+    <string name="data_export_success">数据导出成功！</string>
+    <string name="data_export_failed">导出失败：%1$s</string>
+    <string name="data_import_failed">导入失败：%1$s</string>
+    <string name="data_import_confirm_msg">请选择要导入的 JSON 文件（完整备份）</string>
+    <string name="data_choose_file">选择文件</string>
+    <string name="data_file_unreadable">无法读取文件</string>
+    <string name="data_error_details">\n\n错误详情：</string>
+    <string name="data_import_success_title">导入成功</string>
+    <string name="data_import_complete_title">导入完成</string>
+    <string name="common_ok">确定</string>
+    <string name="data_restore_confirm_title">确认恢复</string>
+    <string name="data_restore_confirm_msg">文件创建时间：%1$s\n包含 %2$d 条记录\n\n恢复将覆盖当前所有数据，确定要继续吗？</string>
+    <string name="data_restore">恢复</string>
+    <string name="data_restore_success">数据恢复成功！</string>
+    <string name="data_restore_failed">恢复失败：%1$s</string>
+    <string name="data_record_count_fmt">加班记录数：%1$d</string>
+    <string name="data_last_export_fmt">最后导出：%1$s</string>
+
+    <!-- 添加/编辑记录对话框 -->
+    <string name="dialog_default_option">默认</string>
+    <string name="dialog_field_overtime">加班时长</string>
+    <string name="dialog_field_extra">加点时长</string>
+    <string name="dialog_field_rate">工资倍率</string>
+    <string name="dialog_select_hours">请选择加班时长或加点时长</string>
+    <string name="dialog_overtime_limit">单日加班时长不能超过11小时</string>
+    <string name="dialog_extra_limit">单日加点时长不能超过11小时</string>
+    <string name="dialog_leave_limit">当月剩余%1$d天，请假不能超过%2$d天</string>
+
+    <!-- 通用日期/时长/类型文案 -->
+    <string name="common_weekday_mon">星期一</string>
+    <string name="common_weekday_tue">星期二</string>
+    <string name="common_weekday_wed">星期三</string>
+    <string name="common_weekday_thu">星期四</string>
+    <string name="common_weekday_fri">星期五</string>
+    <string name="common_weekday_sat">星期六</string>
+    <string name="common_weekday_sun">星期日</string>
+    <string name="common_date_format">%1$s月%2$s日 %3$s</string>
+    <string name="common_full_date">%1$d年%2$d月%3$d日</string>
+    <string name="common_day_workday">工作日</string>
+    <string name="common_day_weekend">周末</string>
+    <string name="common_day_holiday">法定假日</string>
+    <string name="common_leave_default">请假</string>
+    <string name="common_day_shift">白班</string>
+    <string name="leave_type_annual">年假</string>
+    <string name="leave_type_sick">病假</string>
+    <string name="leave_type_personal">事假</string>
+    <string name="leave_type_marriage">婚假</string>
+    <string name="leave_type_maternity">产假</string>
+    <string name="leave_type_paternity">陪产假</string>
+    <string name="leave_type_funeral">丧假</string>
+    <string name="leave_type_work_injury">工伤假</string>
+    <string name="leave_type_unpaid">无薪假</string>
+    <string name="leave_type_other">其他</string>
+    <string name="common_leave_days">%1$s%2$d天</string>
+    <string name="common_leave_hours">%1$s%2$d小时</string>
+
+    <!-- 考勤条目运行时文案 -->
+    <string name="item_work_duration">工作时长</string>
+    <string name="item_overtime_pay">加班费</string>
+    <string name="item_detail_shift">班次：%1$s</string>
+    <string name="item_detail_type"> · 类型：%1$s</string>
+    <string name="item_detail_custom"> · 自定义 %1$s</string>
+    <string name="item_detail_created">录入于 %1$s</string>
+    <string name="item_vs_average_up">较月均 +%1$d%%</string>
+    <string name="item_vs_average_down">较月均 %1$d%%</string>
+    <string name="item_leave_calc_detail">%1$s %2$s，不计入加班费</string>
+    <string name="item_calc_all">加班加点 %1$s × %2$s × ¥%3$s/h = %4$s</string>
+    <string name="item_calc_overtime">加班 %1$s × %2$s × ¥%3$s/h = %4$s</string>
+    <string name="item_calc_extra">加点 %1$s × %2$s × ¥%3$s/h = %4$s</string>
+    <string name="item_none_overtime">无加班时长</string>
+    <string name="item_days_fmt">%1$d 天</string>
+    <string name="item_hours_fmt">%1$d 小时</string>
+
+    <!-- 修改日志与快捷入口 -->
+    <string name="changelog_type_insert">新增</string>
+    <string name="changelog_type_update">修改</string>
+    <string name="changelog_type_delete">删除</string>
+    <string name="changelog_type_clear">清空</string>
+    <string name="changelog_all_records">全部记录</string>
+    <string name="widget_month_fmt">%1$d月</string>
+    <string name="widget_net_salary_fmt">实发 %1$s</string>
+    <string name="notify_quick_title">快捷登记</string>
+    <string name="notify_quick_content">%1$d月加班 %2$s · 实发 %3$s</string>
+    <string name="notify_action_open">打开登记</string>
+    <string name="notify_channel_desc">通知栏常驻加班/加点快捷登记入口</string>
+
+    <!-- 软件更新对话框 -->
+    <string name="update_current_version">当前版本：v%1$s</string>
+    <string name="update_latest_version">最新版本：v%1$s</string>
+    <string name="update_force_notice">⚠️ 此版本为强制更新，更新后才能继续使用。</string>
+    <string name="update_changelog_section">\n更新内容：\n%1$s</string>
+    <string name="update_found_title">发现新版本</string>
+    <string name="update_now">立即更新</string>
+    <string name="update_check_title">检查更新</string>
+    <string name="update_up_to_date">当前已是最新版本 v%1$s</string>
+    <string name="update_check_failed_title">检查更新失败</string>
+    <string name="update_permission_title">需要安装权限</string>
+    <string name="update_permission_message">更新需要允许安装未知来源应用。请在系统设置中为本应用开启该权限后重试。</string>
+    <string name="update_go_settings">去设置</string>
+    <string name="update_debug_migration_title">调试版 → 正式版</string>
+    <string name="update_debug_migration_message">当前安装的是调试版本（debug 签名），Android 不允许不同签名直接覆盖升级。\n\n请先卸载当前调试版（应用数据会被清除），再安装正式版 v%1$s。</string>
+    <string name="update_uninstall_debug">卸载调试版</string>
+    <string name="update_open_releases">打开正式版下载页</string>
+    <string name="update_uninstall_failed">无法调起系统卸载，请到系统设置手动卸载</string>
+    <string name="update_open_browser_failed">无法打开浏览器，请手动访问最新 Release 页</string>
+    <string name="update_download_failed">下载失败，请检查网络后重试</string>
+    <string name="update_install_failed">启动安装失败，请重试</string>
+    <string name="update_signature_mismatch">更新包签名与当前应用不一致，已取消安装。请确认更新来自官方渠道后重试。</string>
+    <string name="update_signature_unreadable">无法验证更新包签名，安装包可能已损坏，请重新下载</string>
+    <string name="update_preparing">准备下载...</string>
+    <string name="update_downloading_title">正在下载更新</string>
+    <string name="update_download_progress">已下载 %1$s / %2$s（%3$d%%）</string>
+    <string name="update_download_progress_size">已下载 %1$s</string>
+
+    <!-- 生物识别页 -->
+    <string name="biometric_title">身份验证</string>
+    <string name="biometric_subtitle">请验证身份以访问加班记录</string>
+    <string name="biometric_description">您已启用生物识别保护</string>
+    <string name="biometric_auth_failed">验证失败：%1$s</string>
+
+    <!-- 团队汇总页补充 -->
+    <string name="team_summary_members_fmt">成员（%1$d）</string>
+    <string name="team_summary_title_empty">全员加班汇总（暂无数据）</string>
+    <string name="team_summary_title_by_month">全员加班汇总（按月）</string>
+    <string name="team_reset_password_confirm">确定重置 %1$s（%2$s）的密码？重置后原密码立即失效。</string>
+    <string name="team_toggle_active_confirm">确定%1$s %2$s（%3$s）？停用后该成员将无法登录。</string>
+    <string name="team_create_user_password_hint">初始密码（留空自动生成）</string>
+    <string name="team_create_user_confirm">创建</string>
+    <string name="team_username_length">用户名长度需为 3-32 位</string>
+    <string name="team_member_meta">记录 %1$d 条 · 创建于 %2$s</string>
+    <string name="team_status_disabled"> · 已停用</string>
+    <string name="team_set_active_done_on">%1$s 已启用</string>
+    <string name="team_set_active_done_off">%1$s 已停用</string>
+
+    <!-- 日历控件 -->
+    <string-array name="common_weekday_short">
+        <item>日</item>
+        <item>一</item>
+        <item>二</item>
+        <item>三</item>
+        <item>四</item>
+        <item>五</item>
+        <item>六</item>
+    </string-array>
+    <string name="calendar_extra_text">%1$s加</string>
+    <string name="calendar_cell_both">%1$s+%2$s</string>
+
+    <!-- 设置页运行时补充 -->
+    <string name="calendar_no_permission">未授予日历权限，无法同步日历</string>
+    <string name="common_syncing">同步中...</string>
+    <string name="common_sync_failed">同步失败</string>
+    <string name="team_logout_confirm">退出后将停止团队同步（本地数据不受影响），确定退出？</string>
+    <string name="team_new_password_short">新密码至少 6 位</string>
+    <string name="settings_no_network">请先检查网络连接</string>
+    <string name="settings_checking">检查中...</string>
+    <string name="settings_holiday_update_success">节假日数据已更新到 v%1$s（覆盖 %2$s - %3$s）</string>
+    <string name="settings_holiday_update_failed">更新失败：%1$s\n继续使用当前数据。</string>
+    <string name="settings_calendar_permission_title">日历权限</string>
+    <string name="settings_calendar_permission_message">日历同步需要读取与写入系统日历的权限：\n• 把加班/请假记录写成全天日程\n• 把日历里的修改、改期与删除回写到应用</string>
+    <string name="settings_go_authorize">去授权</string>
+    <string name="settings_calendar_sync_done">日历同步完成：推送 %1$d 条，回写 %2$d 条</string>
+    <string name="settings_calendar_deleted_from_calendar">，日历删除 %1$d 条</string>
+    <string name="settings_calendar_deleted_from_app">，清理事件 %1$d 条</string>
+    <string name="settings_calendar_skipped">，跳过 %1$d 条</string>
+    <string name="settings_changelog_empty">暂无日志</string>
+    <string name="settings_change_log_title">修改日志</string>
+    <string name="settings_update_fetch_failed">无法获取更新信息，请检查网络后重试。\n\n若为刚发布的版本，GitHub 可能需要几分钟生成更新清单。</string>
+    <string name="settings_biometric_ready">已准备就绪（支持指纹/面容解锁）</string>
+    <string name="settings_biometric_enabled">已启用生物识别保护</string>
+    <string name="settings_biometric_disabled">已禁用生物识别保护</string>
+    <string name="settings_auto_sync_enabled">已启用自动同步</string>
+    <string name="settings_auto_sync_disabled">已禁用自动同步</string>
+    <string name="settings_theme_changed">主题已切换为%1$s</string>
+    <string name="settings_export_encrypt_enabled">已启用导出加密</string>
+    <string name="settings_export_encrypt_disabled">已禁用导出加密</string>
+    <string name="settings_sync_encrypt_enabled">已启用同步加密</string>
+    <string name="settings_sync_encrypt_disabled">已禁用同步加密</string>
+    <string name="settings_sync_encrypt_need_password">请设置同步加密密码；密码留空时等同于未加密</string>
+    <string name="settings_sync_password_title">同步密码</string>
+    <string name="settings_not_set">（未设置）</string>
+    <string name="settings_last_sync_fmt">上次同步：%1$s</string>
+    <string name="settings_sync_encrypt_off_notice">已关闭同步加密：之后上传不再加密，云端历史文件仍为密文</string>
+    <string name="settings_check_cloud_title">正在检查云端备份</string>
+    <string name="settings_check_cloud_message">正在确认云端是否已有加密备份，请稍候…</string>
+    <string name="settings_adopted_title">已接入现有加密备份</string>
+    <string name="settings_adopted_message">检测到云端已有使用该密码的加密备份，已直接接入：\n\n• 原恢复码继续有效，无需重新保存；\n• 本机不保存恢复码明文。若原恢复码已遗失，可在下方通过生物识别后重新签发。</string>
+    <string name="settings_got_it">知道了</string>
+    <string name="settings_password_mismatch_title">同步密码不匹配</string>
+    <string name="settings_password_mismatch_message">云端已有加密备份，但当前填写的密码无法解开。\n\n请输入与原设备一致的同步密码后重新保存；若已忘记密码，可使用恢复码找回。</string>
+    <string name="settings_reenter">重新输入</string>
+    <string name="settings_recover_short">用恢复码找回</string>
+    <string name="settings_cloud_unavailable">暂时无法检查云端备份，将在下次联网同步时自动确认并处理</string>
+    <string name="settings_testing">测试中...</string>
+    <string name="settings_connect_success">连接成功！</string>
+    <string name="biometric_continue_subtitle">请验证身份以继续</string>
+    <string name="settings_recovery_title">你的同步恢复码</string>
+    <string name="settings_recovery_message">恢复码是忘记同步密码后找回云端数据的唯一方式，请务必抄写或截图保存在安全的地方（不要存在被同步的网盘里）。\n\n恢复码：\n%1$s\n\n更换设备后，凭 WebDAV 配置 + 恢复码即可重置同步密码并恢复数据。</string>
+    <string name="settings_recovery_saved">我已离线保存</string>
+    <string name="settings_recovery_label">恢复码</string>
+    <string name="settings_recovery_not_generated">尚未生成恢复码。请先开启同步加密并保存设置，系统会自动生成恢复码。</string>
+    <string name="settings_recovery_current">当前恢复码：\n%1$s\n\n请离线妥善保管。</string>
+    <string name="settings_recovery_regenerate">更换恢复码</string>
+    <string name="settings_recovery_local_missing_title">本机未保存恢复码</string>
+    <string name="settings_recovery_local_missing_message">这台设备是通过同步密码接入的，恢复码明文只保存在最初开启加密的设备上。\n\n你可以用离线保存的恢复码继续使用；如果已无法找到，可以在本机重新生成一个——重新生成后旧恢复码立即失效（下次同步后对云端生效），请重新离线保存。</string>
+    <string name="settings_regenerate">重新生成</string>
+    <string name="settings_regenerate_confirm">更换后旧恢复码立即失效，新恢复码需重新离线保存。确认更换？</string>
+    <string name="settings_regenerate_confirm_button">确认更换</string>
+    <string name="settings_save_failed_fmt">保存失败：%1$s</string>
+    <string name="settings_recovery_changed">恢复码已更换，下次同步后对云端生效</string>
+    <string name="settings_recovery_change_failed">更换失败：%1$s</string>
+    <string name="settings_webdav_config_missing">请先填写并保存 WebDAV 服务器配置</string>
+    <string name="settings_recovery_code_hint">请输入离线保存的恢复码（如 7K2M-9XQF-4BT8-N6VD）</string>
+    <string name="settings_recover_message">将从云端读取备份验证恢复码，验证通过后可设置新的同步密码并恢复数据。</string>
+    <string name="settings_next">下一步</string>
+    <string name="settings_recovery_invalid">恢复码格式不正确（应为 4 组 × 4 位字符）</string>
+    <string name="settings_new_sync_password_hint">新同步密码</string>
+    <string name="settings_confirm_password_hint">再次输入新密码</string>
+    <string name="settings_set_new_sync_password">设置新的同步密码</string>
+    <string name="settings_confirm_recover">确认找回</string>
+    <string name="settings_password_empty">新密码不能为空</string>
+    <string name="settings_password_mismatch_input">两次输入的密码不一致</string>
+    <string name="settings_recovering_title">正在找回</string>
+    <string name="settings_recovering_message">正在验证恢复码并同步云端数据，请稍候…</string>
+    <string name="settings_recovery_success">密码已重置，云端数据已恢复（%1$s）</string>
+    <string name="settings_recovery_sync_incomplete">新同步密码已生效，但数据同步未完成：%1$s，可稍后在首页手动同步</string>
+    <string name="settings_recovery_done_title">找回完成</string>
+    <string name="settings_recovery_error_mismatch">恢复码错误，或云端备份仍是旧版加密格式（需原设备先同步一次升级格式）</string>
+    <string name="settings_recovery_error_no_config">请先配置并保存 WebDAV 服务器信息</string>
+    <string name="settings_recovery_error_no_network">网络不可用，请检查连接后重试</string>
+    <string name="settings_recovery_error_download">无法读取云端备份（HTTP %1$d）</string>
+    <string name="settings_recovery_error_generic">找回失败：%1$s</string>
+    <string name="settings_copied_fmt">%1$s 已复制</string>
+    <string name="webdav_status_200">成功</string>
+    <string name="webdav_status_201">创建成功</string>
+    <string name="webdav_status_204">无内容（成功）</string>
+    <string name="webdav_status_401">认证失败，请检查用户名和密码</string>
+    <string name="webdav_status_403">禁止访问</string>
+    <string name="webdav_status_404">路径不存在</string>
+    <string name="webdav_status_405">方法不允许</string>
+    <string name="webdav_status_429">请求过于频繁，被服务端限流，请稍后重试</string>
+    <string name="webdav_status_500">服务器内部错误</string>
+    <string name="webdav_status_503">服务暂不可用（限流或过载），请稍后重试</string>
+    <string name="webdav_status_connection">连接异常，请检查网络</string>
+    <string name="webdav_status_unknown">未知错误</string>
+    <string name="webdav_status_prefix">服务器响应码: %1$d\n说明: %2$s\n\n</string>
+    <string name="settings_not_filled">（未填写）</string>
+    <string name="settings_connect_failed_title">连接失败</string>
+    <string name="settings_webdav_help">连接失败，请检查以下配置：\n\n• 服务器地址：%1$s\n• 远程路径：%2$s\n• 用户名和密码：确保正确填写（部分服务需使用应用专用密码）\n• 网络连接：确保设备可以访问外网\n\n建议：\n1. 先尝试把远程路径改为 "/"\n2. 确认网盘已开启 WebDAV 功能\n3. 401 时优先检查账号与密码（部分服务需使用应用专用密码，而非登录密码）\n4. 尝试关闭 VPN 再测试</string>
+    <string name="settings_cloud_unencrypted_title">云端备份未加密</string>
+    <string name="settings_cloud_unencrypted_message">即将保存 WebDAV 配置，但当前未开启有效的同步加密。\n\n未加密时，考勤与工资数据会以明文上传到第三方 WebDAV 服务器（仅靠 https 和账号密码保护）。\n\n建议先开启上方的“同步加密”并设置密码，数据将经 AES-256 加密后再上传。</string>
+    <string name="settings_enable_encryption">去开启加密</string>
+    <string name="settings_save_plaintext">仍以明文保存</string>
+    <string name="settings_webdav_saved">WebDAV配置已保存</string>
+    <string name="settings_webdav_incomplete">请填写完整的WebDAV配置信息</string>
+    <string name="settings_http_disabled">应用已禁止明文 HTTP 流量，请使用 https:// 地址</string>
+    <string name="settings_base_negative">缴费基数不能为负数</string>
+    <string name="settings_ratio_invalid">个人缴纳比例应在0-100%之间</string>
+    <string name="settings_deduction_negative">专项附加扣除不能为负数</string>
+    <string name="settings_fixed_bonus_negative">固定奖金不能为负数</string>
+    <string name="settings_device_id_label">设备ID</string>
+    <string name="settings_device_id_copied">设备 ID 已复制</string>
+    <string name="license_source_server">正式激活</string>
+    <string name="license_source_offline">离线激活</string>
+    <string name="license_active_days">%1$s，剩余 %2$d 天</string>
+    <string name="license_expired">激活已过期（%1$s）</string>
+    <string name="license_trial_days">免费试用中，剩余 %1$d 天</string>
+    <string name="license_trial_ended">免费试用已结束（可输入激活码继续使用）</string>
+    <string name="license_unactivated">未激活，输入激活码开始试用</string>
+    <string name="settings_enter_activation_code">请输入激活码</string>
+    <string name="settings_activating">激活中...</string>
+    <string name="license_source_server_verified">服务器验证</string>
+    <string name="license_source_offline_verified">离线签名验证</string>
+    <string name="settings_activation_success">🎉 激活成功（%1$s）！剩余 %2$d 天</string>
+
+    <!-- Data validation -->
+    <string name="validate_date_required">日期不能为空</string>
+    <string name="validate_date_format">日期格式错误，请使用 YYYY-MM-DD 格式</string>
+    <string name="validate_year_invalid">年份无效</string>
+    <string name="validate_month_invalid">月份无效</string>
+    <string name="validate_day_invalid">日期无效</string>
+    <string name="validate_month_range">月份必须在 1-12 之间</string>
+    <string name="validate_day_range">日期必须在 1-31 之间</string>
+    <string name="validate_date_days_in_month">%1$d年%2$d月只有%3$d天</string>
+    <string name="validate_date_future">日期不能是未来日期</string>
+    <string name="validate_time_required">时间不能为空</string>
+    <string name="validate_time_format">时间格式错误，请使用 HH:mm 或 HH:mm:ss 格式</string>
+    <string name="validate_hour_invalid">小时无效</string>
+    <string name="validate_minute_invalid">分钟无效</string>
+    <string name="validate_hour_range">小时必须在 0-23 之间</string>
+    <string name="validate_minute_range">分钟必须在 0-59 之间</string>
+    <string name="validate_overtime_required">加班时长不能为空</string>
+    <string name="validate_overtime_negative">加班时长不能为负数</string>
+    <string name="validate_overtime_exceed">加班时长不能超过 24 小时</string>
+    <string name="validate_overtime_precision">加班时长最多保留2位小数</string>
+    <string name="validate_shift_required">班次时长不能为空</string>
+    <string name="validate_shift_negative">班次时长不能为负数</string>
+    <string name="validate_shift_exceed">班次时长不能超过 24 小时</string>
+    <string name="validate_work_time_order">上班时间必须早于下班时间</string>
+    <string name="validate_server_required">服务器地址不能为空</string>
+    <string name="validate_server_scheme">服务器地址必须以 http:// 或 https:// 开头</string>
+    <string name="validate_username_required">用户名不能为空</string>
+    <string name="validate_work_hours_prefix">标准工时: %1$s</string>
+    <string name="validate_hourly_rate_negative">小时工资率不能为负数</string>
+    <string name="validate_overtime_rate_negative">加班费率不能为负数</string>
+    <string name="validate_date_prefix">日期: %1$s</string>
+    <string name="validate_overtime_prefix">加班时长: %1$s</string>
+    <string name="validate_field_required">%1$s 不能为空</string>
+    <string name="validate_field_min_length">%1$s 长度不能少于 %2$d 个字符</string>
+    <string name="validate_field_max_length">%1$s 长度不能超过 %2$d 个字符</string>
+    <string name="validate_field_min">%1$s 不能小于 %2$s</string>
+    <string name="validate_field_max">%1$s 不能大于 %2$s</string>
+    <string name="validate_default_field">字段</string>
+    <string name="validate_default_number">数值</string>
+
+    <!-- PDF export -->
+    <string name="pdf_title_default">考勤记录报告</string>
+    <string name="pdf_file_name_fmt">考勤报告_%1$s.pdf</string>
+    <string name="pdf_payslip_file_name_fmt">工资条_%1$s.pdf</string>
+    <string name="pdf_payslip_title">%1$d年%2$d月工资条</string>
+    <string name="pdf_info_generated_at">生成时间: %1$s</string>
+    <string name="pdf_datetime_pattern">yyyy年MM月dd日 HH:mm:ss</string>
+    <string name="pdf_col_date">日期</string>
+    <string name="pdf_col_check_in">上班</string>
+    <string name="pdf_col_check_out">下班</string>
+    <string name="pdf_col_overtime">加班时长</string>
+    <string name="pdf_col_day_type">加班类型</string>
+    <string name="pdf_col_pay">加班费</string>
+    <string name="pdf_hours_cell">%1$.1f小时</string>
+    <string name="pdf_summary_title">汇总统计</string>
+    <string name="pdf_summary_total_hours">总加班时长: %1$.1f 小时</string>
+    <string name="pdf_summary_total_pay">总加班费: ¥%1$.2f</string>
+    <string name="pdf_summary_normal">平时加班: %1$d 天</string>
+    <string name="pdf_summary_weekend">周末加班: %1$d 天</string>
+    <string name="pdf_summary_holiday">法定节假日: %1$d 天</string>
+    <string name="pdf_footer">暮光 Twilight</string>
+    <string name="pdf_payslip_income">收入明细</string>
+    <string name="pdf_payslip_pension_base">养老保险（基数 %1$s）</string>
+    <string name="pdf_payslip_fund_base">住房公积金（基数 %1$s）</string>
+    <string name="pdf_payslip_total">合计</string>
+    <string name="pdf_tax_section">个人所得税（累计预扣法）</string>
+    <string name="pdf_tax_monthly">本月预扣个税</string>
+    <string name="pdf_net_formula">应发 - 五险一金 - 个税</string>
+
+    <!-- CSV export -->
+    <string name="csv_file_name_fmt">考勤记录_%1$s.csv</string>
+    <string name="csv_month_summary_file_name_fmt">%1$d年%2$d月考勤汇总_%3$s.csv</string>
+    <string name="csv_month_summary_title">%1$d年%2$d月考勤汇总</string>
+    <string name="csv_basic_settings">基本设置</string>
+    <string name="csv_work_start">上班时间</string>
+    <string name="csv_work_end">下班时间</string>
+    <string name="csv_normal_rate">平时加班倍率</string>
+    <string name="csv_weekend_rate">周末加班倍率</string>
+    <string name="csv_holiday_rate">节假日加班倍率</string>
+    <string name="csv_base_salary">底薪</string>
+    <string name="csv_fixed_bonus">固定奖金</string>
+    <string name="csv_monthly_days">月工作日数</string>
+    <string name="csv_daily_hours">每日工作时长</string>
+    <string name="csv_detail_title">考勤明细</string>
+    <string name="csv_detail_header">日期,星期,上班时间,下班时间,加班时长,加班类型,加班费,备注</string>
+    <string name="csv_summary_title">汇总统计</string>
+    <string name="csv_total_hours">总加班时长</string>
+    <string name="csv_total_pay">总加班费</string>
+    <string name="csv_normal_days">平时加班天数</string>
+    <string name="csv_weekend_days">周末加班天数</string>
+    <string name="csv_holiday_days">法定节假日加班天数</string>
+    <string name="csv_normal_combined">平时加班</string>
+    <string name="csv_weekend_combined">周末加班</string>
+    <string name="csv_holiday_combined">节假日加班</string>
+    <string name="csv_valid_workdays">有效工作日</string>
+    <string name="csv_generated_at">生成时间</string>
+    <string name="csv_unit_hours">小时</string>
+    <string name="csv_unit_yuan">元</string>
+    <string name="csv_unit_days">天</string>
+
+    <!-- Salary report text -->
+    <string name="salary_report_title">📊 %1$d年%2$d月工资报表</string>
+    <string name="salary_report_base">💰 基础工资: %1$s</string>
+    <string name="salary_report_performance">🎯 绩效奖金: %1$s</string>
+    <string name="salary_report_fixed_bonus">🎁 固定奖金: %1$s</string>
+    <string name="salary_report_overtime_title">📈 加班工资明细:</string>
+    <string name="salary_report_workday_overtime">工作日加班: %1$s × %2$s = %3$s</string>
+    <string name="salary_report_weekend_overtime">周末加班: %1$s × %2$s = %3$s</string>
+    <string name="salary_report_holiday_overtime">法定假日: %1$s × %2$s = %3$s</string>
+    <string name="salary_report_extra_overtime">加点工资: %1$s × %2$s = %3$s</string>
+    <string name="salary_report_stat_title">⏱️ 加班统计:</string>
+    <string name="salary_report_workday_days">工作日加班: %1$d天 (%2$s)</string>
+    <string name="salary_report_weekend_days">周末加班: %1$d天 (%2$s)</string>
+    <string name="salary_report_holiday_days">法定假日: %1$d天 (%2$s)</string>
+    <string name="salary_report_insurance_title">🏦 五险一金（个人）:</string>
+    <string name="salary_report_pension">养老: %1$s</string>
+    <string name="salary_report_medical">医疗: %1$s</string>
+    <string name="salary_report_unemployment">失业: %1$s</string>
+    <string name="salary_report_housing_fund">公积金: %1$s</string>
+    <string name="salary_report_insurance_total">合计: %1$s</string>
+    <string name="salary_report_tax_title">🧾 个税（累计预扣）:</string>
+    <string name="salary_report_monthly_taxable">本月应纳税所得额: %1$s</string>
+    <string name="salary_report_cumulative_taxable">累计应纳税所得额: %1$s</string>
+    <string name="salary_report_monthly_tax">本月预扣个税: %1$s</string>
+    <string name="salary_report_total_title">📋 总计:</string>
+    <string name="salary_report_total_overtime">总加班时长: %1$s</string>
+    <string name="salary_report_total_extra">总加点时长: %1$s</string>
+    <string name="salary_report_total_overtime_pay">加班总工资: %1$s</string>
+    <string name="salary_report_gross">💵 应发合计: %1$s</string>
+    <string name="salary_report_net">💰 实发工资: %1$s</string>
+
+    <!-- Sync progress -->
+    <string name="sync_progress_waiting_lock">等待同步锁…</string>
+    <string name="sync_progress_check_config">检查同步配置…</string>
+    <string name="sync_progress_check_network">检查网络连接…</string>
+    <string name="sync_progress_test_connection">测试服务器连接…</string>
+    <string name="sync_progress_read_cloud">读取云端现状…</string>
+    <string name="sync_progress_compare">对比本地与云端差异…</string>
+    <string name="sync_progress_upload_fmt">上传备份（%1$d 条记录）…</string>
+    <string name="sync_progress_download">下载云端备份…</string>
+    <string name="sync_progress_verify">校验备份完整性…</string>
+    <string name="sync_progress_restore">恢复数据到本地…</string>
+    <string name="sync_progress_check_updated">检查云端更新时间…</string>
+    <string name="sync_progress_no_cloud_data">云端无数据，执行上传</string>
+    <string name="sync_progress_first_download">首次同步，执行下载</string>
+    <string name="sync_progress_cloud_unchanged">云端未更新，执行上传</string>
+    <string name="sync_progress_cloud_updated">云端有更新，执行智能合并</string>
+    <string name="sync_progress_download_cloud">下载云端数据…</string>
+    <string name="sync_progress_merge_fmt">合并记录（本地 %1$d 条 / 云端 %2$d 条）…</string>
+    <string name="sync_progress_upload_merged_fmt">上传合并结果（%1$d 条记录）…</string>
+    <string name="sync_progress_write_local">写回本地数据库…</string>
+
+    <!-- Auto sync -->
+    <string name="auto_sync_interval_15">15分钟</string>
+    <string name="auto_sync_interval_30">30分钟</string>
+    <string name="auto_sync_interval_60">1小时</string>
+    <string name="auto_sync_interval_120">2小时</string>
+    <string name="auto_sync_interval_360">6小时</string>
+    <string name="auto_sync_interval_720">12小时</string>
+    <string name="auto_sync_interval_1440">24小时</string>
+    <string name="auto_sync_channel_name">自动同步</string>
+    <string name="auto_sync_channel_desc">用于显示自动同步失败提醒</string>
+    <string name="auto_sync_not_initialized">AutoSyncManager 未初始化，请先调用 init(context)</string>
+    <string name="auto_sync_never">从未同步</string>
+    <string name="auto_sync_just_now">刚刚</string>
+    <string name="auto_sync_minutes_ago">%1$d分钟前</string>
+    <string name="auto_sync_hours_ago">%1$d小时前</string>
+    <string name="auto_sync_days_ago">%1$d天前</string>
+    <string name="auto_sync_no_config">未配置WebDAV</string>
+    <string name="auto_sync_wifi_only">仅在WiFi下同步</string>
+    <string name="auto_sync_success">同步成功</string>
+    <string name="auto_sync_no_changes">没有需要同步的更改</string>
+    <string name="auto_sync_no_network">网络不可用，请检查网络连接</string>
+    <string name="auto_sync_connection_failed">连接失败（服务器响应码 %1$d），请检查网络和配置</string>
+    <string name="auto_sync_upload_failed">上传失败</string>
+    <string name="auto_sync_download_failed">下载失败（服务器响应码 %1$d）</string>
+    <string name="auto_sync_restore_failed">恢复数据失败</string>
+    <string name="auto_sync_conflict">存在数据冲突，请手动处理</string>
+    <string name="auto_sync_encryption_mismatch">云端数据已加密且密码不匹配，可在设置中检查密码或用恢复码找回</string>
+    <string name="auto_sync_summary_fmt">%1$s（%2$s）</string>
+    <string name="auto_sync_exception">同步异常</string>
+    <string name="auto_sync_notification_title">数据同步</string>
+    <string name="auto_sync_notification_failed">自动同步失败，请检查网络后重试</string>
+    <string name="auto_sync_recovery_title">请保存同步恢复码</string>
+    <string name="auto_sync_recovery_message">云端备份已升级为恢复码加密，忘记密码时需凭此恢复码找回，请立即离线保存</string>
+
+    <!-- Calendar sync -->
+    <string name="calendar_status_no_permission">未授权日历读写权限</string>
+    <string name="calendar_status_no_calendar">未找到可写入的系统日历</string>
+    <string name="calendar_status_target_fmt">目标日历：%1$s</string>
+    <string name="calendar_status_last_sync_fmt">上次同步：%1$s · %2$s</string>
+    <string name="calendar_status_never_synced">尚未同步</string>
+    <string name="calendar_err_permission">请先授予日历读写权限</string>
+    <string name="calendar_err_no_calendar">没有可写入的系统日历，请先在系统日历中登录账号</string>
+    <string name="calendar_err_sync_fmt">同步失败：%1$s</string>
+    <string name="calendar_default_name">系统日历</string>
+    <string name="calendar_summary_pushed">推送 %1$d</string>
+    <string name="calendar_summary_pulled">回写 %1$d</string>
+    <string name="calendar_summary_deleted_calendar">日历删除 %1$d</string>
+    <string name="calendar_summary_deleted_app">清理事件 %1$d</string>
+    <string name="calendar_summary_skipped">跳过 %1$d</string>
+
+    <!-- Backup validation / import errors -->
+    <string name="data_export_field_overtime">加班时长</string>
+    <string name="data_export_field_extra">加点时长</string>
+    <string name="data_export_invalid_number">%1$s 不是有效数字</string>
+    <string name="data_export_hour_out_of_range">%1$s 超出范围（须为 -1 或 0~24 小时）：%2$s</string>
+    <string name="data_export_leave_hours_out_of_range">请假时长超出范围（0~744 小时）：%1$s</string>
+    <string name="data_export_custom_rate_out_of_range">自定义倍率超出范围（1.0~4.0）：%1$s</string>
+    <string name="data_export_leave_type_unknown">请假类型无法识别：%1$s</string>
+    <string name="data_export_check_in_prefix">上班时间: %1$s</string>
+    <string name="data_export_check_out_prefix">下班时间: %1$s</string>
+    <string name="data_import_backup_file">备份文件</string>
+    <string name="data_import_encrypted_need_password">备份文件已加密，请在设置中配置导出加密密码后重试</string>
+    <string name="data_import_decrypt_failed">备份解密失败：密码错误或文件已损坏</string>
+    <string name="data_import_invalid_format">备份文件格式无效</string>
+    <string name="data_import_checksum_failed">备份文件校验失败（checksum 不匹配），文件可能已损坏或被篡改，已中止恢复</string>
+    <string name="data_import_cannot_open">无法打开文件</string>
+    <string name="data_import_missing_date">备份包含缺失日期的记录，已中止恢复以保护现有数据</string>
+    <string name="data_import_duplicate_date">备份包含重复日期：%1$s，已中止恢复以保护现有数据</string>
+    <string name="data_import_invalid_records">备份包含 %1$d 条非法记录（首条：%2$s），已中止恢复以保护现有数据</string>
+    <string name="data_import_read_limit">%1$s 超过大小上限（%2$d MB），已中止读取</string>
+
+    <!-- Sync summary -->
+    <string name="sync_summary_added">新增 %1$d 条</string>
+    <string name="sync_summary_updated">更新 %1$d 条</string>
+    <string name="sync_summary_deleted">删除 %1$d 条</string>
+    <string name="sync_summary_skipped">跳过 %1$d 条</string>
+    <string name="sync_summary_invalid">非法跳过 %1$d 条</string>
+    <string name="sync_summary_separator">，</string>
+
+    <!-- Holiday data -->
+    <string name="holiday_no_network">请先检查网络连接</string>
+    <string name="holiday_no_source">没有可用的数据源</string>
+    <string name="holiday_source_https">数据源必须使用 https</string>
+    <string name="holiday_download_failed">下载失败（%1$s）</string>
+    <string name="holiday_bad_format">数据格式错误</string>
+    <string name="holiday_validation_failed">数据校验失败，已保留原有数据</string>
+    <string name="holiday_fallback_suffix">%1$s；兜底接口：%2$s</string>
+    <string name="holiday_api_no_data">接口暂无可用的节假日数据</string>
+    <string name="holiday_api_request_failed">请求失败（%1$s）</string>
+    <string name="holiday_api_bad_response">返回数据格式错误</string>
+    <string name="holiday_api_rate_limited">请求过于频繁，请稍后再试</string>
+    <string name="holiday_api_error_code">返回错误（code=%1$d）</string>
+    <string name="holiday_api_validation_failed">接口数据校验失败，已保留原有数据</string>
+    <string name="holiday_response_too_large">响应过大</string>
+    <string name="holiday_describe_no_data">暂无可用数据</string>
+    <string name="holiday_describe_range_remote">覆盖年份：%1$s · 在线数据 v%2$d</string>
+    <string name="holiday_describe_range_builtin">覆盖年份：%1$s · 当前使用内置数据</string>
+    <string name="holiday_api_fallback_name">节假日</string>
+
+    <!-- CSV import -->
+    <string name="csv_import_unrecognized_file">无法识别的文件：首行不是有效表头（需包含“日期/date”列），也不是日期开头的数据行。请使用标准 CSV 导出文件或按帮助文案构造。</string>
+    <string name="csv_import_row_error">第%1$d条：日期缺失或格式无法识别，已跳过</string>
+    <string name="csv_import_skipped_existing">跳过 %1$d 条已存在的重复日期记录</string>
+    <string name="csv_import_aborted_fmt">导入中止：%1$s</string>
+    <string name="csv_import_unrecognized">文件格式无法识别</string>
+    <string name="csv_import_success">成功导入 %1$d 条记录</string>
+    <string name="csv_import_partial">成功导入 %1$d 条记录，失败 %2$d 条</string>
+    <string name="csv_import_failed_all">导入失败，没有成功导入任何记录</string>
+    <string name="csv_import_failed_fmt">导入失败：%1$s</string>
+    <string name="csv_import_unknown_error">未知错误</string>
+    <string name="csv_import_format_desc">支持的CSV格式：\n- 编码：UTF-8；分隔符：逗号(,)\n- 首行表头（推荐，列序不限，多余列自动忽略）：\n  %1$s\n- 请假记录请填写：请假(是/否), 请假类型(年假/病假/…), 请假天数\n- 加班类型/加班费为展示列，导入时忽略（加班费按薪资设置实时计算）\n- 兼容旧版导出表头，如“加班时长(小时)”“加班费(元)”\n- 兼容无表头文件（按列序：日期,上班时间,下班时间,加班时长,额外时长,备注）\n\n示例：\n日期,上班时间,下班时间,加班时长,加班类型,加班费,额外时长,请假,请假类型,请假天数,备注\n2024-01-01,09:00,18:00,1.5,平时,28.74,0.0,否,无,0.0,元旦加班\n2024-01-02,无,无,0.0,平时,0.00,0.0,是,年假,8.0,休年假\n\n支持的日期格式：\n- yyyy-MM-dd (推荐)\n- yyyy/MM/dd\n- yyyy年MM月dd日\n- yyyyMMdd</string>
+
+    <!-- 修改日志：记录仓储摘要 -->
+    <string name="changelog_repo_clear_all">清空全部 %1$d 条记录</string>
+    <string name="changelog_repo_leave_prefix">请假：%1$s</string>
+    <string name="changelog_repo_overtime_hours">加班 %1$sh</string>
+    <string name="changelog_repo_extra_hours">加点 %1$sh</string>
+    <string name="changelog_repo_check_in">上班 %1$s</string>
+    <string name="changelog_repo_check_out">下班 %1$s</string>
+    <string name="changelog_repo_rate">倍率 %1$sx</string>
+    <string name="changelog_repo_night_shift">夜班</string>
+    <string name="changelog_repo_note">备注「%1$s」</string>
+    <string name="changelog_repo_empty">（空记录）</string>
+    <string name="changelog_repo_join_sep">，</string>
+    <string name="changelog_repo_diff">%1$s：%2$s → %3$s</string>
+    <string name="changelog_repo_diff_sep">；</string>
+    <string name="changelog_repo_field_leave">请假</string>
+    <string name="changelog_repo_field_overtime">加班</string>
+    <string name="changelog_repo_field_extra">加点</string>
+    <string name="changelog_repo_field_check_in">上班</string>
+    <string name="changelog_repo_field_check_out">下班</string>
+    <string name="changelog_repo_field_rate">倍率</string>
+    <string name="changelog_repo_field_shift">班次</string>
+    <string name="changelog_repo_field_note">备注</string>
+    <string name="changelog_repo_none_leave">未请假</string>
+    <string name="changelog_repo_unfilled">未填</string>
+    <string name="changelog_repo_none">无</string>
+    <string name="changelog_repo_default">默认</string>
+    <string name="changelog_repo_note_value">「%1$s」</string>
+    <string name="changelog_repo_hours_value">%1$sh</string>
+    <string name="changelog_repo_rate_value">%1$sx</string>
+    <string name="changelog_repo_leave_value">%1$s %2$s天</string>
+    <string name="changelog_repo_leave_fallback">请假</string>
+
+    <!-- 同步摘要 -->
+    <string name="sync_summary_result">结果=%1$s</string>
+    <string name="sync_summary_direction">方向=%1$s</string>
+    <string name="sync_summary_local">本地=%1$d</string>
+    <string name="sync_summary_cloud">云端=%1$d</string>
+    <string name="sync_summary_uploaded">上传=%1$d</string>
+    <string name="sync_summary_downloaded">下载=%1$d</string>
+    <string name="sync_summary_merged">合并=%1$d</string>
+    <string name="sync_summary_invalid_count">非法跳过=%1$d</string>
+    <string name="sync_summary_sep">，</string>
+
+    <!-- 团队同步网络错误 -->
+    <string name="team_api_unauthorized">登录已失效，请重新登录</string>
+    <string name="team_api_request_failed">请求失败（HTTP %1$d）</string>
+    <string name="team_api_server_error">服务器错误（HTTP %1$d）</string>
+    <string name="team_api_connect_failed">无法连接服务器：%1$s</string>
+    <string name="team_api_network_error">网络异常</string>
+    <string name="webdav_download_too_large">云端备份超过大小上限（%1$d MB），已中止下载</string>
 </resources>

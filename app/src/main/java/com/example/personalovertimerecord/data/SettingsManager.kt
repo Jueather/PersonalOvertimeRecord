@@ -42,6 +42,7 @@ class SettingsManager(context: Context) {
             putString(KEY_OVERTIME_RATE_HOLIDAY, settings.overtimeRateHoliday.toString())
             putString(KEY_BASE_SALARY, settings.baseSalary.toString())
             putString(KEY_PERFORMANCE_PERCENT, settings.performancePercent.toString())
+            putString(KEY_FIXED_BONUS, settings.fixedBonus.toString())
             putString(KEY_MONTHLY_WORK_DAYS, settings.monthlyWorkDays.toString())
             putString(KEY_DAILY_WORK_HOURS, settings.dailyWorkHours.toString())
             // 五险一金与个税
@@ -70,21 +71,21 @@ class SettingsManager(context: Context) {
     fun saveSyncedSettings(settings: OvertimeSettings) {
         val current = getSettings()
         // 旧备份/旧云端数据没有五险一金字段（Gson 缺失字段为 0），
-        // 此时保留本机已配置的缴费基数与比例，避免恢复后被静默清零
-        val normalized = if (settings.salaryConfigVersion <= 0) {
-            settings.copy(
-                socialInsuranceBase = current.socialInsuranceBase,
-                pensionRate = current.pensionRate,
-                medicalRate = current.medicalRate,
-                unemploymentRate = current.unemploymentRate,
-                housingFundBase = current.housingFundBase,
-                housingFundRate = current.housingFundRate,
-                specialDeduction = current.specialDeduction,
-                salaryConfigVersion = 1
-            )
-        } else {
-            settings
-        }
+        // 此时保留本机已配置的缴费基数与比例，避免恢复后被静默清零。
+        // v2 起新增固定奖金字段：版本 < 2 的数据缺失该值，同样保留本机配置。
+        val keepInsurance = settings.salaryConfigVersion <= 0
+        val keepFixedBonus = settings.salaryConfigVersion < 2
+        val normalized = settings.copy(
+            socialInsuranceBase = if (keepInsurance) current.socialInsuranceBase else settings.socialInsuranceBase,
+            pensionRate = if (keepInsurance) current.pensionRate else settings.pensionRate,
+            medicalRate = if (keepInsurance) current.medicalRate else settings.medicalRate,
+            unemploymentRate = if (keepInsurance) current.unemploymentRate else settings.unemploymentRate,
+            housingFundBase = if (keepInsurance) current.housingFundBase else settings.housingFundBase,
+            housingFundRate = if (keepInsurance) current.housingFundRate else settings.housingFundRate,
+            specialDeduction = if (keepInsurance) current.specialDeduction else settings.specialDeduction,
+            fixedBonus = if (keepFixedBonus) current.fixedBonus else settings.fixedBonus,
+            salaryConfigVersion = 2
+        )
         saveSettings(
             normalized.copy(
                 exportPassword = current.exportPassword,
@@ -102,6 +103,7 @@ class SettingsManager(context: Context) {
             overtimeRateHoliday = prefs.getString(KEY_OVERTIME_RATE_HOLIDAY, "3.0")?.toDoubleOrNull() ?: 3.0,
             baseSalary = prefs.getString(KEY_BASE_SALARY, "5000.0")?.toDoubleOrNull() ?: 5000.0,
             performancePercent = prefs.getString(KEY_PERFORMANCE_PERCENT, "0.0")?.toDoubleOrNull() ?: 0.0,
+            fixedBonus = prefs.getString(KEY_FIXED_BONUS, "0.0")?.toDoubleOrNull() ?: 0.0,
             monthlyWorkDays = prefs.getString(KEY_MONTHLY_WORK_DAYS, "21.75")?.toDoubleOrNull() ?: 21.75,
             dailyWorkHours = prefs.getString(KEY_DAILY_WORK_HOURS, "8.0")?.toDoubleOrNull() ?: 8.0,
             // 五险一金与个税
@@ -112,7 +114,7 @@ class SettingsManager(context: Context) {
             housingFundBase = prefs.getString(KEY_HOUSING_FUND_BASE, "0.0")?.toDoubleOrNull() ?: 0.0,
             housingFundRate = prefs.getString(KEY_HOUSING_FUND_RATE, "12.0")?.toDoubleOrNull() ?: 12.0,
             specialDeduction = prefs.getString(KEY_SPECIAL_DEDUCTION, "0.0")?.toDoubleOrNull() ?: 0.0,
-            salaryConfigVersion = prefs.getInt(KEY_SALARY_CONFIG_VERSION, 1),
+            salaryConfigVersion = prefs.getInt(KEY_SALARY_CONFIG_VERSION, 2),
             // 读取加密设置
             exportEncryptionEnabled = prefs.getBoolean(KEY_EXPORT_ENCRYPTION_ENABLED, false),
             exportPassword = prefs.getString(KEY_EXPORT_PASSWORD, "") ?: "",
@@ -345,6 +347,7 @@ class SettingsManager(context: Context) {
         private const val KEY_OVERTIME_RATE_HOLIDAY = "overtime_rate_holiday"
         private const val KEY_BASE_SALARY = "base_salary"
         private const val KEY_PERFORMANCE_PERCENT = "performance_percent"
+        private const val KEY_FIXED_BONUS = "fixed_bonus"
         private const val KEY_MONTHLY_WORK_DAYS = "monthly_work_days"
         private const val KEY_DAILY_WORK_HOURS = "daily_work_hours"
         // 五险一金与个税

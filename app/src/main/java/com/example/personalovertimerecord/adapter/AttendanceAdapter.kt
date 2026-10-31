@@ -159,7 +159,7 @@ class AttendanceAdapter(
             setBadge(tvDayType, dayTypeText, ContextCompat.getColor(context, R.color.text_secondary))
             if (!isLeave && record.shiftType == ShiftType.NIGHT.name) {
                 tvShiftType.visibility = View.VISIBLE
-                setBadge(tvShiftType, "夜班", ContextCompat.getColor(context, R.color.record_type_night))
+                setBadge(tvShiftType, context.getString(R.string.common_night_shift), ContextCompat.getColor(context, R.color.record_type_night))
             } else {
                 tvShiftType.visibility = View.GONE
             }
@@ -181,7 +181,7 @@ class AttendanceAdapter(
                 overtimeLayout.visibility = View.GONE
                 extraLayout.visibility = View.GONE
                 tvLeaveInfo.text = Formatter.formatLeaveInfo(record.leaveType, record.leaveHours)
-                tvPayLabel.text = "工作时长"
+                tvPayLabel.text = context.getString(R.string.item_work_duration)
                 tvOvertimePay.setTextColor(ContextCompat.getColor(context, R.color.record_type_leave))
                 tvOvertimePay.text = "${(record.leaveHours * 8).toInt()}h"
                 tvVsAverage.visibility = View.GONE
@@ -191,7 +191,7 @@ class AttendanceAdapter(
                 extraLayout.visibility = if (extraHours > 0) View.VISIBLE else View.GONE
                 tvOvertime.text = Formatter.formatHoursShort(result.overtimeHours)
                 tvExtra.text = Formatter.formatHoursShort(result.extraHours)
-                tvPayLabel.text = "加班费"
+                tvPayLabel.text = context.getString(R.string.item_overtime_pay)
                 tvOvertimePay.setTextColor(ContextCompat.getColor(context, R.color.record_pay_color))
                 tvOvertimePay.text = Formatter.formatMoney(result.estimatedPay)
                 bindVsAverage(result.estimatedPay)
@@ -202,12 +202,23 @@ class AttendanceAdapter(
             ivExpand.rotation = if (expanded) 90f else 0f
             if (expanded) {
                 tvDetailCalc.text = buildCalcDetail(record, settings, overtimeHours, extraHours)
-                tvDetailShift.text = "班次：${if (record.shiftType == ShiftType.NIGHT.name) "夜班" else "白班"}" +
-                    " · 类型：$dayTypeText" +
-                    if (record.customRate >= 0) " · 自定义 ${formatRate(record.customRate)}" else ""
+                tvDetailShift.text = buildString {
+                    val shiftName = context.getString(
+                        if (record.shiftType == ShiftType.NIGHT.name) R.string.common_night_shift
+                        else R.string.common_day_shift
+                    )
+                    append(context.getString(R.string.item_detail_shift, shiftName))
+                    append(context.getString(R.string.item_detail_type, dayTypeText))
+                    if (record.customRate >= 0) {
+                        append(context.getString(R.string.item_detail_custom, formatRate(record.customRate)))
+                    }
+                }
                 tvNote.text = record.note
                 tvNote.visibility = if (!record.note.isNullOrEmpty()) View.VISIBLE else View.GONE
-                tvDetailCreated.text = "录入于 ${createdAtFormat.format(Date(record.createdAt))}"
+                tvDetailCreated.text = context.getString(
+                    R.string.item_detail_created,
+                    createdAtFormat.format(Date(record.createdAt))
+                )
             }
         }
 
@@ -224,7 +235,10 @@ class AttendanceAdapter(
             }
             val percent = (ratio * 100).toInt()
             tvVsAverage.visibility = View.VISIBLE
-            tvVsAverage.text = if (percent > 0) "较月均 +$percent%" else "较月均 $percent%"
+            tvVsAverage.text = itemView.context.getString(
+                if (percent > 0) R.string.item_vs_average_up else R.string.item_vs_average_down,
+                percent
+            )
             tvVsAverage.setTextColor(
                 ContextCompat.getColor(
                     itemView.context,
@@ -244,15 +258,23 @@ class AttendanceAdapter(
             val hourlyText = String.format(Locale.getDefault(), "%.2f", hourly)
 
             if (record.isLeave) {
-                return "${Formatter.getLeaveTypeDisplayName(record.leaveType)} " +
-                    "${formatDays(record.leaveHours)}，不计入加班费"
+                return itemView.context.getString(
+                    R.string.item_leave_calc_detail,
+                    Formatter.getLeaveTypeDisplayName(record.leaveType),
+                    formatDays(record.leaveHours, itemView.context)
+                )
             }
 
             if (record.customRate >= 0) {
                 val totalHours = overtimeHours + extraHours
                 val pay = totalHours * hourly * record.customRate
-                return "加班加点 ${Formatter.formatHoursShort(totalHours)} × ${formatRate(record.customRate)}" +
-                    " × ¥$hourlyText/h = ${Formatter.formatMoney(pay)}"
+                return itemView.context.getString(
+                    R.string.item_calc_all,
+                    Formatter.formatHoursShort(totalHours),
+                    formatRate(record.customRate),
+                    hourlyText,
+                    Formatter.formatMoney(pay)
+                )
             }
 
             val lines = mutableListOf<String>()
@@ -264,18 +286,28 @@ class AttendanceAdapter(
                     DayType.WORKDAY -> settings.overtimeRateNormal
                 }
                 lines.add(
-                    "加班 ${Formatter.formatHoursShort(overtimeHours)} × ${formatRate(rate)}" +
-                        " × ¥$hourlyText/h = ${Formatter.formatMoney(overtimeHours * hourly * rate)}"
+                    itemView.context.getString(
+                        R.string.item_calc_overtime,
+                        Formatter.formatHoursShort(overtimeHours),
+                        formatRate(rate),
+                        hourlyText,
+                        Formatter.formatMoney(overtimeHours * hourly * rate)
+                    )
                 )
             }
             if (extraHours > 0) {
                 val rate = settings.overtimeRateNormal
                 lines.add(
-                    "加点 ${Formatter.formatHoursShort(extraHours)} × ${formatRate(rate)}" +
-                        " × ¥$hourlyText/h = ${Formatter.formatMoney(extraHours * hourly * rate)}"
+                    itemView.context.getString(
+                        R.string.item_calc_extra,
+                        Formatter.formatHoursShort(extraHours),
+                        formatRate(rate),
+                        hourlyText,
+                        Formatter.formatMoney(extraHours * hourly * rate)
+                    )
                 )
             }
-            return if (lines.isEmpty()) "无加班时长" else lines.joinToString("\n")
+            return if (lines.isEmpty()) itemView.context.getString(R.string.item_none_overtime) else lines.joinToString("\n")
         }
 
         /** 圆角浅色底徽标：底色取主色的低透明度版本，深色/浅色主题下都不刺眼 */
@@ -303,8 +335,12 @@ class AttendanceAdapter(
     private fun formatRate(rate: Double): String =
         String.format(Locale.getDefault(), "%.1fx", rate)
 
-    private fun formatDays(days: Double): String =
-        if (days >= 1.0) "${days.toInt()} 天" else "${(days * 8).toInt()} 小时"
+    private fun formatDays(days: Double, context: android.content.Context): String =
+        if (days >= 1.0) {
+            context.getString(R.string.item_days_fmt, days.toInt())
+        } else {
+            context.getString(R.string.item_hours_fmt, (days * 8).toInt())
+        }
 
     private class RecordListDiffCallback : DiffUtil.ItemCallback<RecordListItem>() {
 

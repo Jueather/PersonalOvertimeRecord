@@ -73,7 +73,7 @@ class ReportActivity : AppCompatActivity() {
         setSupportActionBar(binding.toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         binding.toolbar.setNavigationOnClickListener { finish() }
-        binding.tvYear.text = "${currentYear}年${currentMonth}月"
+        binding.tvYear.text = getString(R.string.main_month_year, currentYear, currentMonth)
         
         // 上个月：跨年时回退到上一年的12月
         binding.btnPrevMonth.setOnClickListener {
@@ -105,16 +105,20 @@ class ReportActivity : AppCompatActivity() {
      * 刷新当前选中月份的报表
      */
     private fun refreshReport() {
-        binding.tvYear.text = "${currentYear}年${currentMonth}月"
+        binding.tvYear.text = getString(R.string.main_month_year, currentYear, currentMonth)
         val attendanceList = viewModel.allAttendance.value ?: emptyList()
         updateReport(attendanceList)
     }
     
     private fun showExportDialog() {
-        val options = arrayOf("导出为 PDF", "导出为 CSV", "导出工资条 PDF")
+        val options = arrayOf(
+            getString(R.string.report_export_pdf),
+            getString(R.string.report_export_csv),
+            getString(R.string.report_export_payslip)
+        )
         
         AlertDialog.Builder(this)
-            .setTitle("导出报告")
+            .setTitle(getString(R.string.report_export))
             .setItems(options) { _, which ->
                 when (which) {
                     0 -> exportToPdf()
@@ -122,7 +126,7 @@ class ReportActivity : AppCompatActivity() {
                     2 -> exportPayslip()
                 }
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton(getString(R.string.cancel), null)
             .show()
     }
     
@@ -131,7 +135,7 @@ class ReportActivity : AppCompatActivity() {
      */
     private fun exportPayslip() {
         binding.btnExport.isEnabled = false
-        binding.btnExport.text = "导出中..."
+        binding.btnExport.text = getString(R.string.report_exporting)
         
         lifecycleScope.launch {
             try {
@@ -146,20 +150,20 @@ class ReportActivity : AppCompatActivity() {
                     PdfExporter.exportSalarySlip(this@ReportActivity, report)
                 }
                 
-                Toast.makeText(this@ReportActivity, "工资条导出成功", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@ReportActivity, getString(R.string.report_payslip_export_success), Toast.LENGTH_SHORT).show()
                 shareFile(file)
             } catch (e: Exception) {
-                Toast.makeText(this@ReportActivity, "导出失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@ReportActivity, getString(R.string.report_export_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
             } finally {
                 binding.btnExport.isEnabled = true
-                binding.btnExport.text = "导出报告"
+                binding.btnExport.text = getString(R.string.report_export)
             }
         }
     }
     
     private fun exportToPdf() {
         binding.btnExport.isEnabled = false
-        binding.btnExport.text = "导出中..."
+        binding.btnExport.text = getString(R.string.report_exporting)
         
         lifecycleScope.launch {
             try {
@@ -175,24 +179,24 @@ class ReportActivity : AppCompatActivity() {
                         this@ReportActivity,
                         overtimeRecords,
                         settings,
-                        "${currentYear}年${currentMonth}月考勤报告"
+                        getString(R.string.report_attendance_report_name, currentYear, currentMonth)
                     )
                 }
                 
-                Toast.makeText(this@ReportActivity, "PDF导出成功", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@ReportActivity, getString(R.string.report_pdf_export_success), Toast.LENGTH_SHORT).show()
                 shareFile(file)
             } catch (e: Exception) {
-                Toast.makeText(this@ReportActivity, "导出失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@ReportActivity, getString(R.string.report_export_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
             } finally {
                 binding.btnExport.isEnabled = true
-                binding.btnExport.text = "导出报告"
+                binding.btnExport.text = getString(R.string.report_export)
             }
         }
     }
     
     private fun exportToCsv() {
         binding.btnExport.isEnabled = false
-        binding.btnExport.text = "导出中..."
+        binding.btnExport.text = getString(R.string.report_exporting)
         
         lifecycleScope.launch {
             try {
@@ -216,13 +220,13 @@ class ReportActivity : AppCompatActivity() {
                     )
                 }
                 
-                Toast.makeText(this@ReportActivity, "CSV导出成功", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@ReportActivity, getString(R.string.report_csv_export_success), Toast.LENGTH_SHORT).show()
                 shareFile(file)
             } catch (e: Exception) {
-                Toast.makeText(this@ReportActivity, "导出失败: ${e.message}", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@ReportActivity, getString(R.string.report_export_failed, e.message ?: ""), Toast.LENGTH_SHORT).show()
             } finally {
                 binding.btnExport.isEnabled = true
-                binding.btnExport.text = "导出报告"
+                binding.btnExport.text = getString(R.string.report_export)
             }
         }
     }
@@ -230,9 +234,9 @@ class ReportActivity : AppCompatActivity() {
     private fun shareFile(file: java.io.File) {
         try {
             val shareIntent = CsvExporter.getShareIntent(this, file)
-            startActivity(Intent.createChooser(shareIntent, "分享文件"))
+            startActivity(Intent.createChooser(shareIntent, getString(R.string.report_share_file)))
         } catch (e: Exception) {
-            Toast.makeText(this, "无法分享文件", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, getString(R.string.report_share_failed), Toast.LENGTH_SHORT).show()
         }
     }
     
@@ -273,7 +277,7 @@ class ReportActivity : AppCompatActivity() {
             }
         }
         
-        binding.tvTotalDays.text = "${overtimeDays.size} 天"
+        binding.tvTotalDays.text = getString(R.string.report_days_count, overtimeDays.size)
         binding.tvTotalHours.text = Formatter.formatHours(totalHours)
         binding.tvTotalPay.text = Formatter.formatMoney(totalPay)
     }
@@ -288,6 +292,7 @@ class ReportActivity : AppCompatActivity() {
         
         binding.tvBaseSalary.text = Formatter.formatMoney(report.baseSalary)
         binding.tvPerformance.text = Formatter.formatMoney(report.performanceBonus)
+        binding.tvFixedBonus.text = Formatter.formatMoney(report.fixedBonus)
         binding.tvOvertimePay.text = Formatter.formatMoney(report.totalOvertimePay)
         
         // 应发 → 五险一金 / 个税 → 实发
@@ -313,7 +318,7 @@ class ReportActivity : AppCompatActivity() {
         val entries = mutableListOf<BarEntry>()
         
         for (month in 1..12) {
-            val monthStr = String.format(Locale.getDefault(), "%02d月", month)
+            val monthStr = getString(R.string.report_month_axis, month)
             val monthKey = String.format(Locale.getDefault(), "%04d-%02d", currentYear, month)
             val monthRecords = byMonth[monthKey] ?: emptyList()
             
@@ -333,7 +338,7 @@ class ReportActivity : AppCompatActivity() {
             entries.add(BarEntry((month - 1).toFloat(), floatArrayOf(overtimeHours, extraHours)))
         }
         
-        val dataSet = BarDataSet(entries, "月度加班/加点时长").apply {
+        val dataSet = BarDataSet(entries, getString(R.string.report_hours_legend)).apply {
             // 第一段(加班)紫色，第二段(加点)橙色
             colors = listOf(
                 android.graphics.Color.parseColor("#6200EE"),
@@ -341,7 +346,10 @@ class ReportActivity : AppCompatActivity() {
             )
             valueTextSize = 8f
             setDrawValues(false)
-            stackLabels = arrayOf("加班", "加点")
+            stackLabels = arrayOf(
+                getString(R.string.common_overtime),
+                getString(R.string.common_extra_hours)
+            )
         }
         
         binding.barChart.apply {
@@ -382,15 +390,15 @@ class ReportActivity : AppCompatActivity() {
         val colors = mutableListOf<Int>()
         
         if (normalHours > 0) {
-            entries.add(PieEntry(normalHours, "工作日"))
+            entries.add(PieEntry(normalHours, getString(R.string.workday)))
             colors.add(android.graphics.Color.parseColor("#2196F3"))
         }
         if (weekendHours > 0) {
-            entries.add(PieEntry(weekendHours, "周末"))
+            entries.add(PieEntry(weekendHours, getString(R.string.weekend)))
             colors.add(android.graphics.Color.parseColor("#4CAF50"))
         }
         if (holidayHours > 0) {
-            entries.add(PieEntry(holidayHours, "节假日"))
+            entries.add(PieEntry(holidayHours, getString(R.string.holiday)))
             colors.add(android.graphics.Color.parseColor("#FF9800"))
         }
         
@@ -413,7 +421,7 @@ class ReportActivity : AppCompatActivity() {
     private fun setupLineChart(byMonth: Map<String, List<OvertimeRecord>>) {
         val monthData = mutableListOf<Pair<String, Float>>()
         for (month in 1..12) {
-            val monthStr = String.format(Locale.getDefault(), "%02d月", month)
+            val monthStr = getString(R.string.report_month_axis, month)
             val monthKey = String.format(Locale.getDefault(), "%04d-%02d", currentYear, month)
             val monthRecords = byMonth[monthKey] ?: emptyList()
             
@@ -430,7 +438,7 @@ class ReportActivity : AppCompatActivity() {
             Entry(index.toFloat(), pay)
         }
         
-        val dataSet = LineDataSet(entries, "加班工资").apply {
+        val dataSet = LineDataSet(entries, getString(R.string.common_overtime_wage)).apply {
             color = android.graphics.Color.parseColor("#4CAF50")
             lineWidth = 2f
             setDrawCircles(true)

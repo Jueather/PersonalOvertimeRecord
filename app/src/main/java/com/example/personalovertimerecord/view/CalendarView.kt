@@ -117,7 +117,7 @@ class CalendarView @JvmOverloads constructor(
     private val headerRect = RectF()
     private val dayRect = RectF()
     
-    private val weekDays = arrayOf("日", "一", "二", "三", "四", "五", "六")
+    private val weekDays = context.resources.getStringArray(R.array.common_weekday_short)
     
     private var lastClickedDay: Int = -1
     private var lastClickTime: Long = 0
@@ -161,7 +161,7 @@ class CalendarView @JvmOverloads constructor(
                 extraHours = extraHours,
                 hasData = true,
                 hoursText = "${overtimeHours}h",
-                extraText = "${extraHours}加",
+                extraText = context.getString(R.string.calendar_extra_text, extraHours),
                 payText = payText
             )
         }.toMap()
@@ -243,7 +243,7 @@ class CalendarView @JvmOverloads constructor(
                 if (hasOvertime && hasExtra) {
                     // 同时有加班和加点，显示为 "Xh+Y加"
                     canvas.drawText(
-                        "${cell.hoursText}+${cell.extraText}",
+                        context.getString(R.string.calendar_cell_both, cell.hoursText, cell.extraText),
                         centerX,
                         infoY,
                         overtimeInfoPaint

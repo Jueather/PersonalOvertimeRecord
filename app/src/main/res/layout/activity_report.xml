@@ -25,7 +25,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="?attr/actionBarSize"
                 android:background="@color/colorPrimary"
-                app:title="统计报表"
+                app:title="@string/common_report_title"
                 app:titleTextColor="@color/white"
                 app:navigationIcon="?attr/homeAsUpIndicator" />
 
@@ -45,14 +45,14 @@
                 android:layout_height="40dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_arrow_left"
-                android:contentDescription="上个月" />
+                android:contentDescription="@string/common_prev_month" />
 
             <TextView
                 android:id="@+id/tvYear"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="2024年8月"
+                android:text="@string/common_month_placeholder"
                 android:textSize="20sp"
                 android:textStyle="bold"
                 android:textColor="#333333"
@@ -64,13 +64,13 @@
                 android:layout_height="40dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_arrow_right"
-                android:contentDescription="下个月" />
+                android:contentDescription="@string/common_next_month" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnExport"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="导出报告"
+                android:text="@string/report_export"
                 android:textSize="14sp"
                 app:icon="@android:drawable/ic_menu_save"
                 style="@style/Widget.MaterialComponents.Button.OutlinedButton"
@@ -110,7 +110,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="加班天数"
+                            android:text="@string/report_overtime_days"
                             android:textSize="12sp"
                             android:textColor="#666666" />
 
@@ -118,7 +118,7 @@
                             android:id="@+id/tvTotalDays"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="0 天"
+                            android:text="@string/report_zero_days"
                             android:textSize="28sp"
                             android:textStyle="bold"
                             android:textColor="@color/colorPrimary"
@@ -147,7 +147,7 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="总时长"
+                            android:text="@string/total_hours"
                             android:textSize="12sp"
                             android:textColor="#666666" />
 
@@ -155,7 +155,7 @@
                             android:id="@+id/tvTotalHours"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="0小时"
+                            android:text="@string/common_zero_hours"
                             android:textSize="28sp"
                             android:textStyle="bold"
                             android:textColor="#4CAF50"
@@ -185,7 +185,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="加班工资"
+                        android:text="@string/common_overtime_wage"
                         android:textSize="14sp"
                         android:textColor="#666666" />
 
@@ -223,7 +223,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="💰 工资构成"
+                    android:text="@string/report_salary_breakdown"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="#333333"
@@ -239,7 +239,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="底薪"
+                        android:text="@string/report_base_salary"
                         android:textColor="#666666" />
 
                     <TextView
@@ -262,7 +262,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="绩效"
+                        android:text="@string/report_performance"
                         android:textColor="#666666" />
 
                     <TextView
@@ -285,7 +285,30 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="加班工资"
+                        android:text="@string/report_fixed_bonus"
+                        android:textColor="#666666" />
+
+                    <TextView
+                        android:id="@+id/tvFixedBonus"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="¥0"
+                        android:textColor="#333333"
+                        android:textStyle="bold" />
+
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/common_overtime_wage"
                         android:textColor="#666666" />
 
                     <TextView
@@ -308,7 +331,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="应发合计"
+                        android:text="@string/report_gross_total"
                         android:textColor="#333333"
                         android:textStyle="bold" />
 
@@ -332,7 +355,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="五险一金（个人）"
+                        android:text="@string/report_insurance"
                         android:textColor="#666666" />
 
                     <TextView
@@ -355,7 +378,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="个人所得税"
+                        android:text="@string/report_tax"
                         android:textColor="#666666" />
 
                     <TextView
@@ -383,7 +406,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="实发工资"
+                        android:text="@string/report_net_salary"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#333333" />
@@ -421,7 +444,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="🧾 工资条明细"
+                    android:text="@string/report_payslip_title"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="#333333"
@@ -430,7 +453,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="个税按累计预扣法计算，起征点 5000 元/月"
+                    android:text="@string/report_tax_note"
                     android:textSize="11sp"
                     android:textColor="#9E9E9E"
                     android:layout_marginBottom="12dp" />
@@ -445,7 +468,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="社保缴费基数"
+                        android:text="@string/report_social_insurance_base"
                         android:textColor="#666666" />
 
                     <TextView
@@ -466,7 +489,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="公积金缴费基数"
+                        android:text="@string/report_housing_fund_base"
                         android:textColor="#666666" />
 
                     <TextView
@@ -487,7 +510,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="养老保险"
+                        android:text="@string/report_pension_insurance"
                         android:textColor="#666666" />
 
                     <TextView
@@ -508,7 +531,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="医疗保险"
+                        android:text="@string/report_medical_insurance"
                         android:textColor="#666666" />
 
                     <TextView
@@ -529,7 +552,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="失业保险"
+                        android:text="@string/report_unemployment_insurance"
                         android:textColor="#666666" />
 
                     <TextView
@@ -550,7 +573,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="住房公积金"
+                        android:text="@string/report_housing_fund"
                         android:textColor="#666666" />
 
                     <TextView
@@ -571,7 +594,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="每月专项附加扣除"
+                        android:text="@string/report_special_deduction"
                         android:textColor="#666666" />
 
                     <TextView
@@ -592,7 +615,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="本月应纳税所得额"
+                        android:text="@string/report_current_taxable"
                         android:textColor="#666666" />
 
                     <TextView
@@ -612,7 +635,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="累计应纳税所得额"
+                        android:text="@string/report_cumulative_taxable"
                         android:textColor="#666666" />
 
                     <TextView
@@ -645,7 +668,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="📊 月度加班/加点时长"
+                    android:text="@string/report_hours_chart_title"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="#333333"
@@ -678,7 +701,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="📈 当月加班类型分布"
+                    android:text="@string/report_distribution_title"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="#333333"
@@ -711,7 +734,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="💹 月度加班工资趋势"
+                    android:text="@string/report_trend_title"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="#333333"

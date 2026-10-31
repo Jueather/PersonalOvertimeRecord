@@ -5,6 +5,9 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
+import androidx.annotation.StringRes
+import com.example.personalovertimerecord.OvertimeApplication
+import com.example.personalovertimerecord.R
 import com.example.personalovertimerecord.data.OvertimeRecord
 import com.example.personalovertimerecord.data.OvertimeSettings
 import com.example.personalovertimerecord.utils.SalaryCalculator.SalaryReport
@@ -25,14 +28,28 @@ object PdfExporter {
     private const val MARGIN = 40f
     private const val LINE_HEIGHT = 20f
 
+    private fun str(@StringRes id: Int, vararg args: Any): String =
+        OvertimeApplication.getInstance().getString(id, *args)
+
     /**
      * 将 OvertimeRecord.dayType（枚举名 WORKDAY/WEEKEND/HOLIDAY 或中文）统一映射为中文标签
+     * 仅用于统计计数，展示文案走 [getDayTypeDisplay]
      */
     private fun getDayTypeLabel(dayType: String): String {
         return when (dayType) {
             "WORKDAY", "平时" -> "平时"
             "WEEKEND", "周末" -> "周末"
             "HOLIDAY", "法定节假日", "法定假日" -> "法定节假日"
+            else -> dayType
+        }
+    }
+
+    /** 加班类型的本地化展示名称 */
+    private fun getDayTypeDisplay(dayType: String): String {
+        return when (getDayTypeLabel(dayType)) {
+            "平时" -> str(R.string.common_day_workday)
+            "周末" -> str(R.string.common_day_weekend)
+            "法定节假日" -> str(R.string.common_day_holiday)
             else -> dayType
         }
     }
@@ -49,7 +66,7 @@ object PdfExporter {
         context: Context,
         records: List<OvertimeRecord>,
         settings: OvertimeSettings,
-        title: String = "考勤记录报告"
+        title: String = str(R.string.pdf_title_default)
     ): File {
         val document = PdfDocument()
         val pageInfo = PdfDocument.PageInfo.Builder(PAGE_WIDTH, PAGE_HEIGHT, 1).create()
@@ -94,7 +111,10 @@ object PdfExporter {
         document.finishPage(page)
         
         // 保存PDF文件
-        val fileName = "考勤报告_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())}.pdf"
+        val fileName = str(
+            R.string.pdf_file_name_fmt,
+            SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        )
         val file = File(context.getExternalFilesDir(null), fileName)
         
         try {
@@ -119,57 +139,61 @@ object PdfExporter {
         val pageWidth = PAGE_WIDTH - 2 * MARGIN
 
         var yPosition = MARGIN
-        yPosition = drawTitle(canvas, "${report.year}年${report.month}月工资条", yPosition, pageWidth)
+        yPosition = drawTitle(canvas, str(R.string.pdf_payslip_title, report.year, report.month), yPosition, pageWidth)
         yPosition = drawInfo(canvas, yPosition, pageWidth)
 
         yPosition = drawPayslipSection(
             canvas,
-            "收入明细",
+            str(R.string.pdf_payslip_income),
             listOf(
-                "底薪" to formatMoney(report.baseSalary),
-                "绩效奖金" to formatMoney(report.performanceBonus),
-                "加班工资" to formatMoney(report.totalOvertimePay),
-                "应发合计" to formatMoney(report.totalSalary)
+                str(R.string.report_base_salary) to formatMoney(report.baseSalary),
+                str(R.string.report_performance) to formatMoney(report.performanceBonus),
+                str(R.string.report_fixed_bonus) to formatMoney(report.fixedBonus),
+                str(R.string.common_overtime_wage) to formatMoney(report.totalOvertimePay),
+                str(R.string.report_gross_total) to formatMoney(report.totalSalary)
             ),
             yPosition
         )
 
         yPosition = drawPayslipSection(
             canvas,
-            "五险一金（个人）",
+            str(R.string.report_insurance),
             listOf(
-                "养老保险（基数 ${formatMoney(report.insurance.socialInsuranceBase)}）" to formatMoney(report.insurance.pension),
-                "医疗保险" to formatMoney(report.insurance.medical),
-                "失业保险" to formatMoney(report.insurance.unemployment),
-                "住房公积金（基数 ${formatMoney(report.insurance.housingFundBase)}）" to formatMoney(report.insurance.housingFund),
-                "合计" to formatMoney(report.insurance.total)
+                str(R.string.pdf_payslip_pension_base, formatMoney(report.insurance.socialInsuranceBase)) to formatMoney(report.insurance.pension),
+                str(R.string.report_medical_insurance) to formatMoney(report.insurance.medical),
+                str(R.string.report_unemployment_insurance) to formatMoney(report.insurance.unemployment),
+                str(R.string.pdf_payslip_fund_base, formatMoney(report.insurance.housingFundBase)) to formatMoney(report.insurance.housingFund),
+                str(R.string.pdf_payslip_total) to formatMoney(report.insurance.total)
             ),
             yPosition
         )
 
         yPosition = drawPayslipSection(
             canvas,
-            "个人所得税（累计预扣法）",
+            str(R.string.pdf_tax_section),
             listOf(
-                "每月专项附加扣除" to formatMoney(report.specialDeduction),
-                "本月应纳税所得额" to formatMoney(report.monthlyTaxableIncome),
-                "累计应纳税所得额" to formatMoney(report.cumulativeTaxableIncome),
-                "本月预扣个税" to formatMoney(report.incomeTax)
+                str(R.string.report_special_deduction) to formatMoney(report.specialDeduction),
+                str(R.string.report_current_taxable) to formatMoney(report.monthlyTaxableIncome),
+                str(R.string.report_cumulative_taxable) to formatMoney(report.cumulativeTaxableIncome),
+                str(R.string.pdf_tax_monthly) to formatMoney(report.incomeTax)
             ),
             yPosition
         )
 
         yPosition = drawPayslipSection(
             canvas,
-            "实发工资",
-            listOf("应发 - 五险一金 - 个税" to formatMoney(report.netSalary)),
+            str(R.string.report_net_salary),
+            listOf(str(R.string.pdf_net_formula) to formatMoney(report.netSalary)),
             yPosition
         )
 
         drawFooter(canvas)
         document.finishPage(page)
 
-        val fileName = "工资条_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())}.pdf"
+        val fileName = str(
+            R.string.pdf_payslip_file_name_fmt,
+            SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        )
         val file = File(context.getExternalFilesDir(null), fileName)
         try {
             FileOutputStream(file).use { outputStream ->
@@ -254,8 +278,8 @@ object PdfExporter {
             isAntiAlias = true
         }
         
-        val dateFormat = SimpleDateFormat("yyyy年MM月dd日 HH:mm:ss", Locale.getDefault())
-        val info = "生成时间: ${dateFormat.format(Date())}"
+        val dateFormat = SimpleDateFormat(str(R.string.pdf_datetime_pattern), Locale.getDefault())
+        val info = str(R.string.pdf_info_generated_at, dateFormat.format(Date()))
         canvas.drawText(info, MARGIN, y + 12f, infoPaint)
         
         return y + LINE_HEIGHT + 10f
@@ -277,7 +301,14 @@ object PdfExporter {
         canvas.drawRect(MARGIN, y, PAGE_WIDTH - MARGIN, y + LINE_HEIGHT, bgPaint)
         
         // 绘制表头文字
-        val columns = listOf("日期", "上班", "下班", "加班时长", "加班类型", "加班费")
+        val columns = listOf(
+            str(R.string.pdf_col_date),
+            str(R.string.pdf_col_check_in),
+            str(R.string.pdf_col_check_out),
+            str(R.string.pdf_col_overtime),
+            str(R.string.pdf_col_day_type),
+            str(R.string.pdf_col_pay)
+        )
         val colWidths = listOf(80f, 70f, 70f, 80f, 80f, 80f)
         var x = MARGIN + 5f
         
@@ -313,8 +344,8 @@ object PdfExporter {
             dateFormat.format(fullDateFormat.parse(record.date) ?: Date()),
             record.checkInTime?.let { timeFormat.format(dateTimeFormat.parse(record.date + " " + it) ?: Date()) } ?: "--:--",
             record.checkOutTime?.let { timeFormat.format(dateTimeFormat.parse(record.date + " " + it) ?: Date()) } ?: "--:--",
-            String.format("%.1f小时", record.overtimeHours),
-            getDayTypeLabel(record.dayType),
+            str(R.string.pdf_hours_cell, record.overtimeHours),
+            getDayTypeDisplay(record.dayType),
             String.format("¥%.2f", record.totalPay)
         )
         
@@ -359,7 +390,7 @@ object PdfExporter {
             isAntiAlias = true
         }
         
-        canvas.drawText("汇总统计", MARGIN, currentY + 14f, titlePaint)
+        canvas.drawText(str(R.string.pdf_summary_title), MARGIN, currentY + 14f, titlePaint)
         currentY += LINE_HEIGHT + 10f
         
         val totalOvertime = records.sumOf { it.overtimeHours }
@@ -369,11 +400,11 @@ object PdfExporter {
         val holidayDays = records.count { getDayTypeLabel(it.dayType) == "法定节假日" }
         
         val summaryItems = listOf(
-            "总加班时长: ${String.format("%.1f", totalOvertime)} 小时",
-            "总加班费: ¥${String.format("%.2f", totalPay)}",
-            "平时加班: $normalDays 天",
-            "周末加班: $weekendDays 天",
-            "法定节假日: $holidayDays 天"
+            str(R.string.pdf_summary_total_hours, totalOvertime),
+            str(R.string.pdf_summary_total_pay, totalPay),
+            str(R.string.pdf_summary_normal, normalDays),
+            str(R.string.pdf_summary_weekend, weekendDays),
+            str(R.string.pdf_summary_holiday, holidayDays)
         )
         
         for (item in summaryItems) {
@@ -391,7 +422,7 @@ object PdfExporter {
             isAntiAlias = true
         }
         
-        val footer = "Personal Overtime Record"
+        val footer = str(R.string.pdf_footer)
         val x = (PAGE_WIDTH - footerPaint.measureText(footer)) / 2
         canvas.drawText(footer, x, PAGE_HEIGHT - 20f, footerPaint)
     }

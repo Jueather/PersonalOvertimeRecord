@@ -12,6 +12,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import com.example.personalovertimerecord.BuildConfig
+import com.example.personalovertimerecord.R
 import com.example.personalovertimerecord.utils.Constants
 import com.example.personalovertimerecord.utils.UpdateManager
 import kotlinx.coroutines.CoroutineScope
@@ -36,24 +37,24 @@ object UpdateDialog {
         onDownload: () -> Unit
     ) {
         val message = buildString {
-            append("当前版本：v").append(UpdateManager.getCurrentVersionName(context)).append('\n')
-            append("最新版本：v").append(info.versionName).append('\n')
+            append(context.getString(R.string.update_current_version, UpdateManager.getCurrentVersionName(context))).append('\n')
+            append(context.getString(R.string.update_latest_version, info.versionName)).append('\n')
             if (force) {
-                append("⚠️ 此版本为强制更新，更新后才能继续使用。").append('\n')
+                append(context.getString(R.string.update_force_notice)).append('\n')
             }
             if (!info.changelog.isNullOrBlank()) {
-                append("\n更新内容：\n").append(info.changelog.trim())
+                append(context.getString(R.string.update_changelog_section, info.changelog.trim()))
             }
         }
 
         AlertDialog.Builder(context)
-            .setTitle("发现新版本")
+            .setTitle(R.string.update_found_title)
             .setMessage(message)
             .setCancelable(!force)
-            .setPositiveButton("立即更新") { _, _ -> onDownload() }
+            .setPositiveButton(R.string.update_now) { _, _ -> onDownload() }
             .apply {
                 if (!force) {
-                    setNegativeButton("稍后", null)
+                    setNegativeButton(R.string.common_later, null)
                 }
             }
             .show()
@@ -62,28 +63,28 @@ object UpdateDialog {
     /** 当前已是最新版本 */
     fun showNoUpdate(context: Context) {
         AlertDialog.Builder(context)
-            .setTitle("检查更新")
-            .setMessage("当前已是最新版本 v${UpdateManager.getCurrentVersionName(context)}")
-            .setPositiveButton("确定", null)
+            .setTitle(R.string.update_check_title)
+            .setMessage(context.getString(R.string.update_up_to_date, UpdateManager.getCurrentVersionName(context)))
+            .setPositiveButton(R.string.common_ok, null)
             .show()
     }
 
     /** 检查更新失败 */
     fun showError(context: Context, message: String) {
         AlertDialog.Builder(context)
-            .setTitle("检查更新失败")
+            .setTitle(R.string.update_check_failed_title)
             .setMessage(message)
-            .setPositiveButton("确定", null)
+            .setPositiveButton(R.string.common_ok, null)
             .show()
     }
 
     /** 缺少"安装未知来源应用"权限，引导用户去系统设置开启 */
     fun showInstallPermissionDialog(context: Context) {
         AlertDialog.Builder(context)
-            .setTitle("需要安装权限")
-            .setMessage("更新需要允许安装未知来源应用。请在系统设置中为本应用开启该权限后重试。")
-            .setPositiveButton("去设置") { _, _ -> UpdateManager.openInstallPermissionSettings(context) }
-            .setNegativeButton("取消", null)
+            .setTitle(R.string.update_permission_title)
+            .setMessage(R.string.update_permission_message)
+            .setPositiveButton(R.string.update_go_settings) { _, _ -> UpdateManager.openInstallPermissionSettings(context) }
+            .setNegativeButton(R.string.cancel, null)
             .show()
     }
 
@@ -94,18 +95,15 @@ object UpdateDialog {
      */
     private fun showDebugToReleaseMigration(context: Context, info: UpdateManager.UpdateInfo) {
         AlertDialog.Builder(context)
-            .setTitle("调试版 → 正式版")
-            .setMessage(
-                "当前安装的是调试版本（debug 签名），Android 不允许不同签名直接覆盖升级。\n\n" +
-                    "请先卸载当前调试版（应用数据会被清除），再安装正式版 v${info.versionName}。"
-            )
-            .setPositiveButton("卸载调试版") { _, _ ->
+            .setTitle(R.string.update_debug_migration_title)
+            .setMessage(context.getString(R.string.update_debug_migration_message, info.versionName))
+            .setPositiveButton(R.string.update_uninstall_debug) { _, _ ->
                 uninstallCurrentApp(context)
             }
-            .setNeutralButton("打开正式版下载页") { _, _ ->
+            .setNeutralButton(R.string.update_open_releases) { _, _ ->
                 openReleasesPage(context)
             }
-            .setNegativeButton("稍后", null)
+            .setNegativeButton(R.string.common_later, null)
             .show()
     }
 
@@ -116,7 +114,7 @@ object UpdateDialog {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
         } catch (e: Exception) {
-            Toast.makeText(context, "无法调起系统卸载，请到系统设置手动卸载", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, R.string.update_uninstall_failed, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -127,7 +125,7 @@ object UpdateDialog {
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
         } catch (e: Exception) {
-            Toast.makeText(context, "无法打开浏览器，请手动访问最新 Release 页", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, R.string.update_open_browser_failed, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -159,7 +157,7 @@ object UpdateDialog {
             progress.dismiss()
 
             if (apkFile == null) {
-                Toast.makeText(context, "下载失败，请检查网络后重试", Toast.LENGTH_LONG).show()
+                Toast.makeText(context, R.string.update_download_failed, Toast.LENGTH_LONG).show()
                 return@launch
             }
 
@@ -168,7 +166,7 @@ object UpdateDialog {
                 is UpdateManager.SignatureVerifyResult.Match -> {
                     val started = UpdateManager.installApk(context, apkFile)
                     if (!started) {
-                        Toast.makeText(context, "启动安装失败，请重试", Toast.LENGTH_LONG).show()
+                        Toast.makeText(context, R.string.update_install_failed, Toast.LENGTH_LONG).show()
                     }
                 }
                 is UpdateManager.SignatureVerifyResult.Mismatch -> {
@@ -180,14 +178,14 @@ object UpdateDialog {
                     } else {
                         Toast.makeText(
                             context,
-                            "更新包签名与当前应用不一致，已取消安装。请确认更新来自官方渠道后重试。",
+                            R.string.update_signature_mismatch,
                             Toast.LENGTH_LONG
                         ).show()
                     }
                 }
                 is UpdateManager.SignatureVerifyResult.Unreadable -> {
                     apkFile.delete()
-                    Toast.makeText(context, "无法验证更新包签名，安装包可能已损坏，请重新下载", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, R.string.update_signature_unreadable, Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -200,7 +198,7 @@ object UpdateDialog {
             max = 100
         }
         val textView = TextView(context).apply {
-            text = "准备下载..."
+            text = context.getString(R.string.update_preparing)
             gravity = Gravity.CENTER
             setPadding(0, 16, 0, 0)
         }
@@ -215,7 +213,7 @@ object UpdateDialog {
         }
 
         val dialog = AlertDialog.Builder(context)
-            .setTitle("正在下载更新")
+            .setTitle(R.string.update_downloading_title)
             .setView(layout)
             .setCancelable(false)
             .create()
@@ -232,9 +230,14 @@ object UpdateDialog {
             val percent = if (total > 0) ((downloaded * 100) / total).toInt() else 0
             progressBar.progress = percent
             textView.text = if (total > 0) {
-                "已下载 ${formatSize(downloaded)} / ${formatSize(total)}（$percent%）"
+                textView.context.getString(
+                    R.string.update_download_progress,
+                    formatSize(downloaded),
+                    formatSize(total),
+                    percent
+                )
             } else {
-                "已下载 ${formatSize(downloaded)}"
+                textView.context.getString(R.string.update_download_progress_size, formatSize(downloaded))
             }
         }
 

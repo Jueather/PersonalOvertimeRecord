@@ -75,6 +75,10 @@ class DataManagerActivity : AppCompatActivity() {
         binding.btnImportCsv.setOnClickListener {
             showCsvImportDialog()
         }
+
+        binding.btnChangeLog.setOnClickListener {
+            startActivity(Intent(this, ChangeLogActivity::class.java))
+        }
     }
     
     private fun exportData(uri: android.net.Uri) {
@@ -86,11 +90,11 @@ class DataManagerActivity : AppCompatActivity() {
                 settings = settings,
                 onSuccess = {
                     saveLastExportTime()
-                    Toast.makeText(this@DataManagerActivity, "数据导出成功！", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@DataManagerActivity, getString(R.string.data_export_success), Toast.LENGTH_LONG).show()
                     updateStats()
                 },
                 onError = { e ->
-                    Toast.makeText(this@DataManagerActivity, "导出失败：${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@DataManagerActivity, getString(R.string.data_export_failed, e.message ?: ""), Toast.LENGTH_LONG).show()
                 }
             )
         }
@@ -104,7 +108,7 @@ class DataManagerActivity : AppCompatActivity() {
                     showRestoreConfirmDialog(backupData)
                 },
                 onError = { e ->
-                    Toast.makeText(this@DataManagerActivity, "导入失败：${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@DataManagerActivity, getString(R.string.data_import_failed, e.message ?: ""), Toast.LENGTH_LONG).show()
                 }
             )
         }
@@ -112,23 +116,23 @@ class DataManagerActivity : AppCompatActivity() {
     
     private fun showImportConfirmDialog() {
         AlertDialog.Builder(this)
-            .setTitle("导入数据")
-            .setMessage("请选择要导入的 JSON 文件（完整备份）")
-            .setPositiveButton("选择文件") { _, _ ->
+            .setTitle(getString(R.string.data_import))
+            .setMessage(getString(R.string.data_import_confirm_msg))
+            .setPositiveButton(getString(R.string.data_choose_file)) { _, _ ->
                 importLauncher.launch("application/json")
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton(getString(R.string.cancel), null)
             .show()
     }
     
     private fun showCsvImportDialog() {
         AlertDialog.Builder(this)
-            .setTitle("CSV 批量导入")
+            .setTitle(getString(R.string.data_csv_batch_import_title))
             .setMessage(CsvImporter.getSupportedFormatDescription())
-            .setPositiveButton("选择文件") { _, _ ->
+            .setPositiveButton(getString(R.string.data_choose_file)) { _, _ ->
                 csvImportLauncher.launch("text/csv")
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton(getString(R.string.cancel), null)
             .show()
     }
     
@@ -144,10 +148,10 @@ class DataManagerActivity : AppCompatActivity() {
                 if (result != null) {
                     showImportResultDialog(result)
                 } else {
-                    Toast.makeText(this@DataManagerActivity, "无法读取文件", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@DataManagerActivity, getString(R.string.data_file_unreadable), Toast.LENGTH_SHORT).show()
                 }
             } catch (e: Exception) {
-                Toast.makeText(this@DataManagerActivity, "导入失败：${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@DataManagerActivity, getString(R.string.data_import_failed, e.message ?: ""), Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -157,16 +161,21 @@ class DataManagerActivity : AppCompatActivity() {
         message.append(result.message)
         
         if (result.errors.isNotEmpty()) {
-            message.append("\n\n错误详情：")
+            message.append(getString(R.string.data_error_details))
             result.errors.forEach { error ->
                 message.append("\n- $error")
             }
         }
         
         AlertDialog.Builder(this)
-            .setTitle(if (result.success) "导入成功" else "导入完成")
+            .setTitle(
+                getString(
+                    if (result.success) R.string.data_import_success_title
+                    else R.string.data_import_complete_title
+                )
+            )
             .setMessage(message.toString())
-            .setPositiveButton("确定") { _, _ ->
+            .setPositiveButton(getString(R.string.common_ok)) { _, _ ->
                 updateStats()
             }
             .show()
@@ -177,16 +186,12 @@ class DataManagerActivity : AppCompatActivity() {
         val recordCount = backupData.attendanceRecords.size
         
         AlertDialog.Builder(this)
-            .setTitle("确认恢复")
-            .setMessage(
-                "文件创建时间：$exportDate\n" +
-                "包含 $recordCount 条记录\n\n" +
-                "恢复将覆盖当前所有数据，确定要继续吗？"
-            )
-            .setPositiveButton("恢复") { _, _ ->
+            .setTitle(getString(R.string.data_restore_confirm_title))
+            .setMessage(getString(R.string.data_restore_confirm_msg, exportDate, recordCount))
+            .setPositiveButton(getString(R.string.data_restore)) { _, _ ->
                 restoreData(backupData)
             }
-            .setNegativeButton("取消", null)
+            .setNegativeButton(getString(R.string.cancel), null)
             .show()
     }
     
@@ -197,10 +202,10 @@ class DataManagerActivity : AppCompatActivity() {
                 settingsManager.saveSyncedSettings(backupData.settings)
                 dataExporter.restoreDataFull(backupData)
                 
-                Toast.makeText(this@DataManagerActivity, "数据恢复成功！", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@DataManagerActivity, getString(R.string.data_restore_success), Toast.LENGTH_LONG).show()
                 updateStats()
             } catch (e: Exception) {
-                Toast.makeText(this@DataManagerActivity, "恢复失败：${e.message}", Toast.LENGTH_LONG).show()
+                Toast.makeText(this@DataManagerActivity, getString(R.string.data_restore_failed, e.message ?: ""), Toast.LENGTH_LONG).show()
             }
         }
     }
@@ -209,13 +214,13 @@ class DataManagerActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val db = AppDatabase.getDatabase(this@DataManagerActivity)
             val count = db.attendanceDao().getCount()
-            binding.tvRecordCount.text = "加班记录数：$count"
+            binding.tvRecordCount.text = getString(R.string.data_record_count_fmt, count)
             
             val lastExport = getLastExportTime()
             binding.tvLastExport.text = if (lastExport > 0) {
-                "最后导出：${dateFormat.format(Date(lastExport))}"
+                getString(R.string.data_last_export_fmt, dateFormat.format(Date(lastExport)))
             } else {
-                "最后导出：未导出过"
+                getString(R.string.data_last_export_never)
             }
         }
     }

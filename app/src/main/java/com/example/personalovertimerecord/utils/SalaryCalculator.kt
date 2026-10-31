@@ -1,5 +1,8 @@
 package com.example.personalovertimerecord.utils
 
+import androidx.annotation.StringRes
+import com.example.personalovertimerecord.OvertimeApplication
+import com.example.personalovertimerecord.R
 import com.example.personalovertimerecord.data.DayType
 import com.example.personalovertimerecord.data.OvertimeRecord
 import com.example.personalovertimerecord.data.OvertimeSettings
@@ -32,12 +35,14 @@ object SalaryCalculator {
         val month: Int,
         val baseSalary: Double,
         val performanceBonus: Double,
+        /** 固定奖金（元/月），计入应发与个税 */
+        val fixedBonus: Double,
         val normalOvertimePay: Double,
         val weekendOvertimePay: Double,
         val holidayOvertimePay: Double,
         val extraPay: Double,
         val totalOvertimePay: Double,
-        // 应发合计（底薪 + 绩效 + 加班工资）
+        // 应发合计（底薪 + 绩效 + 固定奖金 + 加班工资）
         val totalSalary: Double,
         // 分项加班时长（小时）
         val normalOvertime: Double,
@@ -172,7 +177,8 @@ object SalaryCalculator {
         }
 
         val performanceBonus = settings.baseSalary * (settings.performancePercent / 100.0)
-        val totalMonthlySalary = settings.baseSalary + performanceBonus
+        val fixedBonus = settings.fixedBonus
+        val totalMonthlySalary = settings.baseSalary + performanceBonus + fixedBonus
         // 统一口径：时薪计算见 OvertimeCalculator.hourlyWage()，避免三处实现漂移
         val hourlyWage = OvertimeCalculator.hourlyWage(settings)
 
@@ -203,6 +209,7 @@ object SalaryCalculator {
             month = month,
             baseSalary = settings.baseSalary,
             performanceBonus = round2(performanceBonus),
+            fixedBonus = round2(fixedBonus),
             normalOvertimePay = round2(normalPay),
             weekendOvertimePay = round2(weekendPay),
             holidayOvertimePay = round2(holidayPay),
@@ -234,7 +241,7 @@ object SalaryCalculator {
 
     /**
      * 年初至指定月份的累计应纳税所得额：
-     * 累计收入（底薪 + 绩效 + 当月加班工资）- 累计五险一金 - 累计减除费用（起征点 + 专项附加扣除）。
+     * 累计收入（底薪 + 绩效 + 固定奖金 + 当月加班工资）- 累计五险一金 - 累计减除费用（起征点 + 专项附加扣除）。
      *
      * 说明：应用只维护一套当前工资设置，历史月份按同一套设置推算，
      * 与真实工资条在调薪月份可能存在偏差，其余月份口径一致。
@@ -248,7 +255,8 @@ object SalaryCalculator {
     ): Double {
         if (month <= 0) return 0.0
 
-        val monthlyBase = settings.baseSalary * (1 + settings.performancePercent / 100.0)
+        val monthlyBase =
+            settings.baseSalary * (1 + settings.performancePercent / 100.0) + settings.fixedBonus
         var cumulativeIncome = 0.0
         for (m in 1..month) {
             cumulativeIncome += monthlyBase + overtimePayOfMonth(attendanceList, settings, year, m)
@@ -321,45 +329,50 @@ object SalaryCalculator {
         return reports
     }
 
+    private fun str(@StringRes id: Int, vararg args: Any): String =
+        OvertimeApplication.getInstance().getString(id, *args)
+
     fun formatSalaryReport(report: SalaryReport): String {
+        val hoursText: (Double) -> String = { String.format(Locale.getDefault(), "%.1f", it) }
         return buildString {
             appendLine("=" .repeat(40))
-            appendLine("📊 ${report.year}年${report.month}月工资报表")
+            appendLine(str(R.string.salary_report_title, report.year, report.month))
             appendLine("=".repeat(40))
             appendLine()
-            appendLine("💰 基础工资: ${Formatter.formatMoney(report.baseSalary)}")
-            appendLine("🎯 绩效奖金: ${Formatter.formatMoney(report.performanceBonus)}")
+            appendLine(str(R.string.salary_report_base, Formatter.formatMoney(report.baseSalary)))
+            appendLine(str(R.string.salary_report_performance, Formatter.formatMoney(report.performanceBonus)))
+            appendLine(str(R.string.salary_report_fixed_bonus, Formatter.formatMoney(report.fixedBonus)))
             appendLine()
-            appendLine("📈 加班工资明细:")
-            appendLine("  工作日加班: ${String.format(Locale.getDefault(), "%.1f", report.normalOvertime)}h × ${report.overtimeRateNormal} = ${Formatter.formatMoney(report.normalOvertimePay)}")
-            appendLine("  周末加班: ${String.format(Locale.getDefault(), "%.1f", report.weekendOvertime)}h × ${report.overtimeRateWeekend} = ${Formatter.formatMoney(report.weekendOvertimePay)}")
-            appendLine("  法定假日: ${String.format(Locale.getDefault(), "%.1f", report.holidayOvertime)}h × ${report.overtimeRateHoliday} = ${Formatter.formatMoney(report.holidayOvertimePay)}")
-            appendLine("  加点工资: ${String.format(Locale.getDefault(), "%.1f", report.totalExtraHours)}h × ${report.overtimeRateNormal} = ${Formatter.formatMoney(report.extraPay)}")
+            appendLine(str(R.string.salary_report_overtime_title))
+            appendLine("  " + str(R.string.salary_report_workday_overtime, "${hoursText(report.normalOvertime)}h", report.overtimeRateNormal.toString(), Formatter.formatMoney(report.normalOvertimePay)))
+            appendLine("  " + str(R.string.salary_report_weekend_overtime, "${hoursText(report.weekendOvertime)}h", report.overtimeRateWeekend.toString(), Formatter.formatMoney(report.weekendOvertimePay)))
+            appendLine("  " + str(R.string.salary_report_holiday_overtime, "${hoursText(report.holidayOvertime)}h", report.overtimeRateHoliday.toString(), Formatter.formatMoney(report.holidayOvertimePay)))
+            appendLine("  " + str(R.string.salary_report_extra_overtime, "${hoursText(report.totalExtraHours)}h", report.overtimeRateNormal.toString(), Formatter.formatMoney(report.extraPay)))
             appendLine()
-            appendLine("⏱️ 加班统计:")
-            appendLine("  工作日加班: ${report.normalDays}天 (${String.format(Locale.getDefault(), "%.1f", report.normalOvertime)}h)")
-            appendLine("  周末加班: ${report.weekendDays}天 (${String.format(Locale.getDefault(), "%.1f", report.weekendOvertime)}h)")
-            appendLine("  法定假日: ${report.holidayDays}天 (${String.format(Locale.getDefault(), "%.1f", report.holidayOvertime)}h)")
+            appendLine(str(R.string.salary_report_stat_title))
+            appendLine("  " + str(R.string.salary_report_workday_days, report.normalDays, "${hoursText(report.normalOvertime)}h"))
+            appendLine("  " + str(R.string.salary_report_weekend_days, report.weekendDays, "${hoursText(report.weekendOvertime)}h"))
+            appendLine("  " + str(R.string.salary_report_holiday_days, report.holidayDays, "${hoursText(report.holidayOvertime)}h"))
             appendLine()
-            appendLine("🏦 五险一金（个人）:")
-            appendLine("  养老: ${Formatter.formatMoney(report.insurance.pension)}")
-            appendLine("  医疗: ${Formatter.formatMoney(report.insurance.medical)}")
-            appendLine("  失业: ${Formatter.formatMoney(report.insurance.unemployment)}")
-            appendLine("  公积金: ${Formatter.formatMoney(report.insurance.housingFund)}")
-            appendLine("  合计: ${Formatter.formatMoney(report.insurance.total)}")
+            appendLine(str(R.string.salary_report_insurance_title))
+            appendLine("  " + str(R.string.salary_report_pension, Formatter.formatMoney(report.insurance.pension)))
+            appendLine("  " + str(R.string.salary_report_medical, Formatter.formatMoney(report.insurance.medical)))
+            appendLine("  " + str(R.string.salary_report_unemployment, Formatter.formatMoney(report.insurance.unemployment)))
+            appendLine("  " + str(R.string.salary_report_housing_fund, Formatter.formatMoney(report.insurance.housingFund)))
+            appendLine("  " + str(R.string.salary_report_insurance_total, Formatter.formatMoney(report.insurance.total)))
             appendLine()
-            appendLine("🧾 个税（累计预扣）:")
-            appendLine("  本月应纳税所得额: ${Formatter.formatMoney(report.monthlyTaxableIncome)}")
-            appendLine("  累计应纳税所得额: ${Formatter.formatMoney(report.cumulativeTaxableIncome)}")
-            appendLine("  本月预扣个税: ${Formatter.formatMoney(report.incomeTax)}")
+            appendLine(str(R.string.salary_report_tax_title))
+            appendLine("  " + str(R.string.salary_report_monthly_taxable, Formatter.formatMoney(report.monthlyTaxableIncome)))
+            appendLine("  " + str(R.string.salary_report_cumulative_taxable, Formatter.formatMoney(report.cumulativeTaxableIncome)))
+            appendLine("  " + str(R.string.salary_report_monthly_tax, Formatter.formatMoney(report.incomeTax)))
             appendLine()
-            appendLine("📋 总计:")
-            appendLine("  总加班时长: ${Formatter.formatHours(report.totalOvertimeHours)}")
-            appendLine("  总加点时长: ${Formatter.formatHours(report.totalExtraHours)}")
-            appendLine("  加班总工资: ${Formatter.formatMoney(report.totalOvertimePay)}")
+            appendLine(str(R.string.salary_report_total_title))
+            appendLine("  " + str(R.string.salary_report_total_overtime, Formatter.formatHours(report.totalOvertimeHours)))
+            appendLine("  " + str(R.string.salary_report_total_extra, Formatter.formatHours(report.totalExtraHours)))
+            appendLine("  " + str(R.string.salary_report_total_overtime_pay, Formatter.formatMoney(report.totalOvertimePay)))
             appendLine()
-            appendLine("💵 应发合计: ${Formatter.formatMoney(report.totalSalary)}")
-            appendLine("💰 实发工资: ${Formatter.formatMoney(report.netSalary)}")
+            appendLine(str(R.string.salary_report_gross, Formatter.formatMoney(report.totalSalary)))
+            appendLine(str(R.string.salary_report_net, Formatter.formatMoney(report.netSalary)))
             appendLine("=".repeat(40))
         }
     }

@@ -16,7 +16,7 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="#6200EE"
-            app:title="数据管理" />
+            app:title="@string/data_title" />
     </com.google.android.material.appbar.AppBarLayout>
 
     <ScrollView
@@ -33,7 +33,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="数据备份与恢复"
+                android:text="@string/data_backup_title"
                 android:textSize="18sp"
                 android:textStyle="bold"
                 android:textColor="#333333"
@@ -42,7 +42,7 @@
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="将数据导出为 JSON 文件保存到设备，或从文件中恢复数据。"
+                android:text="@string/data_backup_desc"
                 android:textSize="14sp"
                 android:textColor="#666666"
                 android:layout_marginBottom="24dp" />
@@ -63,7 +63,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="导出数据"
+                        android:text="@string/data_export"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#333333"
@@ -72,7 +72,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="将所有数据（包括设置和记录）导出为 JSON 文件"
+                        android:text="@string/data_export_desc"
                         android:textSize="14sp"
                         android:textColor="#666666"
                         android:layout_marginBottom="12dp" />
@@ -81,7 +81,7 @@
                         android:id="@+id/btnExport"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="导出数据"
+                        android:text="@string/data_export"
                         android:backgroundTint="#6200EE" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -102,7 +102,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="导入数据"
+                        android:text="@string/data_import"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#333333"
@@ -111,7 +111,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="从 JSON 文件恢复数据（会覆盖当前所有数据）"
+                        android:text="@string/data_import_desc"
                         android:textSize="14sp"
                         android:textColor="#666666"
                         android:layout_marginBottom="12dp" />
@@ -120,7 +120,7 @@
                         android:id="@+id/btnImport"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="导入数据"
+                        android:text="@string/data_import"
                         android:backgroundTint="#FF5722" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -141,7 +141,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="CSV 批量导入"
+                        android:text="@string/data_csv_batch_import_title"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#333333"
@@ -150,7 +150,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="从 CSV 文件批量导入加班记录（不会覆盖现有数据）"
+                        android:text="@string/data_csv_import_desc"
                         android:textSize="14sp"
                         android:textColor="#666666"
                         android:layout_marginBottom="12dp" />
@@ -159,7 +159,7 @@
                         android:id="@+id/btnImportCsv"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="CSV 导入"
+                        android:text="@string/data_csv_import_button"
                         android:backgroundTint="#4CAF50" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -179,7 +179,7 @@
                     <TextView
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="数据统计"
+                        android:text="@string/data_stats_title"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#333333"
@@ -189,7 +189,7 @@
                         android:id="@+id/tvRecordCount"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="加班记录数：0"
+                        android:text="@string/data_record_count"
                         android:textSize="14sp"
                         android:textColor="#666666"
                         android:layout_marginBottom="4dp" />
@@ -198,9 +198,18 @@
                         android:id="@+id/tvLastExport"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="最后导出：未导出过"
+                        android:text="@string/data_last_export_never"
                         android:textSize="14sp"
                         android:textColor="#666666" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnChangeLog"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:text="@string/data_changelog_title"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        app:cornerRadius="8dp" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
         </LinearLayout>

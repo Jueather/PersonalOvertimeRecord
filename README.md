@@ -2,7 +2,7 @@
 
 一个功能丰富、稳定可靠的Android应用，用于记录个人的加班信息和计算加班工资。
 
-![Version](https://img.shields.io/badge/version-0.2.1-blue)
+![Version](https://img.shields.io/badge/version-0.2.4-blue)
 ![Min SDK](https://img.shields.io/badge/minSdk-24-green)
 ![Target SDK](https://img.shields.io/badge/targetSdk-36-orange)
 
@@ -32,13 +32,16 @@
 - 👥 **团队同步** - 私有服务端多用户同步（JWT 登录 + HTTPS），管理员可建号、重置密码、停用账号并查看按人按月汇总
 - 🖥️ **PC 端仪表盘** - PC 读取器用同一套 WebDAV 凭据拉取备份并本地解密，浏览器查看加班统计，可直接修改/软删除已有记录并写回云端
 - 🗓️ **日历双向同步** - 加班/请假记录同步为系统日历全天日程，支持在日历中改时长、改期与删除，再次同步回写应用
+- 📝 **修改日志** - 数据管理页留痕本机对记录的增/改/删/清空（含字段级前后值），自动保留最近 1000 条
 
 ### 用户体验
-- 🌙 **深色模式** - 支持跟随系统/浅色/深色三种主题
+- � **多语言支持** - 完整中文/英文界面，随系统语言自动切换
+- � **深色模式** - 支持跟随系统/浅色/深色三种主题
 - ✨ **流畅动画** - 精心设计的过渡动画效果
 - 🔐 **生物识别保护** - 通过中转启动页拦截外部启动，主界面不可被外部应用直接拉起
 - 📡 **同步进度面板** - 顶部半透明调试面板实时展示同步进程，结束后结果保留 2 秒自动隐藏，可点击面板手动关闭
-- 📜 **应用内修改日志** - 设置页离线查看各版本更新内容
+- 📜 **应用内更新日志** - 设置页离线查看各版本更新内容
+- 🎫 **软件激活** - 试用期后凭码激活，支持服务器兑换与离线激活码两种方式，设备 ID 一键复制
 - 🙈 **敏感字段脱敏** - WebDAV 服务器地址/用户名默认掩码显示，聚焦编辑时恢复明文；密码支持长按眼睛图标临时查看
 
 ### 安全与稳定
@@ -90,6 +93,7 @@ app/
 ├── src/main/java/com/example/personalovertimerecord/
 │   ├── adapter/                  # RecyclerView 适配器
 │   │   ├── AttendanceAdapter.kt  # 考勤/加班记录列表适配器
+│   │   ├── ChangeLogAdapter.kt   # 修改日志列表适配器
 │   │   └── TeamSummaryAdapter.kt # 管理员汇总列表适配器
 │   ├── data/                     # 数据层
 │   │   ├── db/                   # Room 数据库（DAO、Entity）
@@ -97,7 +101,9 @@ app/
 │   │   │   ├── AttendanceDao.kt  # 数据访问接口
 │   │   │   ├── AttendanceEntity.kt # 记录实体
 │   │   │   ├── CalendarLinkDao.kt # 日历事件映射访问接口
-│   │   │   └── CalendarLinkEntity.kt # 日历事件映射（日期 ↔ 事件 ID）
+│   │   │   ├── CalendarLinkEntity.kt # 日历事件映射（日期 ↔ 事件 ID）
+│   │   │   ├── ChangeLogDao.kt   # 修改日志访问接口
+│   │   │   └── ChangeLogEntity.kt # 修改日志实体（增/改/删/清空留痕）
 │   │   ├── model/                # 团队同步 DTO（请求/响应/异常）
 │   │   ├── OvertimeModels.kt     # 记录/设置/结果模型 + 请假类型（LeaveType）
 │   │   └── SettingsManager.kt    # 设置管理
@@ -155,7 +161,8 @@ app/
 │   ├── LauncherActivity.kt       # 中转启动页（唯一 exported 入口）
 │   ├── MainActivity.kt           # 主界面
 │   ├── SettingsActivity.kt       # 设置界面
-│   ├── DataManagerActivity.kt    # 数据管理界面（导入/导出/恢复）
+│   ├── DataManagerActivity.kt    # 数据管理界面（导入/导出/恢复/修改日志入口）
+│   ├── ChangeLogActivity.kt      # 修改日志界面（记录修改历史列表）
 │   ├── ReportActivity.kt         # 报表界面（月度分析）
 │   ├── BiometricActivity.kt      # 生物识别解锁
 │   └── OvertimeApplication.kt    # 应用入口
@@ -163,7 +170,8 @@ app/
     ├── layout/                   # XML 布局文件
     ├── drawable/                 # 可绘制资源
     ├── mipmap-*/                 # 应用图标
-    ├── values/                   # 默认主题资源
+    ├── values/                   # 默认主题资源（中文基准文案）
+    ├── values-en/                # 英文本地化资源（strings.xml）
     ├── values-night/             # 深色主题资源
     ├── anim/                     # 动画资源
     └── xml/                      # 配置文件
@@ -414,6 +422,19 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 
 ## 更新日志
 
+
+### v0.2.5（2026-10-31）
+- 🌏 **完整英文界面**：所有界面文案、提示、PDF/CSV 报告、同步与错误提示统一抽取为字符串资源，新增 `res/values-en/strings.xml`（与中文基准 key 一一对应）；系统语言为英文时自动切换，中文环境行为不变。枚举显示名、CSV 列名与匹配逻辑、日历事件标题等数据约定仍保持原值，确保备份与同步兼容
+
+### v0.2.4（2026-10-30）
+- 📝 **修改日志（数据修改记录）**：新增 `change_logs` 表（数据库 9→10），在 Repository 层对本机手动增/改/删/清空统一留痕——修改展示字段级前后值 diff（如「加班：2h → 3h」），新增/删除展示字段快照；数据管理页「数据统计」卡片新增入口，列表按时间倒序、类型标签着色；自动保留最近 1000 条。同步回写（WebDAV/团队/日历）不记入，仅留痕本机用户操作；日志写入失败不阻断保存
+- 🏷️ **命名修正**：设置页原「修改日志」入口改名「更新日志」（与 CHANGELOG.md 标题一致），「修改日志」专指数据修改记录，二者不再混淆
+
+### v0.2.3（2026-10-25）
+修复v0.2.2激活码长度问题
+
+### v0.2.2（2026-10-25）
+- 🎫 **软件激活/试用功能**：设置页新增「软件激活」卡片，试用期后凭码激活；支持服务器兑换码在线激活与离线激活码两种方式，展示设备 ID 并支持一键复制
 
 ### v0.2.1（2026-10-24）
 - 🌐 **节假日在线更新**：新增 `holiday/holidays.json` 固定数据源与 `HolidayStore`，设置页可手动检查更新；在线数据按日期覆盖内置数据（未覆盖部分继续用内置），严格校验后写入本地缓存，启动时注入、离线可用，更新失败不影响现有计算

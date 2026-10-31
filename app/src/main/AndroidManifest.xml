@@ -66,6 +66,9 @@
             android:name=".DataManagerActivity"
             android:exported="false" />
         <activity
+            android:name=".ChangeLogActivity"
+            android:exported="false" />
+        <activity
             android:name=".ui.LoginActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />

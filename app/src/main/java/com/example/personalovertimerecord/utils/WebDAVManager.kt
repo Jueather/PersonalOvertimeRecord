@@ -2,12 +2,14 @@ package com.example.personalovertimerecord.utils
 
 import android.content.Context
 import android.util.Base64
+import com.example.personalovertimerecord.R
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
+import java.net.ProtocolException
 import java.net.URL
 
 /**
@@ -52,8 +54,8 @@ class WebDAVManager(private val context: Context) {
         /** 重试退避基数：第 1 次重试等 1s，第 2 次等 2s（指数退避） */
         private const val RETRY_BACKOFF_BASE_MS = 1000L
 
-        /** 可自动重试的瞬态 HTTP 状态码：请求超时、限流、网关过载（如坚果云高峰期 503） */
-        private val RETRYABLE_STATUS_CODES = setOf(408, 429, 502, 503, 504)
+        /** 可自动重试的瞬态 HTTP 状态码：请求超时、资源锁（423，多端并发写同一文件）、限流、网关过载（如坚果云高峰期 503） */
+        private val RETRYABLE_STATUS_CODES = setOf(408, 423, 429, 502, 503, 504)
 
         /** 常见两段式公共后缀（此类域名注册域需取最后三段） */
         private val TWO_LEVEL_PUBLIC_SUFFIXES = setOf(
@@ -191,15 +193,26 @@ class WebDAVManager(private val context: Context) {
         return uploadRawFile(config, uploadContent)
     }
 
+    /** 设置请求方法：HttpURLConnection 白名单仅含标准 HTTP 方法，MKCOL 等 WebDAV 方法需反射绕过 */
+    private fun setRequestMethodAllowingWebDav(connection: HttpURLConnection, method: String) {
+        try {
+            connection.requestMethod = method
+        } catch (e: ProtocolException) {
+            // 反射写父类 method 字段（java.net.HttpURLConnection 属 SDK 公开类，反射可用）
+            val methodField = HttpURLConnection::class.java.getDeclaredField("method")
+            methodField.isAccessible = true
+            methodField.set(connection, method)
+        }
+    }
+
     /**
      * 确保目录存在
      */
     private suspend fun ensureDirectoryExists(config: WebDAVConfig) {
         val dirUrl = buildUrl(config.serverUrl, config.remotePath)
         AppLogger.d("确保目录存在: $dirUrl")
-        
+
         try {
-            // 尝试 MKCOL 创建目录，大多数服务会忽略已存在的目录
             executeRequest(
                 url = dirUrl,
                 method = "MKCOL",
@@ -208,12 +221,13 @@ class WebDAVManager(private val context: Context) {
                     connection.setRequestProperty("Content-Type", "text/xml")
                 },
                 handleResponse = { connection ->
+                    // 2xx 创建成功；405 表示目录已存在，均属预期
                     AppLogger.d("MKCOL 响应: ${connection.responseCode}")
                     true
                 }
             )
         } catch (e: Exception) {
-            AppLogger.d("创建目录失败（可能已存在）: ${e.message}")
+            AppLogger.w("WebDAV", "自动创建远程目录失败（${e.message}）。若目录不存在请先在云盘中手动创建")
         }
     }
 
@@ -340,7 +354,7 @@ class WebDAVManager(private val context: Context) {
             var connection: HttpURLConnection? = null
             try {
                 connection = URL(currentUrl).openConnection() as HttpURLConnection
-                connection.requestMethod = method
+                setRequestMethodAllowingWebDav(connection, method)
                 // Basic 凭据只发送给与原始请求同注册域的主机：
                 // 123 云盘等会把 GET 文件请求 302 到自有 CDN 节点（跨注册域），
                 // 跟随但不带凭据（CDN 跳转 URL 通常自带签名），避免凭据泄露给第三方主机
@@ -378,10 +392,11 @@ class WebDAVManager(private val context: Context) {
                     }
                 }
 
-                // 服务端瞬态错误（限流/过载）：指数退避后自动重试，缓解"同步失败（响应码 503）"
+                // 服务端瞬态错误（限流/过载/资源锁）：指数退避后自动重试，缓解"同步失败（响应码 503）"
                 if (responseCode in RETRYABLE_STATUS_CODES && retryCount < MAX_RETRIES) {
                     retryCount++
-                    val backoff = RETRY_BACKOFF_BASE_MS * retryCount
+                    // 423 Locked 多为多端并发写同一文件，锁释放较慢，退避 ×4（4s/8s 窗口）
+                    val backoff = RETRY_BACKOFF_BASE_MS * retryCount * (if (responseCode == 423) 4 else 1)
                     AppLogger.w("WebDAV", "服务器瞬态错误 $responseCode，${backoff}ms 后进行第 $retryCount 次重试: $method $currentUrl")
                     Thread.sleep(backoff)
                     continue
@@ -450,7 +465,7 @@ class WebDAVManager(private val context: Context) {
             if (read == -1) break
             total += read
             if (total > maxBytes) {
-                throw IOException("云端备份超过大小上限（${maxBytes / (1024 * 1024)} MB），已中止下载")
+                throw IOException(context.getString(R.string.webdav_download_too_large, maxBytes / (1024 * 1024)))
             }
             out.write(buffer, 0, read)
         }

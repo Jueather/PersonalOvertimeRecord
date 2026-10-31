@@ -100,11 +100,11 @@ class TeamSummaryActivity : AppCompatActivity() {
     private fun render() {
         val adapter = binding.recyclerView.adapter as? TeamSummaryAdapter ?: return
         val items = mutableListOf<Any>()
-        items.add("成员（${members.size}）")
+        items.add(getString(R.string.team_summary_members_fmt, members.size))
         items.addAll(members)
         items.add(
-            if (entries.isEmpty()) "全员加班汇总（${getString(R.string.team_summary_empty)}）"
-            else "全员加班汇总（按月）"
+            if (entries.isEmpty()) getString(R.string.team_summary_title_empty)
+            else getString(R.string.team_summary_title_by_month)
         )
         items.addAll(entries)
         adapter.submitItems(items)
@@ -115,15 +115,15 @@ class TeamSummaryActivity : AppCompatActivity() {
         val name = user.displayName.ifBlank { user.username }
         MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.team_reset_password))
-            .setMessage("确定重置 $name（${user.username}）的密码？重置后原密码立即失效。")
-            .setPositiveButton("确定") { _, _ ->
+            .setMessage(getString(R.string.team_reset_password_confirm, name, user.username))
+            .setPositiveButton(R.string.common_ok) { _, _ ->
                 lifecycleScope.launch {
                     try {
                         val resp = api.resetPassword(user.id)
                         MaterialAlertDialogBuilder(this@TeamSummaryActivity)
                             .setTitle(getString(R.string.team_reset_password))
                             .setMessage(getString(R.string.team_reset_password_done, resp.initialPassword))
-                            .setPositiveButton("确定", null)
+                            .setPositiveButton(R.string.common_ok, null)
                             .show()
                     } catch (e: TeamApiException) {
                         handleApiError(e)
@@ -148,12 +148,18 @@ class TeamSummaryActivity : AppCompatActivity() {
         }
         MaterialAlertDialogBuilder(this)
             .setTitle(action)
-            .setMessage("确定${action} $name（${user.username}）？停用后该成员将无法登录。")
-            .setPositiveButton("确定") { _, _ ->
+            .setMessage(getString(R.string.team_toggle_active_confirm, action, name, user.username))
+            .setPositiveButton(R.string.common_ok) { _, _ ->
                 lifecycleScope.launch {
                     try {
                         api.setActive(user.id, !user.isActive)
-                        toast(getString(R.string.team_set_active_done, name, action))
+                        toast(
+                            getString(
+                                if (user.isActive) R.string.team_set_active_done_off
+                                else R.string.team_set_active_done_on,
+                                name
+                            )
+                        )
                         loadData()
                     } catch (e: TeamApiException) {
                         handleApiError(e)
@@ -177,7 +183,7 @@ class TeamSummaryActivity : AppCompatActivity() {
 
         val etUsername = makeInput(getString(R.string.team_create_user_username))
         val etDisplay = makeInput(getString(R.string.team_create_user_display))
-        val etPassword = makeInput("初始密码（留空自动生成）", isPassword = true)
+        val etPassword = makeInput(getString(R.string.team_create_user_password_hint), isPassword = true)
         val container = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             val pad = (16 * resources.displayMetrics.density).toInt()
@@ -196,7 +202,7 @@ class TeamSummaryActivity : AppCompatActivity() {
         val dialog = MaterialAlertDialogBuilder(this)
             .setTitle(getString(R.string.team_create_user))
             .setView(container)
-            .setPositiveButton("创建", null)
+            .setPositiveButton(R.string.team_create_user_confirm, null)
             .setNegativeButton(R.string.cancel, null)
             .create()
         // 拦截确认按钮：用户名非法时不关闭对话框
@@ -205,7 +211,7 @@ class TeamSummaryActivity : AppCompatActivity() {
                 val username = etUsername.text?.toString()?.trim().orEmpty()
                 when {
                     username.isBlank() -> etUsername.error = getString(R.string.team_username)
-                    username.length < 3 || username.length > 32 -> etUsername.error = "用户名长度需为 3-32 位"
+                    username.length < 3 || username.length > 32 -> etUsername.error = getString(R.string.team_username_length)
                     else -> {
                         dialog.dismiss()
                         createUser(
@@ -228,7 +234,7 @@ class TeamSummaryActivity : AppCompatActivity() {
                 MaterialAlertDialogBuilder(this@TeamSummaryActivity)
                     .setTitle(getString(R.string.team_create_user))
                     .setMessage(getString(R.string.team_create_user_done, username, resp.initialPassword))
-                    .setPositiveButton("确定", null)
+                    .setPositiveButton(R.string.common_ok, null)
                     .show()
                 loadData()
             } catch (e: TeamApiException) {

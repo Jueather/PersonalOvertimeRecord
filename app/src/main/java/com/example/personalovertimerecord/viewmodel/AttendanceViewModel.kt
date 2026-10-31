@@ -7,6 +7,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.asLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.personalovertimerecord.OvertimeApplication
+import com.example.personalovertimerecord.R
 import com.example.personalovertimerecord.data.OvertimeRecord
 import com.example.personalovertimerecord.repository.AttendanceRepository
 import com.example.personalovertimerecord.utils.AppLogger
@@ -49,7 +50,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 .distinctUntilChanged()
                 .catch { e ->
                     AppLogger.e("Error loading attendance data", e)
-                    _errorMessage.postValue("加载数据失败，请稍后重试")
+                    _errorMessage.postValue(getApplication<Application>().getString(R.string.load_failed))
                 }
                 .collect { attendanceList ->
                     _allAttendanceState.value = attendanceList
@@ -61,6 +62,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
      * 封装带加载状态的数据库操作
      */
     private inline fun executeWithLoading(
+        errorMessageRes: Int,
         operation: String,
         crossinline block: suspend () -> Unit
     ) {
@@ -70,7 +72,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
                 block()
             } catch (e: Exception) {
                 AppLogger.e("Error in $operation", e)
-                _errorMessage.postValue("${operation}失败，请稍后重试")
+                _errorMessage.postValue(getApplication<Application>().getString(errorMessageRes))
             } finally {
                 _isLoading.postValue(false)
             }
@@ -78,21 +80,21 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
     }
     
     fun addAttendance(attendance: OvertimeRecord) {
-        executeWithLoading("添加记录") {
+        executeWithLoading(R.string.add_failed, "Add record") {
             repository.insertAttendance(attendance)
             AppLogger.sensitive("Add Attendance", attendance.date, true)
         }
     }
     
     fun updateAttendance(attendance: OvertimeRecord) {
-        executeWithLoading("更新记录") {
+        executeWithLoading(R.string.update_failed, "Update record") {
             repository.updateAttendance(attendance)
             AppLogger.sensitive("Update Attendance", attendance.date, true)
         }
     }
     
     fun deleteAttendance(attendance: OvertimeRecord) {
-        executeWithLoading("删除记录") {
+        executeWithLoading(R.string.delete_failed, "Delete record") {
             repository.deleteAttendance(attendance.id)
             AppLogger.sensitive("Delete Attendance", attendance.date, true)
         }
@@ -103,7 +105,7 @@ class AttendanceViewModel(application: Application) : AndroidViewModel(applicati
             repository.getAttendanceByDate(date)
         } catch (e: Exception) {
             AppLogger.e("Error getting attendance by date", e)
-            _errorMessage.postValue("获取记录失败，请稍后重试")
+            _errorMessage.postValue(getApplication<Application>().getString(R.string.get_failed))
             null
         }
     }

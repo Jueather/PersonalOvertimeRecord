@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -13,6 +14,7 @@ import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
 import com.example.personalovertimerecord.MainActivity
 import com.example.personalovertimerecord.OvertimeApplication
+import com.example.personalovertimerecord.R
 import com.example.personalovertimerecord.data.SettingsManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +37,6 @@ import java.util.concurrent.TimeUnit
 object AutoSyncManager {
 
     private const val CHANNEL_ID = "auto_sync_channel"
-    private const val CHANNEL_NAME = "自动同步"
     private const val NOTIFICATION_ID = 1001
 
     private const val NOTIFICATION_ID_RECOVERY = 1002
@@ -46,16 +47,20 @@ object AutoSyncManager {
 
     private const val AUTO_SYNC_UNIQUE_NAME = "auto_sync_work"
 
-    // 同步间隔选项（分钟）
-    val SYNC_INTERVALS = mapOf(
-        15 to "15分钟",
-        30 to "30分钟",
-        60 to "1小时",
-        120 to "2小时",
-        360 to "6小时",
-        720 to "12小时",
-        1440 to "24小时"
-    )
+    private fun str(@StringRes id: Int, vararg args: Any): String =
+        OvertimeApplication.getInstance().getString(id, *args)
+
+    // 同步间隔选项（分钟）；展示文案随系统语言切换
+    val SYNC_INTERVALS: Map<Int, String>
+        get() = mapOf(
+            15 to str(R.string.auto_sync_interval_15),
+            30 to str(R.string.auto_sync_interval_30),
+            60 to str(R.string.auto_sync_interval_60),
+            120 to str(R.string.auto_sync_interval_120),
+            360 to str(R.string.auto_sync_interval_360),
+            720 to str(R.string.auto_sync_interval_720),
+            1440 to str(R.string.auto_sync_interval_1440)
+        )
 
     private lateinit var prefs: android.content.SharedPreferences
     private lateinit var appContext: Context
@@ -79,10 +84,10 @@ object AutoSyncManager {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
                 CHANNEL_ID,
-                CHANNEL_NAME,
+                str(R.string.auto_sync_channel_name),
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "用于显示自动同步失败提醒"
+                description = str(R.string.auto_sync_channel_desc)
                 setShowBadge(false)
             }
 
@@ -96,7 +101,7 @@ object AutoSyncManager {
      */
     private fun requirePrefs(): android.content.SharedPreferences {
         if (!::prefs.isInitialized) {
-            throw IllegalStateException("AutoSyncManager 未初始化，请先调用 init(context)")
+            throw IllegalStateException(str(R.string.auto_sync_not_initialized))
         }
         return prefs
     }
@@ -171,7 +176,7 @@ object AutoSyncManager {
      */
     fun getLastSyncTimeString(context: Context): String {
         val lastTime = getLastSyncTime(context)
-        if (lastTime == 0L) return "从未同步"
+        if (lastTime == 0L) return str(R.string.auto_sync_never)
 
         val diff = System.currentTimeMillis() - lastTime
         val minutes = diff / (1000 * 60)
@@ -179,10 +184,10 @@ object AutoSyncManager {
         val days = hours / 24
 
         return when {
-            minutes < 1 -> "刚刚"
-            minutes < 60 -> "${minutes}分钟前"
-            hours < 24 -> "${hours}小时前"
-            else -> "${days}天前"
+            minutes < 1 -> str(R.string.auto_sync_just_now)
+            minutes < 60 -> str(R.string.auto_sync_minutes_ago, minutes)
+            hours < 24 -> str(R.string.auto_sync_hours_ago, hours)
+            else -> str(R.string.auto_sync_days_ago, days)
         }
     }
 
@@ -238,14 +243,14 @@ object AutoSyncManager {
 
                 if (settingsManager.getWebDAVConfig() == null) {
                     withContext(Dispatchers.Main) {
-                        onComplete?.invoke(false, "未配置WebDAV")
+                        onComplete?.invoke(false, str(R.string.auto_sync_no_config))
                     }
                     return@launch
                 }
 
                 if (isWifiOnly() && !NetworkUtils.isWifiConnected(context)) {
                     withContext(Dispatchers.Main) {
-                        onComplete?.invoke(false, "仅在WiFi下同步")
+                        onComplete?.invoke(false, str(R.string.auto_sync_wifi_only))
                     }
                     return@launch
                 }
@@ -258,19 +263,19 @@ object AutoSyncManager {
 
                 // 失败时给出具体原因（含服务器响应码），避免只显示笼统的"同步失败"
                 val baseMessage = when (report.result) {
-                    SyncResult.SUCCESS -> "同步成功"
-                    SyncResult.NO_CHANGES -> "没有需要同步的更改"
-                    SyncResult.NO_CONFIG -> "未配置WebDAV"
-                    SyncResult.NO_NETWORK -> "网络不可用，请检查网络连接"
-                    SyncResult.CONNECTION_FAILED -> "连接失败（服务器响应码 ${WebDAVManager.lastResponseCode}），请检查网络和配置"
-                    SyncResult.UPLOAD_FAILED -> "上传失败"
-                    SyncResult.DOWNLOAD_FAILED -> "下载失败（服务器响应码 ${WebDAVManager.lastResponseCode}）"
-                    SyncResult.RESTORE_FAILED -> "恢复数据失败"
-                    SyncResult.CONFLICT -> "存在数据冲突，请手动处理"
-                    SyncResult.ENCRYPTION_MISMATCH -> "云端数据已加密且密码不匹配，可在设置中检查密码或用恢复码找回"
+                    SyncResult.SUCCESS -> str(R.string.auto_sync_success)
+                    SyncResult.NO_CHANGES -> str(R.string.auto_sync_no_changes)
+                    SyncResult.NO_CONFIG -> str(R.string.auto_sync_no_config)
+                    SyncResult.NO_NETWORK -> str(R.string.auto_sync_no_network)
+                    SyncResult.CONNECTION_FAILED -> str(R.string.auto_sync_connection_failed, WebDAVManager.lastResponseCode)
+                    SyncResult.UPLOAD_FAILED -> str(R.string.auto_sync_upload_failed)
+                    SyncResult.DOWNLOAD_FAILED -> str(R.string.auto_sync_download_failed, WebDAVManager.lastResponseCode)
+                    SyncResult.RESTORE_FAILED -> str(R.string.auto_sync_restore_failed)
+                    SyncResult.CONFLICT -> str(R.string.auto_sync_conflict)
+                    SyncResult.ENCRYPTION_MISMATCH -> str(R.string.auto_sync_encryption_mismatch)
                 }
                 // 成功时附带同步统计细节
-                val message = if (success) "$baseMessage（${report.toSummaryString()}）" else baseMessage
+                val message = if (success) str(R.string.auto_sync_summary_fmt, baseMessage, report.toSummaryString()) else baseMessage
 
                 withContext(Dispatchers.Main) {
                     onComplete?.invoke(success, message)
@@ -284,7 +289,7 @@ object AutoSyncManager {
             } catch (e: Exception) {
                 AppLogger.e("AutoSync", "手动同步异常", e)
                 withContext(Dispatchers.Main) {
-                    onComplete?.invoke(false, e.message ?: "同步异常")
+                    onComplete?.invoke(false, e.message ?: str(R.string.auto_sync_exception))
                 }
             }
         }
@@ -304,8 +309,8 @@ object AutoSyncManager {
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_popup_sync)
-            .setContentTitle("数据同步")
-            .setContentText("自动同步失败，请检查网络后重试")
+            .setContentTitle(str(R.string.auto_sync_notification_title))
+            .setContentText(str(R.string.auto_sync_notification_failed))
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)
@@ -330,8 +335,8 @@ object AutoSyncManager {
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_lock_lock)
-            .setContentTitle("请保存同步恢复码")
-            .setContentText("云端备份已升级为恢复码加密，忘记密码时需凭此恢复码找回，请立即离线保存")
+            .setContentTitle(str(R.string.auto_sync_recovery_title))
+            .setContentText(str(R.string.auto_sync_recovery_message))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(pendingIntent)

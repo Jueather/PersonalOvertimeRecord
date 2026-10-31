@@ -36,7 +36,7 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_cloud_sync"
                 app:tint="@color/white"
-                android:contentDescription="云同步" />
+                android:contentDescription="@string/cloud_sync" />
 
             <ImageButton
                 android:id="@+id/btnData"
@@ -46,7 +46,7 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_data"
                 app:tint="@color/white"
-                android:contentDescription="数据管理" />
+                android:contentDescription="@string/common_data_management" />
 
             <ImageButton
                 android:id="@+id/btnReport"
@@ -56,7 +56,7 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_chart"
                 app:tint="@color/white"
-                android:contentDescription="统计报表" />
+                android:contentDescription="@string/common_report_title" />
 
             <ImageButton
                 android:id="@+id/btnTeamSummary"
@@ -77,7 +77,7 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@drawable/ic_settings"
                 app:tint="@color/white"
-                android:contentDescription="设置" />
+                android:contentDescription="@string/settings" />
 
         </androidx.appcompat.widget.Toolbar>
 
@@ -112,7 +112,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="系统检查中..."
+                android:text="@string/main_system_checking"
                 android:textSize="14sp"
                 android:textColor="#E65100" />
 
@@ -122,7 +122,7 @@
                 android:layout_height="24dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@android:drawable/ic_menu_close_clear_cancel"
-                android:contentDescription="关闭" />
+                android:contentDescription="@string/common_close" />
 
         </LinearLayout>
 
@@ -167,7 +167,7 @@
                             android:textSize="20sp"
                             android:textStyle="bold"
                             android:textColor="@color/colorPrimary"
-                            android:text="2024年01月01日" />
+                            android:text="@string/common_date_placeholder" />
 
                         <TextView
                             android:id="@+id/tvCurrentWeekday"
@@ -176,7 +176,7 @@
                             android:textSize="14sp"
                             android:textColor="@android:color/darker_gray"
                             android:layout_marginTop="2dp"
-                            android:text="星期二" />
+                            android:text="@string/common_weekday_placeholder" />
 
                     </LinearLayout>
 
@@ -210,7 +210,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="本月统计"
+                        android:text="@string/main_month_stats"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="@color/white" />
@@ -230,7 +230,7 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="总时长"
+                                android:text="@string/total_hours"
                                 android:textSize="12sp"
                                 android:textColor="@color/white"
                                 android:alpha="0.8" />
@@ -239,7 +239,7 @@
                                 android:id="@+id/tvTotalOvertime"
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="0小时"
+                                android:text="@string/common_zero_hours"
                                 android:textSize="20sp"
                                 android:textStyle="bold"
                                 android:textColor="@color/white"
@@ -268,7 +268,7 @@
                             <TextView
                                 android:layout_width="wrap_content"
                                 android:layout_height="wrap_content"
-                                android:text="本月工资"
+                                android:text="@string/main_month_salary"
                                 android:textSize="12sp"
                                 android:textColor="@color/white"
                                 android:alpha="0.8" />
@@ -318,7 +318,7 @@
                             android:layout_height="40dp"
                             android:background="?attr/selectableItemBackgroundBorderless"
                             android:src="@drawable/ic_arrow_left"
-                            android:contentDescription="上个月"
+                            android:contentDescription="@string/common_prev_month"
                             app:tint="#666666" />
 
                         <TextView
@@ -330,7 +330,7 @@
                             android:textSize="16sp"
                             android:textStyle="bold"
                             android:textColor="#333333"
-                            android:text="2024年1月" />
+                            android:text="@string/common_month_placeholder" />
 
                         <ImageButton
                             android:id="@+id/btnNextMonth"
@@ -338,7 +338,7 @@
                             android:layout_height="40dp"
                             android:background="?attr/selectableItemBackgroundBorderless"
                             android:src="@drawable/ic_arrow_right"
-                            android:contentDescription="下个月"
+                            android:contentDescription="@string/common_next_month"
                             app:tint="#666666" />
 
                     </LinearLayout>
@@ -364,7 +364,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="当月加班记录"
+                    android:text="@string/main_month_records"
                     android:textColor="#333333"
                     android:textSize="16sp"
                     android:textStyle="bold" />
@@ -372,7 +372,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="点击卡片展开 · 长按更多"
+                    android:text="@string/main_records_hint"
                     android:textSize="12sp"
                     android:textColor="@android:color/darker_gray" />
 
@@ -406,35 +406,35 @@
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:checked="true"
-                            android:text="全部" />
+                            android:text="@string/main_filter_all" />
 
                         <com.google.android.material.chip.Chip
                             android:id="@+id/chipOvertime"
                             style="@style/Widget.Material3.Chip.Filter"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="加班" />
+                            android:text="@string/common_overtime" />
 
                         <com.google.android.material.chip.Chip
                             android:id="@+id/chipExtra"
                             style="@style/Widget.Material3.Chip.Filter"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="加点" />
+                            android:text="@string/common_extra_hours" />
 
                         <com.google.android.material.chip.Chip
                             android:id="@+id/chipLeave"
                             style="@style/Widget.Material3.Chip.Filter"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="请假" />
+                            android:text="@string/common_leave" />
 
                         <com.google.android.material.chip.Chip
                             android:id="@+id/chipNight"
                             style="@style/Widget.Material3.Chip.Filter"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:text="夜班" />
+                            android:text="@string/common_night_shift" />
 
                     </com.google.android.material.chip.ChipGroup>
 
@@ -448,7 +448,7 @@
                         android:checkable="false"
                         android:clickable="true"
                         android:focusable="true"
-                        android:text="按日期" />
+                        android:text="@string/main_sort_by_date" />
 
                 </LinearLayout>
 
@@ -520,7 +520,7 @@
             android:textColor="#FFFFFF"
             android:textSize="12sp"
             android:maxLines="4"
-            tools:text="检查同步配置…\n测试服务器连接…" />
+            tools:text="@string/main_sync_debug_placeholder" />
 
     </LinearLayout>
 

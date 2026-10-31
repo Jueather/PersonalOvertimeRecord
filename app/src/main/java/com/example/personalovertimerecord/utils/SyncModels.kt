@@ -1,5 +1,8 @@
 package com.example.personalovertimerecord.utils
 
+import com.example.personalovertimerecord.OvertimeApplication
+import com.example.personalovertimerecord.R
+
 /**
  * 同步结果枚举
  */
@@ -49,15 +52,17 @@ data class SyncReport(
 
     /** 人类可读的摘要信息，用于日志/通知 */
     fun toSummaryString(): String {
+        fun str(id: Int, vararg args: Any): String =
+            OvertimeApplication.getInstance().getString(id, *args)
         val parts = mutableListOf<String>()
-        parts.add("结果=$result")
-        if (direction != null) parts.add("方向=$direction")
-        if (localRecordCount > 0) parts.add("本地=$localRecordCount")
-        if (cloudRecordCount > 0) parts.add("云端=$cloudRecordCount")
-        if (uploadedCount > 0) parts.add("上传=$uploadedCount")
-        if (downloadedCount > 0) parts.add("下载=$downloadedCount")
-        if (mergedCount > 0) parts.add("合并=$mergedCount")
-        if (invalidCount > 0) parts.add("非法跳过=$invalidCount")
-        return parts.joinToString("，")
+        parts.add(str(R.string.sync_summary_result, result))
+        if (direction != null) parts.add(str(R.string.sync_summary_direction, direction))
+        if (localRecordCount > 0) parts.add(str(R.string.sync_summary_local, localRecordCount))
+        if (cloudRecordCount > 0) parts.add(str(R.string.sync_summary_cloud, cloudRecordCount))
+        if (uploadedCount > 0) parts.add(str(R.string.sync_summary_uploaded, uploadedCount))
+        if (downloadedCount > 0) parts.add(str(R.string.sync_summary_downloaded, downloadedCount))
+        if (mergedCount > 0) parts.add(str(R.string.sync_summary_merged, mergedCount))
+        if (invalidCount > 0) parts.add(str(R.string.sync_summary_invalid_count, invalidCount))
+        return parts.joinToString(str(R.string.sync_summary_sep))
     }
 }

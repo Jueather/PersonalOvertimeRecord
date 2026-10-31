@@ -18,14 +18,14 @@ class BiometricActivity : AppCompatActivity() {
         
         BiometricManager.showAuthenticationPrompt(
             activity = this,
-            title = "身份验证",
-            subtitle = "请验证身份以访问加班记录",
-            description = "您已启用生物识别保护",
+            title = getString(R.string.biometric_title),
+            subtitle = getString(R.string.biometric_subtitle),
+            description = getString(R.string.biometric_description),
             onSuccess = {
                 proceedToMain()
             },
             onError = { error ->
-                Toast.makeText(this, "验证失败: $error", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, getString(R.string.biometric_auth_failed, error), Toast.LENGTH_SHORT).show()
                 finish()
             },
             onCancel = {

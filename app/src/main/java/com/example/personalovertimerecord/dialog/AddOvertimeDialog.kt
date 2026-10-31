@@ -15,6 +15,7 @@ import com.example.personalovertimerecord.data.LeaveType
 import com.example.personalovertimerecord.data.OvertimeRecord
 import com.example.personalovertimerecord.data.ShiftType
 import com.example.personalovertimerecord.utils.DataValidator
+import com.example.personalovertimerecord.utils.Formatter
 import com.example.personalovertimerecord.utils.getFirstError
 import java.util.Calendar
 import java.util.Locale
@@ -48,7 +49,7 @@ class AddOvertimeDialog(
 
     // 倍率选项：默认 + 1.0~4.0（0.5 步进，含法定 1.5/2.0/3.0 与常见协商值），也可手动输入该区间内的数值
     private val rateOptions: List<String> =
-        listOf("默认") + (2..8).map { "${it * 0.5}" }
+        listOf(context.getString(R.string.dialog_default_option)) + (2..8).map { "${it * 0.5}" }
     
     // 计算当月剩余天数（用于请假上限）
     private val maxLeaveDays: Int by lazy {
@@ -122,7 +123,7 @@ class AddOvertimeDialog(
             rateOptions
         )
         actvRate.setAdapter(rateAdapter)
-        actvRate.setText("默认", false)
+        actvRate.setText(context.getString(R.string.dialog_default_option), false)
     }
     
     private fun setupLeaveTypeDropdown() {
@@ -130,10 +131,10 @@ class AddOvertimeDialog(
         val adapter = ArrayAdapter(
             context,
             android.R.layout.simple_dropdown_item_1line,
-            leaveTypes.map { it.displayName }
+            leaveTypes.map { Formatter.getLeaveTypeName(it) }
         )
         actvLeaveType.setAdapter(adapter)
-        actvLeaveType.setText(LeaveType.ANNUAL_LEAVE.displayName, false)
+        actvLeaveType.setText(Formatter.getLeaveTypeName(LeaveType.ANNUAL_LEAVE), false)
         
         // 请假天数也设置下拉（按天，1天=8小时）
         val leaveHoursAdapter = ArrayAdapter(
@@ -151,7 +152,7 @@ class AddOvertimeDialog(
     
     private fun setupExistingData() {
         if (existingRecord != null) {
-            tvTitle.text = "编辑记录"
+            tvTitle.text = context.getString(R.string.record_menu_edit)
             // 班次回选（旧数据缺失时 fromStringOrDefault 兜底为白班）
             when (ShiftType.fromStringOrDefault(existingRecord.shiftType)) {
                 ShiftType.DAY -> toggleShift.check(R.id.btnShiftDay)
@@ -180,13 +181,13 @@ class AddOvertimeDialog(
                 existingRecord.leaveType?.let { type ->
                     LeaveType.fromString(type)?.let { lt ->
                         selectedLeaveType = lt
-                        actvLeaveType.setText(lt.displayName, false)
+                        actvLeaveType.setText(Formatter.getLeaveTypeName(lt), false)
                     }
                 }
             }
             btnDelete.visibility = View.VISIBLE
         } else {
-            tvTitle.text = "添加加班记录"
+            tvTitle.text = context.getString(R.string.add_overtime)
         }
     }
     
@@ -239,12 +240,12 @@ class AddOvertimeDialog(
             val leaveHours = leaveHoursStr.toDoubleOrNull()
 
             // 通用校验：必填 + 范围；业务规则（不超过当月剩余天数）作为第二层
-            DataValidator.validateNumberRange(leaveHours, 0.5, 31.0, "请假天数").getFirstError()?.let {
+            DataValidator.validateNumberRange(leaveHours, 0.5, 31.0, context.getString(R.string.dialog_leave_days_hint)).getFirstError()?.let {
                 Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
                 return
             }
             if (leaveHours != null && leaveHours > maxLeaveDays) {
-                Toast.makeText(context, "当月剩余${maxLeaveDays}天，请假不能超过${maxLeaveDays}天", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.dialog_leave_limit, maxLeaveDays, maxLeaveDays), Toast.LENGTH_SHORT).show()
                 return
             }
 
@@ -284,28 +285,28 @@ class AddOvertimeDialog(
 
         // 加班和加点至少要填一个（业务规则）
         if (overtimeHours == null && extraHours == null) {
-            Toast.makeText(context, "请选择加班时长或加点时长", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, context.getString(R.string.dialog_select_hours), Toast.LENGTH_SHORT).show()
             return
         }
 
         // 通用校验：非负且不超 24h；业务规则：单日 ≤11h
         if (overtimeHours != null) {
-            DataValidator.validateNumberRange(overtimeHours, 0.0, 24.0, "加班时长").getFirstError()?.let {
+            DataValidator.validateNumberRange(overtimeHours, 0.0, 24.0, context.getString(R.string.dialog_field_overtime)).getFirstError()?.let {
                 Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
                 return
             }
             if (overtimeHours > 11) {
-                Toast.makeText(context, "单日加班时长不能超过11小时", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.dialog_overtime_limit), Toast.LENGTH_SHORT).show()
                 return
             }
         }
         if (extraHours != null) {
-            DataValidator.validateNumberRange(extraHours, 0.0, 24.0, "加点时长").getFirstError()?.let {
+            DataValidator.validateNumberRange(extraHours, 0.0, 24.0, context.getString(R.string.dialog_field_extra)).getFirstError()?.let {
                 Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
                 return
             }
             if (extraHours > 11) {
-                Toast.makeText(context, "单日加点时长不能超过11小时", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, context.getString(R.string.dialog_extra_limit), Toast.LENGTH_SHORT).show()
                 return
             }
         }
@@ -315,12 +316,13 @@ class AddOvertimeDialog(
 
         // 解析自定义倍率："默认"或留空 → -1（按设置默认倍率计算）；合法区间 [1.0, 4.0]
         val rateText = actvRate.text?.toString()?.trim() ?: ""
+        val defaultRateLabel = context.getString(R.string.dialog_default_option)
         val customRate = when {
-            rateText.isEmpty() || rateText == "默认" -> -1.0
+            rateText.isEmpty() || rateText == defaultRateLabel -> -1.0
             else -> rateText.toDoubleOrNull()
         }
-        if (rateText.isNotEmpty() && rateText != "默认") {
-            DataValidator.validateNumberRange(customRate, 1.0, 4.0, "工资倍率").getFirstError()?.let {
+        if (rateText.isNotEmpty() && rateText != defaultRateLabel) {
+            DataValidator.validateNumberRange(customRate, 1.0, 4.0, context.getString(R.string.dialog_field_rate)).getFirstError()?.let {
                 Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
                 return
             }

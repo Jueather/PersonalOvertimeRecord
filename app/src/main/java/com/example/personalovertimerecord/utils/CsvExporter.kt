@@ -3,7 +3,10 @@ package com.example.personalovertimerecord.utils
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import androidx.annotation.StringRes
 import androidx.core.content.FileProvider
+import com.example.personalovertimerecord.OvertimeApplication
+import com.example.personalovertimerecord.R
 import com.example.personalovertimerecord.data.OvertimeRecord
 import com.example.personalovertimerecord.data.OvertimeSettings
 import java.io.File
@@ -22,6 +25,19 @@ import java.util.Locale
  */
 object CsvExporter {
 
+    private fun str(@StringRes id: Int, vararg args: Any): String =
+        OvertimeApplication.getInstance().getString(id, *args)
+
+    /** 加班类型的本地化展示名称（仅用于人工阅读的报表列，导入逻辑仍按中文匹配） */
+    private fun dayTypeDisplay(dayType: String): String {
+        return when (dayTypeLabel(dayType)) {
+            "平时" -> str(R.string.common_day_workday)
+            "周末" -> str(R.string.common_day_weekend)
+            "法定节假日" -> str(R.string.common_day_holiday)
+            else -> dayType
+        }
+    }
+
     /**
      * 导出考勤记录为CSV文件
      * @param context 上下文
@@ -36,7 +52,10 @@ object CsvExporter {
         settings: OvertimeSettings,
         password: String? = null
     ): File {
-        val fileName = "考勤记录_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())}.csv"
+        val fileName = str(
+            R.string.csv_file_name_fmt,
+            SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        )
         val content = buildString {
             // UTF-8 BOM，解决Excel打开CSV中文乱码问题
             append("\uFEFF")
@@ -50,7 +69,7 @@ object CsvExporter {
 
             // 写入汇总行
             append('\n')
-            append("汇总统计\n")
+            append(str(R.string.csv_summary_title)).append('\n')
 
             val totalOvertime = records.sumByDouble { it.overtimeHours }
             val totalPay = records.sumByDouble { it.totalPay }
@@ -58,16 +77,18 @@ object CsvExporter {
             val weekendDays = records.count { dayTypeLabel(it.dayType) == "周末" }
             val holidayDays = records.count { dayTypeLabel(it.dayType) == "法定节假日" }
 
-            append("总加班时长,").append(String.format("%.1f", totalOvertime)).append("小时\n")
-            append("总加班费,").append(String.format("%.2f", totalPay)).append("元\n")
-            append("平时加班天数,").append(normalDays).append('\n')
-            append("周末加班天数,").append(weekendDays).append('\n')
-            append("法定节假日加班天数,").append(holidayDays).append('\n')
+            append(str(R.string.csv_total_hours)).append(',')
+                .append(String.format("%.1f", totalOvertime)).append(str(R.string.csv_unit_hours)).append('\n')
+            append(str(R.string.csv_total_pay)).append(',')
+                .append(String.format("%.2f", totalPay)).append(str(R.string.csv_unit_yuan)).append('\n')
+            append(str(R.string.csv_normal_days)).append(',').append(normalDays).append('\n')
+            append(str(R.string.csv_weekend_days)).append(',').append(weekendDays).append('\n')
+            append(str(R.string.csv_holiday_days)).append(',').append(holidayDays).append('\n')
 
             // 写入生成时间
-            val generateTime = SimpleDateFormat("yyyy年MM月dd日 HH:mm:ss", Locale.getDefault()).format(Date())
+            val generateTime = SimpleDateFormat(str(R.string.pdf_datetime_pattern), Locale.getDefault()).format(Date())
             append('\n')
-            append("生成时间,").append(generateTime).append('\n')
+            append(str(R.string.csv_generated_at)).append(',').append(generateTime).append('\n')
         }
 
         return writeExportFile(context, fileName, content, password)
@@ -91,31 +112,37 @@ object CsvExporter {
         settings: OvertimeSettings,
         password: String? = null
     ): File {
-        val fileName = "${year}年${month}月考勤汇总_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())}.csv"
+        val fileName = str(
+            R.string.csv_month_summary_file_name_fmt,
+            year,
+            month,
+            SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
+        )
         val content = buildString {
             // UTF-8 BOM
             append("\uFEFF")
 
             // 写入标题
-            append(year).append("年").append(month).append("月考勤汇总\n\n")
+            append(str(R.string.csv_month_summary_title, year, month)).append("\n\n")
 
             // 基本设置信息
-            append("基本设置\n")
-            append("上班时间,").append(settings.workStartTime).append('\n')
-            append("下班时间,").append(settings.workEndTime).append('\n')
-            append("平时加班倍率,").append(settings.overtimeRateNormal).append('\n')
-            append("周末加班倍率,").append(settings.overtimeRateWeekend).append('\n')
-            append("节假日加班倍率,").append(settings.overtimeRateHoliday).append('\n')
-            append("底薪,").append(settings.baseSalary).append("元\n")
-            append("月工作日数,").append(settings.monthlyWorkDays).append("天\n")
-            append("每日工作时长,").append(settings.dailyWorkHours).append("小时\n\n")
+            append(str(R.string.csv_basic_settings)).append('\n')
+            append(str(R.string.csv_work_start)).append(',').append(settings.workStartTime).append('\n')
+            append(str(R.string.csv_work_end)).append(',').append(settings.workEndTime).append('\n')
+            append(str(R.string.csv_normal_rate)).append(',').append(settings.overtimeRateNormal).append('\n')
+            append(str(R.string.csv_weekend_rate)).append(',').append(settings.overtimeRateWeekend).append('\n')
+            append(str(R.string.csv_holiday_rate)).append(',').append(settings.overtimeRateHoliday).append('\n')
+            append(str(R.string.csv_base_salary)).append(',').append(settings.baseSalary).append(str(R.string.csv_unit_yuan)).append('\n')
+            append(str(R.string.csv_fixed_bonus)).append(',').append(settings.fixedBonus).append(str(R.string.csv_unit_yuan)).append('\n')
+            append(str(R.string.csv_monthly_days)).append(',').append(settings.monthlyWorkDays).append(str(R.string.csv_unit_days)).append('\n')
+            append(str(R.string.csv_daily_hours)).append(',').append(settings.dailyWorkHours).append(str(R.string.csv_unit_hours)).append("\n\n")
 
             // 写入明细
-            append("考勤明细\n")
-            append("日期,星期,上班时间,下班时间,加班时长,加班类型,加班费,备注\n")
+            append(str(R.string.csv_detail_title)).append('\n')
+            append(str(R.string.csv_detail_header)).append('\n')
 
             val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-            val dayOfWeekFormat = SimpleDateFormat("E", Locale.CHINESE)
+            val dayOfWeekFormat = SimpleDateFormat("E", Locale.getDefault())
 
             for (record in records) {
                 val date = dateFormat.parse(record.date) ?: Date()
@@ -126,14 +153,14 @@ object CsvExporter {
                 append(escapeCsvField(record.checkInTime ?: "--")).append(',')
                 append(escapeCsvField(record.checkOutTime ?: "--")).append(',')
                 append(String.format("%.1f", record.overtimeHours)).append(',')
-                append(escapeCsvField(dayTypeLabel(record.dayType))).append(',')
+                append(escapeCsvField(dayTypeDisplay(record.dayType))).append(',')
                 append(String.format("%.2f", record.totalPay)).append(',')
                 append(escapeCsvField(record.note ?: "")).append('\n')
             }
 
             // 写入汇总
             append('\n')
-            append("汇总统计\n")
+            append(str(R.string.csv_summary_title)).append('\n')
 
             val totalOvertime = records.sumByDouble { it.overtimeHours }
             val totalPay = records.sumByDouble { it.totalPay }
@@ -144,17 +171,22 @@ object CsvExporter {
             val weekendHours = records.filter { dayTypeLabel(it.dayType) == "周末" }.sumByDouble { it.overtimeHours }
             val holidayHours = records.filter { dayTypeLabel(it.dayType) == "法定节假日" }.sumByDouble { it.overtimeHours }
 
-            append("总加班时长,").append(String.format("%.1f", totalOvertime)).append("小时\n")
-            append("总加班费,").append(String.format("%.2f", totalPay)).append("元\n")
-            append("平时加班,").append(normalDays).append("天,").append(String.format("%.1f", normalHours)).append("小时\n")
-            append("周末加班,").append(weekendDays).append("天,").append(String.format("%.1f", weekendHours)).append("小时\n")
-            append("节假日加班,").append(holidayDays).append("天,").append(String.format("%.1f", holidayHours)).append("小时\n")
-            append("有效工作日,").append(normalDays).append("天\n")
+            append(str(R.string.csv_total_hours)).append(',')
+                .append(String.format("%.1f", totalOvertime)).append(str(R.string.csv_unit_hours)).append('\n')
+            append(str(R.string.csv_total_pay)).append(',')
+                .append(String.format("%.2f", totalPay)).append(str(R.string.csv_unit_yuan)).append('\n')
+            append(str(R.string.csv_normal_combined)).append(',').append(normalDays).append(str(R.string.csv_unit_days)).append(',')
+                .append(String.format("%.1f", normalHours)).append(str(R.string.csv_unit_hours)).append('\n')
+            append(str(R.string.csv_weekend_combined)).append(',').append(weekendDays).append(str(R.string.csv_unit_days)).append(',')
+                .append(String.format("%.1f", weekendHours)).append(str(R.string.csv_unit_hours)).append('\n')
+            append(str(R.string.csv_holiday_combined)).append(',').append(holidayDays).append(str(R.string.csv_unit_days)).append(',')
+                .append(String.format("%.1f", holidayHours)).append(str(R.string.csv_unit_hours)).append('\n')
+            append(str(R.string.csv_valid_workdays)).append(',').append(normalDays).append(str(R.string.csv_unit_days)).append('\n')
 
             // 写入生成时间
-            val generateTime = SimpleDateFormat("yyyy年MM月dd日 HH:mm:ss", Locale.getDefault()).format(Date())
+            val generateTime = SimpleDateFormat(str(R.string.pdf_datetime_pattern), Locale.getDefault()).format(Date())
             append('\n')
-            append("生成时间,").append(generateTime).append('\n')
+            append(str(R.string.csv_generated_at)).append(',').append(generateTime).append('\n')
         }
 
         return writeExportFile(context, fileName, content, password)

@@ -14,7 +14,7 @@
             android:id="@+id/tvTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="添加加班记录"
+            android:text="@string/add_overtime"
             android:textSize="20sp"
             android:textStyle="bold"
             android:textColor="#6200EE"
@@ -24,7 +24,7 @@
             android:id="@+id/tvDate"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="2024年01月01日"
+            android:text="@string/common_date_placeholder"
             android:textSize="18sp"
             android:textStyle="bold"
             android:textColor="#333333"
@@ -34,7 +34,7 @@
             android:id="@+id/tvDayType"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="工作日"
+            android:text="@string/workday"
             android:textSize="14sp"
             android:textColor="#666666"
             android:layout_marginBottom="16dp" />
@@ -60,7 +60,7 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:text="🌙 班次"
+                    android:text="@string/dialog_shift_title"
                     android:textSize="16sp"
                     android:textStyle="bold"
                     android:textColor="#1976D2" />
@@ -77,14 +77,14 @@
                         style="?attr/materialButtonOutlinedStyle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="白班" />
+                        android:text="@string/dialog_shift_day" />
 
                     <com.google.android.material.button.MaterialButton
                         android:id="@+id/btnShiftNight"
                         style="?attr/materialButtonOutlinedStyle"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="夜班" />
+                        android:text="@string/common_night_shift" />
 
                 </com.google.android.material.button.MaterialButtonToggleGroup>
 
@@ -117,7 +117,7 @@
                         android:layout_width="0dp"
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
-                        android:text="📋 请假"
+                        android:text="@string/dialog_leave_title"
                         android:textSize="16sp"
                         android:textStyle="bold"
                         android:textColor="#FF9800" />
@@ -140,7 +140,7 @@
                     <com.google.android.material.textfield.TextInputLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:hint="请假类型"
+                        android:hint="@string/dialog_leave_type_hint"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
 
                         <AutoCompleteTextView
@@ -155,7 +155,7 @@
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="8dp"
-                        android:hint="请假天数"
+                        android:hint="@string/dialog_leave_days_hint"
                         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
 
                         <AutoCompleteTextView
@@ -168,7 +168,7 @@
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="选择请假天数（1天=8小时）"
+                        android:text="@string/dialog_leave_days_note"
                         android:textSize="12sp"
                         android:textColor="#999999"
                         android:layout_marginTop="4dp" />
@@ -182,7 +182,7 @@
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="加班时长（小时）"
+            android:hint="@string/overtime_hours_hint"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
 
             <AutoCompleteTextView
@@ -196,7 +196,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:hint="加点时长（小时）- 工作日下班后"
+            android:hint="@string/extra_hours_hint"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
 
             <AutoCompleteTextView
@@ -209,7 +209,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="（留空则不记录，加班和加点分别计算）"
+            android:text="@string/extra_hours_hint_desc"
             android:textSize="12sp"
             android:textColor="#999999"
             android:layout_marginTop="4dp"
@@ -219,7 +219,7 @@
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="工资倍率（默认按日期类型自动计算）"
+            android:hint="@string/dialog_rate_hint"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
 
             <AutoCompleteTextView
@@ -232,7 +232,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="默认：平时1.5 / 周末2.0 / 法定节假日3.0"
+            android:text="@string/dialog_rate_default"
             android:textSize="12sp"
             android:textColor="#999999"
             android:layout_marginTop="4dp" />
@@ -241,7 +241,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
-            android:hint="备注（可选）"
+            android:hint="@string/note_hint"
             style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox">
 
             <com.google.android.material.textfield.TextInputEditText
@@ -265,7 +265,7 @@
                 style="@style/Widget.MaterialComponents.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="删除"
+                android:text="@string/delete"
                 android:textColor="#FF0000"
                 android:layout_marginEnd="8dp"
                 android:visibility="gone" />
@@ -275,14 +275,14 @@
                 style="@style/Widget.MaterialComponents.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="取消"
+                android:text="@string/cancel"
                 android:layout_marginEnd="8dp" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnSave"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="保存"
+                android:text="@string/save"
                 android:layout_marginStart="8dp" />
 
         </LinearLayout>
