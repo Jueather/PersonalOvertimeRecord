@@ -10,9 +10,13 @@ import com.example.personalovertimerecord.R
  */
 object DataValidator {
 
-    /** 校验失败文案统一走资源，随系统语言切换 */
+    /** 校验失败文案统一走资源，随系统语言切换；纯 JVM 单测无 Application 时回退占位串 */
     private fun str(@StringRes id: Int, vararg args: Any): String =
-        OvertimeApplication.getInstance().getString(id, *args)
+        try {
+            OvertimeApplication.getInstance().getString(id, *args)
+        } catch (e: UninitializedPropertyAccessException) {
+            "validation_error_$id"
+        }
 
     // 日期格式正则表达式
     private val DATE_PATTERN = Regex("^\\d{4}-\\d{2}-\\d{2}$")

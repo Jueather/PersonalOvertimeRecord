@@ -2,7 +2,7 @@
 
 一个功能丰富、稳定可靠的Android应用，用于记录个人的加班信息和计算加班工资。
 
-![Version](https://img.shields.io/badge/version-0.2.4-blue)
+![Version](https://img.shields.io/badge/version-0.2.5-blue)
 ![Min SDK](https://img.shields.io/badge/minSdk-24-green)
 ![Target SDK](https://img.shields.io/badge/targetSdk-36-orange)
 
@@ -35,8 +35,8 @@
 - 📝 **修改日志** - 数据管理页留痕本机对记录的增/改/删/清空（含字段级前后值），自动保留最近 1000 条
 
 ### 用户体验
-- � **多语言支持** - 完整中文/英文界面，随系统语言自动切换
-- � **深色模式** - 支持跟随系统/浅色/深色三种主题
+- 🌏 **多语言支持** - 完整中文/英文界面，随系统语言自动切换
+- 🌙 **深色模式** - 支持跟随系统/浅色/深色三种主题
 - ✨ **流畅动画** - 精心设计的过渡动画效果
 - 🔐 **生物识别保护** - 通过中转启动页拦截外部启动，主界面不可被外部应用直接拉起
 - 📡 **同步进度面板** - 顶部半透明调试面板实时展示同步进程，结束后结果保留 2 秒自动隐藏，可点击面板手动关闭
@@ -204,6 +204,9 @@ cd PersonalOvertimeRecord
 
 # 构建 Debug 版本
 ./gradlew assembleDebug
+
+# 运行单元测试
+./gradlew testDebugUnitTest
 
 # 安装到设备
 ./gradlew installDebug
@@ -425,6 +428,7 @@ distributionUrl=https://repo.huaweicloud.com/gradle/gradle-8.9-bin.zip
 
 ### v0.2.5（2026-10-31）
 - 🌏 **完整英文界面**：所有界面文案、提示、PDF/CSV 报告、同步与错误提示统一抽取为字符串资源，新增 `res/values-en/strings.xml`（与中文基准 key 一一对应）；系统语言为英文时自动切换，中文环境行为不变。枚举显示名、CSV 列名与匹配逻辑、日历事件标题等数据约定仍保持原值，确保备份与同步兼容
+- 🧪 **单元测试适配**：备份字段校验文案改为资源取用后，纯 JVM 单测（无 Application）自动回退占位文案，避免 `UninitializedPropertyAccessException`；相关测试断言改为语义断言，`testDebugUnitTest` 全部通过
 
 ### v0.2.4（2026-10-30）
 - 📝 **修改日志（数据修改记录）**：新增 `change_logs` 表（数据库 9→10），在 Repository 层对本机手动增/改/删/清空统一留痕——修改展示字段级前后值 diff（如「加班：2h → 3h」），新增/删除展示字段快照；数据管理页「数据统计」卡片新增入口，列表按时间倒序、类型标签着色；自动保留最近 1000 条。同步回写（WebDAV/团队/日历）不记入，仅留痕本机用户操作；日志写入失败不阻断保存

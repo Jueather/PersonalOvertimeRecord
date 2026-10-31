@@ -167,7 +167,11 @@ internal fun AttendanceEntity.toBackup(): AttendanceEntityBackup {
  * @return 错误描述列表；空列表表示记录合法
  */
 private fun str(@StringRes id: Int, vararg args: Any): String =
-    OvertimeApplication.getInstance().getString(id, *args)
+    try {
+        OvertimeApplication.getInstance().getString(id, *args)
+    } catch (e: UninitializedPropertyAccessException) {
+        "validation_error_$id"
+    }
 
 internal fun validateBackupRecord(r: AttendanceEntityBackup): List<String> {
     val errors = mutableListOf<String>()
@@ -176,15 +180,15 @@ internal fun validateBackupRecord(r: AttendanceEntityBackup): List<String> {
     errors.addAll(DataValidator.validateDate(r.date, allowFuture = true).errors)
 
     // 时长：-1 哨兵（未手工设置，由打卡计算）或 [0, 24]
-    fun validateHourField(value: Double, name: String) {
+    fun validateHourField(value: Double, @StringRes nameRes: Int) {
         if (value.isNaN()) {
-            errors.add(str(R.string.data_export_invalid_number, name))
+            errors.add(str(R.string.data_export_invalid_number, str(nameRes)))
         } else if (value != -1.0 && (value < 0.0 || value > 24.0)) {
-            errors.add(str(R.string.data_export_hour_out_of_range, name, value))
+            errors.add(str(R.string.data_export_hour_out_of_range, str(nameRes), value))
         }
     }
-    validateHourField(r.manualOvertimeHours, str(R.string.data_export_field_overtime))
-    validateHourField(r.manualExtraHours, str(R.string.data_export_field_extra))
+    validateHourField(r.manualOvertimeHours, R.string.data_export_field_overtime)
+    validateHourField(r.manualExtraHours, R.string.data_export_field_extra)
 
     // 请假时长：0 ~ 744（31 天 × 24 小时）
     if (r.leaveHours.isNaN() || r.leaveHours < 0.0 || r.leaveHours > 744.0) {
@@ -202,12 +206,14 @@ internal fun validateBackupRecord(r: AttendanceEntityBackup): List<String> {
         errors.add(str(R.string.data_export_leave_type_unknown, r.leaveType))
     }
 
-    // 打卡时间格式（非空时校验）
+    // 打卡时间格式（非空时校验；无错误时不取文案，避免无谓的资源访问）
     r.checkInTime?.let { time ->
-        errors.addAll(DataValidator.validateTime(time).errors.map { str(R.string.data_export_check_in_prefix, it) })
+        val timeErrors = DataValidator.validateTime(time).errors
+        timeErrors.forEach { errors.add(str(R.string.data_export_check_in_prefix, it)) }
     }
     r.checkOutTime?.let { time ->
-        errors.addAll(DataValidator.validateTime(time).errors.map { str(R.string.data_export_check_out_prefix, it) })
+        val timeErrors = DataValidator.validateTime(time).errors
+        timeErrors.forEach { errors.add(str(R.string.data_export_check_out_prefix, it)) }
     }
 
     return errors

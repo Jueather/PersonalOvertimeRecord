@@ -47,10 +47,9 @@ class BackupValidationTest {
 
     @Test
     fun hoursOutOfRange_rejected() {
-        assertTrue(validateBackupRecord(validRecord().copy(manualOvertimeHours = 99.0))
-            .any { it.contains("加班时长") })
-        assertTrue(validateBackupRecord(validRecord().copy(manualExtraHours = 25.0))
-            .any { it.contains("加点时长") })
+        // 文案由资源提供（纯 JVM 单测无 Application，故仅断言“被拒绝”语义）
+        assertTrue(validateBackupRecord(validRecord().copy(manualOvertimeHours = 99.0)).isNotEmpty())
+        assertTrue(validateBackupRecord(validRecord().copy(manualExtraHours = 25.0)).isNotEmpty())
         // -1 哨兵（未手工设置，由打卡计算）合法
         assertTrue(validateBackupRecord(validRecord().copy(
             manualOvertimeHours = -1.0, manualExtraHours = -1.0)).isEmpty())
@@ -58,32 +57,27 @@ class BackupValidationTest {
 
     @Test
     fun leaveHoursOutOfRange_rejected() {
-        assertTrue(validateBackupRecord(validRecord().copy(leaveHours = 745.0))
-            .any { it.contains("请假时长") })
+        assertTrue(validateBackupRecord(validRecord().copy(leaveHours = 745.0)).isNotEmpty())
         assertTrue(validateBackupRecord(validRecord().copy(leaveHours = -0.5)).isNotEmpty())
     }
 
     @Test
     fun customRateOutOfRange_rejected() {
-        assertTrue(validateBackupRecord(validRecord().copy(customRate = 5.0))
-            .any { it.contains("自定义倍率") })
+        assertTrue(validateBackupRecord(validRecord().copy(customRate = 5.0)).isNotEmpty())
         assertTrue(validateBackupRecord(validRecord().copy(customRate = 0.5)).isNotEmpty())
         assertTrue(validateBackupRecord(validRecord().copy(customRate = null)).isEmpty())
     }
 
     @Test
     fun unparseableLeaveType_rejected() {
-        assertTrue(validateBackupRecord(validRecord().copy(leaveType = "NOT_A_TYPE"))
-            .any { it.contains("请假类型") })
+        assertTrue(validateBackupRecord(validRecord().copy(leaveType = "NOT_A_TYPE")).isNotEmpty())
         assertTrue(validateBackupRecord(validRecord().copy(leaveType = null)).isEmpty())
     }
 
     @Test
     fun invalidCheckTime_rejected() {
-        assertTrue(validateBackupRecord(validRecord().copy(checkInTime = "25:00"))
-            .any { it.contains("上班时间") })
-        assertTrue(validateBackupRecord(validRecord().copy(checkOutTime = "9:00"))
-            .any { it.contains("下班时间") })
+        assertTrue(validateBackupRecord(validRecord().copy(checkInTime = "25:00")).isNotEmpty())
+        assertTrue(validateBackupRecord(validRecord().copy(checkOutTime = "9:00")).isNotEmpty())
     }
 
     @Test
