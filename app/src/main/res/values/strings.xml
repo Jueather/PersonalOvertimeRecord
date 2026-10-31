@@ -952,4 +952,30 @@
     <string name="team_api_connect_failed">无法连接服务器：%1$s</string>
     <string name="team_api_network_error">网络异常</string>
     <string name="webdav_download_too_large">云端备份超过大小上限（%1$d MB），已中止下载</string>
+
+    <!-- 解压小游戏：呼吸引导 -->
+    <string name="relax_title">解压小游戏</string>
+    <string name="relax_subtitle">挑一个，给自己几分钟放空</string>
+    <string name="relax_game_breath_title">呼吸引导</string>
+    <string name="relax_game_breath_desc">4-7-8 呼吸，跟着圆环慢慢放松</string>
+    <string name="relax_game_bubble_title">捏泡泡纸</string>
+    <string name="relax_game_bubble_desc">按住并滑动，一次捏爆一整排</string>
+    <string name="relax_campaign_badge">限时活动</string>
+    <string name="relax_ready">准备好了吗</string>
+    <string name="relax_hint">吸气 4 秒 · 屏息 7 秒 · 呼气 8 秒</string>
+    <string name="relax_phase_inhale">吸气</string>
+    <string name="relax_phase_hold">屏息</string>
+    <string name="relax_phase_exhale">呼气</string>
+    <string name="relax_start">开始</string>
+    <string name="relax_pause">暂停</string>
+    <string name="relax_resume">继续</string>
+    <string name="relax_restart">重新开始</string>
+    <string name="relax_cycle">第 %1$d 轮</string>
+    <string name="relax_haptic">触感反馈</string>
+
+    <!-- 解压小游戏：捏泡泡纸 -->
+    <string name="bubble_progress">已捏 %1$d / %2$d</string>
+    <string name="bubble_all_done">全部捏完，舒服了吗？</string>
+    <string name="bubble_new_sheet">换一张</string>
+    <string name="bubble_hint">按住并滑动，一次捏爆一整排</string>
 </resources>

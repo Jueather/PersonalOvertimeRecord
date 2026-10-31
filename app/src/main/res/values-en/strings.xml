@@ -953,4 +953,30 @@
     <string name="team_api_connect_failed">Cannot connect to the server: %1$s</string>
     <string name="team_api_network_error">Network error</string>
     <string name="webdav_download_too_large">The cloud backup exceeds the size limit (%1$d MB); download aborted</string>
+
+    <!-- Relax mini games -->
+    <string name="relax_title">Take a Break</string>
+    <string name="relax_subtitle">Pick one and give yourself a few quiet minutes</string>
+    <string name="relax_game_breath_title">Breathing Guide</string>
+    <string name="relax_game_breath_desc">4-7-8 breathing — follow the ring and slow down</string>
+    <string name="relax_game_bubble_title">Bubble Wrap</string>
+    <string name="relax_game_bubble_desc">Press and drag to pop a whole row</string>
+    <string name="relax_campaign_badge">Limited event</string>
+    <string name="relax_ready">Ready when you are</string>
+    <string name="relax_hint">Inhale 4s · Hold 7s · Exhale 8s</string>
+    <string name="relax_phase_inhale">Inhale</string>
+    <string name="relax_phase_hold">Hold</string>
+    <string name="relax_phase_exhale">Exhale</string>
+    <string name="relax_start">Start</string>
+    <string name="relax_pause">Pause</string>
+    <string name="relax_resume">Resume</string>
+    <string name="relax_restart">Restart</string>
+    <string name="relax_cycle">Round %1$d</string>
+    <string name="relax_haptic">Haptic feedback</string>
+
+    <!-- Relax mini game: bubble wrap -->
+    <string name="bubble_progress">Popped %1$d / %2$d</string>
+    <string name="bubble_all_done">All popped. Feeling better?</string>
+    <string name="bubble_new_sheet">New sheet</string>
+    <string name="bubble_hint">Press and drag to pop a whole row</string>
 </resources>

@@ -35,6 +35,7 @@ PersonalOvertimeRecord —— PC 端监控（方案 A：WebDAV + PC 读取器）
 import argparse
 import base64
 import csv
+import gzip
 import hashlib
 import html
 import io
@@ -58,6 +59,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 # ---------------------------------------------------------------------------
 
 WIRE_PREFIX = "PORE_ENV1:"                 # EnvelopeCrypto.WIRE_PREFIX
+GZIP_WIRE_PREFIX = "PORE_GZ1:"             # BackupCompression.WIRE_PREFIX（未加密压缩备份）
 ENVELOPE_MAGIC = b"PEV1"                   # EnvelopeCrypto.MAGIC
 ENVELOPE_VERSION = 1
 SLOT_SALT_SIZE = 16                        # EncryptionUtils.INTERNAL_SALT_SIZE
@@ -344,6 +346,11 @@ def decrypt_legacy(raw_b64, password):
     return _unpad_pkcs7(padded), "legacy_cbc"
 
 
+def _maybe_gunzip(data):
+    """新版本信封正文是 gzip(JSON)，旧版本是原始 JSON；按 magic 兼容两种格式"""
+    return gzip.decompress(data) if data[:2] == b"\x1f\x8b" else data
+
+
 def parse_wire(raw, password=None, recovery_code=None, want_ctx=False):
     """
     按 App resolveCloud 的顺序解析云端内容。
@@ -351,6 +358,12 @@ def parse_wire(raw, password=None, recovery_code=None, want_ctx=False):
     seal_ctx 仅用于把修改后的数据按原格式加密写回云端。
     """
     trimmed = raw.lstrip()
+    if trimmed.startswith(GZIP_WIRE_PREFIX):
+        try:
+            raw = gzip.decompress(_b64_decode_flexible(trimmed[len(GZIP_WIRE_PREFIX):])).decode("utf-8")
+        except Exception:
+            raise NeedKeyError("压缩备份解包失败（文件可能已损坏）")
+        trimmed = raw.lstrip()
     if trimmed.startswith("{") or trimmed.startswith("["):
         backup = json.loads(raw)
         meta = {"format": "plain", "decrypted": False, "key_source": None}
@@ -359,10 +372,10 @@ def parse_wire(raw, password=None, recovery_code=None, want_ctx=False):
     if trimmed.startswith(WIRE_PREFIX):
         if want_ctx:
             plaintext, source, ctx = open_envelope(trimmed, password, recovery_code, want_ctx=True)
-            backup = json.loads(plaintext.decode("utf-8"))
+            backup = json.loads(_maybe_gunzip(plaintext).decode("utf-8"))
             return backup, {"format": "envelope", "decrypted": True, "key_source": source}, ctx
         plaintext, source = open_envelope(trimmed, password, recovery_code)
-        backup = json.loads(plaintext.decode("utf-8"))
+        backup = json.loads(_maybe_gunzip(plaintext).decode("utf-8"))
         return backup, {"format": "envelope", "decrypted": True, "key_source": source}
 
     if not password:
@@ -385,7 +398,8 @@ def seal_wire(ctx, backup, password=None):
         return json.dumps(backup, ensure_ascii=False)
     if kind == "envelope":
         iv = os.urandom(GCM_IV_SIZE)
-        blob = ctx["header"] + iv + _aesgcm_encrypt(ctx["dek"], iv, payload)
+        # 与 App 一致：正文先 gzip 再加密
+        blob = ctx["header"] + iv + _aesgcm_encrypt(ctx["dek"], iv, gzip.compress(payload))
         return WIRE_PREFIX + base64.b64encode(blob).decode("ascii")
     if kind == "legacy_gcm":
         secret = password or ctx.get("password") or ""
